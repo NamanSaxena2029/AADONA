@@ -48,13 +48,13 @@ export default function AdminPanel() {
 
   const uploadImage = async (file) => {
     const storageRef = ref(
-        storage,
-        `products/${Date.now()}-${file.name}`
+      storage,
+      `products/${Date.now()}-${file.name}`
     );
 
     await uploadBytes(storageRef, file);
     return await getDownloadURL(storageRef);
-    };
+  };
 
   const save = async () => {
 
@@ -82,12 +82,12 @@ export default function AdminPanel() {
     load();
   };
 
-  const del = async id => {
+  const del = async (id) => {
     await fetch(`${API}/${id}`, { method: "DELETE" });
     load();
   };
 
-  const edit = p => {
+  const edit = (p) => {
     setForm(p);
     setEditingId(p._id);
   };
