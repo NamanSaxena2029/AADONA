@@ -1,0 +1,108 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Outfit:wght@100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import "tailwindcss";
+
+
+/* ------------------- */
+/* Global Font + Style */
+/* ------------------- */
+* {
+  font-family: Helvetica, Arial, sans-serif;
+  scroll-behavior: smooth;
+}
+
+body {
+  color: black;
+  background-color: white;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------- */
+/* Marquee Animation   */
+/* (Used in Certifications Section) */
+/* ------------------- */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 18s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* ----------------------------- */
+/* Dual Parallax + Float (Premium) */
+/* Used for "Our Customers" */
+/* ----------------------------- */
+@keyframes marquee-row1 {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0%); }
+}
+
+@keyframes marquee-row2 {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee-row1 {
+  animation: marquee-row1 25s linear infinite;
+  display: flex;
+  width: max-content;
+}
+
+.animate-marquee-row2 {
+  animation: marquee-row2 32s linear infinite;
+  display: flex;
+  width: max-content;
+}
+
+/* Floating effect for depth illusion */
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.05); }
+}
+
+.animate-float {
+  animation: float 3.5s ease-in-out infinite;
+}
+
+/* ----------------------------- */
+/* Smooth Fade-In Reveal on Scroll */
+/* ----------------------------- */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-reveal {
+  animation: fadeInUp 1.2s ease-out both;
+}
+
+/* ----------------------------- */
+/* Optional Utility Tweaks */
+/* ----------------------------- */
+img {
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+button {
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-2px);
+}
