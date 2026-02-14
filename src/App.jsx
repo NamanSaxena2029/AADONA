@@ -35,7 +35,7 @@ import ApplyNow from "./pages/About/ApplyNow";
 import CategoryProductsPage from "./pages/CategoryProductsPage";
 
 /* ✅ Admin */
-import AdminLogin from "./pages/admin/adminlogin";
+import AdminLogin from "./pages/admin/AdminLogin";
 import AdminPanel from "./pages/admin/AdminPanel";
 import ProtectedRoute from "./pages/admin/ProtectedRoute";
 
