@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../firebase";
 import { Mail, Lock, LogIn } from "lucide-react";
 import Navbar from "../../Components/Navbar";
@@ -19,9 +19,18 @@ const AdminLogin = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  /* 🔥 Auto redirect if already logged in */
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        navigate("/admin");
+      }
+    });
+
     window.scrollTo(0, 0);
-  }, []);
+
+    return () => unsubscribe();
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -30,6 +39,10 @@ const AdminLogin = () => {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+
+      /* 🔥 Save login timestamp for inactivity tracking */
+      localStorage.setItem("adminLoginTime", Date.now());
+
       navigate("/admin");
     } catch (err) {
       console.log("Firebase Error Code:", err.code);

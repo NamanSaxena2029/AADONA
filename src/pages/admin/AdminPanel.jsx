@@ -46,6 +46,36 @@ export default function AdminPanel() {
     load();
   }, []);
 
+  /* 🔥 15 MIN INACTIVITY AUTO LOGOUT */
+  useEffect(() => {
+    let timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeout);
+
+      timeout = setTimeout(async () => {
+        await signOut(auth);
+        alert("Session expired. Please login again.");
+        navigate("/admin-login");
+      }, 15 * 60 * 1000); // 15 minutes
+    };
+
+    window.addEventListener("mousemove", resetTimer);
+    window.addEventListener("keydown", resetTimer);
+    window.addEventListener("click", resetTimer);
+    window.addEventListener("scroll", resetTimer);
+
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("mousemove", resetTimer);
+      window.removeEventListener("keydown", resetTimer);
+      window.removeEventListener("click", resetTimer);
+      window.removeEventListener("scroll", resetTimer);
+    };
+  }, [navigate]);
+
   const uploadImage = async (file) => {
     const storageRef = ref(
       storage,
