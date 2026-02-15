@@ -1,9 +1,52 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const admin = require("firebase-admin");
 require("dotenv").config();
 
 const app = express();
+
+/* =============================
+   FIREBASE ADMIN SETUP
+============================= */
+
+const serviceAccount = require("./serviceAccountKey.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+/* =============================
+   VERIFY TOKEN MIDDLEWARE
+============================= */
+
+const verifyToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "No token provided" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+
+    console.log("DECODED TOKEN:", decodedToken); // debug
+
+    // ✅ Proper admin claim check
+    if (decodedToken.admin !== true) {
+      return res.status(403).json({ message: "Not authorized as admin" });
+    }
+
+    req.user = decodedToken;
+    next();
+
+  } catch (error) {
+    console.log("TOKEN ERROR:", error);
+    return res.status(403).json({ message: "Invalid or expired token" });
+  }
+};
 
 /* =============================
    MIDDLEWARE
@@ -16,8 +59,8 @@ app.use(express.json());
    DATABASE
 ============================= */
 
-// 🔥 Atlas Connection (Preferred)
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/minicms";
+const MONGO_URI =
+  process.env.MONGO_URI || "mongodb://127.0.0.1:27017/minicms";
 
 mongoose.connect(MONGO_URI);
 
@@ -33,15 +76,17 @@ mongoose.connection.on("error", (err) => {
    MODEL
 ============================= */
 
-const Product = mongoose.model("Product", {
-  name: String,
-  description: String,
-  slug: String,
-  image: String,      
-  type: String,
-  category: String,
-  subCategory: String
-});
+const ProductSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  description: { type: String, required: true },
+  slug: { type: String, required: true, unique: true },
+  image: { type: String, required: true },
+  type: { type: String, required: true },
+  category: { type: String, required: true },
+  subCategory: { type: String, required: true }
+}, { timestamps: true });
+
+const Product = mongoose.model("Product", ProductSchema);
 
 /* =============================
    ROUTES
@@ -51,7 +96,7 @@ app.get("/", (req, res) => {
   res.send("API Running 🚀");
 });
 
-// GET ALL
+// PUBLIC ROUTES
 app.get("/products", async (req, res) => {
   try {
     const products = await Product.find();
@@ -61,7 +106,6 @@ app.get("/products", async (req, res) => {
   }
 });
 
-// GET SINGLE
 app.get("/products/:slug", async (req, res) => {
   try {
     const product = await Product.findOne({ slug: req.params.slug });
@@ -71,8 +115,8 @@ app.get("/products/:slug", async (req, res) => {
   }
 });
 
-// CREATE
-app.post("/products", async (req, res) => {
+// PROTECTED ROUTES
+app.post("/products", verifyToken, async (req, res) => {
   try {
     const newProduct = await Product.create(req.body);
     res.json(newProduct);
@@ -81,8 +125,7 @@ app.post("/products", async (req, res) => {
   }
 });
 
-// UPDATE
-app.put("/products/:id", async (req, res) => {
+app.put("/products/:id", verifyToken, async (req, res) => {
   try {
     const updated = await Product.findByIdAndUpdate(
       req.params.id,
@@ -95,8 +138,7 @@ app.put("/products/:id", async (req, res) => {
   }
 });
 
-// DELETE
-app.delete("/products/:id", async (req, res) => {
+app.delete("/products/:id", verifyToken, async (req, res) => {
   try {
     await Product.findByIdAndDelete(req.params.id);
     res.json({ msg: "Deleted" });

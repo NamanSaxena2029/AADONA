@@ -46,46 +46,7 @@ export default function AdminPanel() {
     load();
   }, []);
 
-  /* 🔥 15 MIN INACTIVITY AUTO LOGOUT */
-  useEffect(() => {
-    let timeout;
-
-    const resetTimer = () => {
-      clearTimeout(timeout);
-
-      timeout = setTimeout(async () => {
-        await signOut(auth);
-        alert("Session expired. Please login again.");
-        navigate("/admin-login");
-      }, 15 * 60 * 1000); // 15 minutes
-    };
-
-    window.addEventListener("mousemove", resetTimer);
-    window.addEventListener("keydown", resetTimer);
-    window.addEventListener("click", resetTimer);
-    window.addEventListener("scroll", resetTimer);
-
-    resetTimer();
-
-    return () => {
-      clearTimeout(timeout);
-      window.removeEventListener("mousemove", resetTimer);
-      window.removeEventListener("keydown", resetTimer);
-      window.removeEventListener("click", resetTimer);
-      window.removeEventListener("scroll", resetTimer);
-    };
-  }, [navigate]);
-
-  const uploadImage = async (file) => {
-    const storageRef = ref(
-      storage,
-      `products/${Date.now()}-${file.name}`
-    );
-
-    await uploadBytes(storageRef, file);
-    return await getDownloadURL(storageRef);
-  };
-
+  /* 🔥 SAVE FUNCTION (FULLY SAFE VERSION) */
   const save = async () => {
 
     if (!form.name || !form.type || !form.category || !form.subCategory) {
@@ -93,28 +54,99 @@ export default function AdminPanel() {
       return;
     }
 
-    let imageUrl = form.image;
-
-    if (form.image instanceof File) {
-      imageUrl = await uploadImage(form.image);
+    if (!form.image && !editingId) {
+      alert("Image is required");
+      return;
     }
 
-    const payload = { ...form, image: imageUrl };
+    try {
+      let imageUrl = form.image;
 
-    await fetch(editingId ? `${API}/${editingId}` : API, {
-      method: editingId ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+      // Upload new file if selected
+      if (form.image instanceof File) {
+        imageUrl = await uploadImage(form.image);
+      }
 
-    setForm({});
-    setEditingId(null);
-    load();
+      // 🔥 Auto-generate slug from name
+      const slug = form.name
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^\w-]+/g, "") + "-" + Date.now();
+
+      const payload = {
+        ...form,
+        slug,
+        image: imageUrl
+      };
+
+      console.log("PAYLOAD:", payload);
+
+      const token = await auth.currentUser.getIdToken(true);
+
+      const res = await fetch(
+        editingId ? `${API}/${editingId}` : API,
+        {
+          method: editingId ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("SERVER ERROR:", data);
+        alert(data.error || "Something went wrong");
+        return;
+      }
+
+      setForm({});
+      setEditingId(null);
+      load();
+
+      alert(editingId ? "Product Updated ✅" : "Product Added ✅");
+
+    } catch (error) {
+      console.error("SAVE ERROR:", error);
+      alert("Unexpected error occurred");
+    }
+  };
+
+  const uploadImage = async (file) => {
+    const storageRef = ref(
+      storage,
+      `products/${Date.now()}-${file.name}`
+    );
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
   };
 
   const del = async (id) => {
-    await fetch(`${API}/${id}`, { method: "DELETE" });
-    load();
+    try {
+      const token = await auth.currentUser.getIdToken(true);
+
+      const res = await fetch(`${API}/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Delete failed");
+        return;
+      }
+
+      load();
+      alert("Deleted ✅");
+
+    } catch (err) {
+      console.error("DELETE ERROR:", err);
+    }
   };
 
   const edit = (p) => {
@@ -136,7 +168,6 @@ export default function AdminPanel() {
 
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 pt-28 px-10 pb-10">
 
-        {/* Header */}
         <div className="flex justify-between items-center mb-10">
           <h1 className="text-3xl font-bold text-green-800">
             Admin Dashboard
@@ -151,7 +182,6 @@ export default function AdminPanel() {
           </button>
         </div>
 
-        {/* Form Section */}
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-green-200 mb-10">
 
           <div className="grid md:grid-cols-2 gap-5">
@@ -221,13 +251,6 @@ export default function AdminPanel() {
             />
 
             <input
-              className={inputStyle}
-              placeholder="Slug"
-              value={form.slug || ""}
-              onChange={e => setForm({ ...form, slug: e.target.value })}
-            />
-
-            <input
               type="file"
               className={inputStyle}
               onChange={e =>
@@ -244,7 +267,6 @@ export default function AdminPanel() {
           </button>
         </div>
 
-        {/* Products Table */}
         <div className="bg-white rounded-2xl shadow-lg border border-green-200 overflow-hidden">
 
           <table className="w-full text-left">
@@ -270,17 +292,10 @@ export default function AdminPanel() {
                   <td className="p-4">{p.category}</td>
                   <td className="p-4">{p.subCategory}</td>
                   <td className="p-4 flex gap-3">
-                    <button
-                      onClick={() => edit(p)}
-                      className="text-blue-600"
-                    >
+                    <button onClick={() => edit(p)} className="text-blue-600">
                       <Edit size={18} />
                     </button>
-
-                    <button
-                      onClick={() => del(p._id)}
-                      className="text-red-600"
-                    >
+                    <button onClick={() => del(p._id)} className="text-red-600">
                       <Trash2 size={18} />
                     </button>
                   </td>
