@@ -32,16 +32,12 @@ const verifyToken = async (req, res, next) => {
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
 
-    console.log("DECODED TOKEN:", decodedToken); // debug
-
-    // ✅ Proper admin claim check
     if (decodedToken.admin !== true) {
       return res.status(403).json({ message: "Not authorized as admin" });
     }
 
     req.user = decodedToken;
     next();
-
   } catch (error) {
     console.log("TOKEN ERROR:", error);
     return res.status(403).json({ message: "Invalid or expired token" });
@@ -56,16 +52,29 @@ app.use(cors());
 app.use(express.json());
 
 /* =============================
-   DATABASE
+   DATABASE (ONLY ATLAS)
 ============================= */
 
-const MONGO_URI =
-  process.env.MONGO_URI || "mongodb://127.0.0.1:27017/minicms";
+if (!process.env.MONGO_URI) {
+  console.log("❌ MONGO_URI not found in .env");
+  process.exit(1);
+}
 
-mongoose.connect(MONGO_URI);
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("MongoDB Connected ✅");
+    console.log("Database Name:", mongoose.connection.name);
+    console.log("Host:", mongoose.connection.host);
+  })
+  .catch((err) => {
+    console.log("MongoDB Connection Error ❌:", err);
+  });
 
 mongoose.connection.once("open", () => {
   console.log("MongoDB Connected ✅");
+  console.log("Database Name:", mongoose.connection.name);
+  console.log("Host:", mongoose.connection.host);
 });
 
 mongoose.connection.on("error", (err) => {
@@ -76,15 +85,18 @@ mongoose.connection.on("error", (err) => {
    MODEL
 ============================= */
 
-const ProductSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  description: { type: String, required: true },
-  slug: { type: String, required: true, unique: true },
-  image: { type: String, required: true },
-  type: { type: String, required: true },
-  category: { type: String, required: true },
-  subCategory: { type: String, required: true }
-}, { timestamps: true });
+const ProductSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    description: { type: String, required: true },
+    slug: { type: String, required: true, unique: true },
+    image: { type: String, required: true },
+    type: { type: String, required: true },
+    category: { type: String, required: true },
+    subCategory: { type: String, required: true },
+  },
+  { timestamps: true }
+);
 
 const Product = mongoose.model("Product", ProductSchema);
 
@@ -96,7 +108,6 @@ app.get("/", (req, res) => {
   res.send("API Running 🚀");
 });
 
-// PUBLIC ROUTES
 app.get("/products", async (req, res) => {
   try {
     const products = await Product.find();
@@ -115,23 +126,26 @@ app.get("/products/:slug", async (req, res) => {
   }
 });
 
-// PROTECTED ROUTES
 app.post("/products", verifyToken, async (req, res) => {
   try {
+    console.log("Incoming Product:", req.body);
+
     const newProduct = await Product.create(req.body);
-    res.json(newProduct);
+
+    console.log("Saved Product:", newProduct);
+
+    res.status(201).json(newProduct);
   } catch (err) {
+    console.log("SAVE ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 app.put("/products/:id", verifyToken, async (req, res) => {
   try {
-    const updated = await Product.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
+    const updated = await Product.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -9,24 +9,39 @@ import Navbar from "../../Components/Navbar";
 const API = "http://localhost:5000/products";
 
 const categories = {
-  "Network Switches": [
-    "Unmanaged Switches",
-    "Web Smart Switches",
-    "Fully Managed Switches",
-    "Layer 3 Switches",
-    "Core Switches",
-    "Accessories"
-  ],
-  "Industrial & Rugged Switches": [
-    "Un-Managed PoE",
-    "Un-Managed Non PoE",
-    "Managed PoE",
-    "Managed Non PoE"
-  ],
-  "Wireless Solutions": ["Indoor", "Outdoor", "Controller"],
-  "Server and Workstations": ["Servers", "Workstations"],
-  "Network Attached Storage": ["Desktop NAS", "Rackmount NAS"],
-  "Surveillance": ["Indoor", "Outdoor", "NVR"]
+  "Network Switches": {
+    "Unmanaged Switches": [],
+    "Web Smart Switches": ["Web Smart POE", "Web Smart Non POE"],
+    "Fully Managed Switches": ["Managed POE", "Managed Non POE"],
+    "Layer 3 Switches": ["POE Switches", "Non POE Switches"],
+    "Core Switches": ["POE Switches", "Non POE Switches"],
+    "Accessories": ["Essential", "Media Convertors", "Power Supply"]
+  },
+  "Industrial and Rugged Switches": {
+    "Un-Managed PoE": [],
+    "Un-Managed Non PoE": [],
+    "Managed PoE": [],
+    "Managed Non PoE": []
+  },
+  "Wireless Solutions": {
+    "Indoor": ["Business", "Enterprise"],
+    "Outdoor": ["Business", "Enterprise"],
+    "Controller": ["Business", "Enterprise"]
+  },
+  "Servers and Workstations": {
+    "Servers": [],
+    "Workstations": []
+  },
+  "Network Attached Storage": {
+    "Desktop NAS": [],
+    "Rackmount NAS": []
+  },
+  "Surveillance": {
+    "Indoor": [],
+    "Outdoor": [],
+    "NVR": [],
+    "Surveillance": []
+  }
 };
 
 export default function AdminPanel() {
@@ -51,6 +66,13 @@ export default function AdminPanel() {
 
     if (!form.name || !form.type || !form.category || !form.subCategory) {
       alert("Please fill all required fields");
+      return;
+    }
+
+    // Check if the selected subcategory has specific nested options (like Business/Enterprise)
+    const subCatOptions = categories[form.category]?.[form.subCategory] || [];
+    if (subCatOptions.length > 0 && !form.innerDetail) {
+      alert("Please select the specific Type/Segment (e.g., Business or POE)");
       return;
     }
 
@@ -194,7 +216,8 @@ export default function AdminPanel() {
                   ...form,
                   type: e.target.value,
                   category: "",
-                  subCategory: ""
+                  subCategory: "",
+                  innerDetail: ""
                 })
               }
             >
@@ -211,7 +234,8 @@ export default function AdminPanel() {
                 setForm({
                   ...form,
                   category: e.target.value,
-                  subCategory: ""
+                  subCategory: "",
+                  innerDetail: ""
                 })
               }
             >
@@ -226,15 +250,31 @@ export default function AdminPanel() {
               className={inputStyle}
               value={form.subCategory || ""}
               onChange={e =>
-                setForm({ ...form, subCategory: e.target.value })
+                setForm({ ...form, subCategory: e.target.value, innerDetail: "" })
               }
             >
               <option value="">Sub Category</option>
               {form.category &&
-                categories[form.category].map(s => (
+                Object.keys(categories[form.category]).map(s => (
                   <option key={s}>{s}</option>
                 ))}
             </select>
+
+            {/* NEW INNER DETAIL DROPDOWN FOR BUSINESS/ENTERPRISE OR POE/NON-POE */}
+            {form.category && form.subCategory && categories[form.category][form.subCategory].length > 0 && (
+              <select
+                className={`${inputStyle} border-blue-400 bg-blue-50`}
+                value={form.innerDetail || ""}
+                onChange={e =>
+                  setForm({ ...form, innerDetail: e.target.value })
+                }
+              >
+                <option value="">Select Segment / Detail</option>
+                {categories[form.category][form.subCategory].map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            )}
 
             <input
               className={inputStyle}
@@ -274,9 +314,9 @@ export default function AdminPanel() {
               <tr>
                 <th className="p-4">Image</th>
                 <th className="p-4">Name</th>
-                <th className="p-4">Type</th>
                 <th className="p-4">Category</th>
                 <th className="p-4">Sub</th>
+                <th className="p-4">Detail</th>
                 <th className="p-4">Actions</th>
               </tr>
             </thead>
@@ -285,12 +325,12 @@ export default function AdminPanel() {
               {products.map(p => (
                 <tr key={p._id} className="border-b hover:bg-green-50">
                   <td className="p-4">
-                    <img src={p.image} height={50} alt="" />
+                    <img src={p.image} height={50} width={50} className="object-cover rounded" alt="" />
                   </td>
-                  <td className="p-4">{p.name}</td>
-                  <td className="p-4">{p.type}</td>
+                  <td className="p-4 font-medium">{p.name}</td>
                   <td className="p-4">{p.category}</td>
                   <td className="p-4">{p.subCategory}</td>
+                  <td className="p-4 text-blue-600 font-semibold">{p.innerDetail || "-"}</td>
                   <td className="p-4 flex gap-3">
                     <button onClick={() => edit(p)} className="text-blue-600">
                       <Edit size={18} />
