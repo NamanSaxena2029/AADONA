@@ -2,14 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebase";
-import { Mail, Lock, LogIn } from "lucide-react";
+import { Mail, Lock, LogIn, Loader2 } from "lucide-react";
 import Navbar from "../../Components/Navbar";
 import Footer from "../../Components/Footer";
 import bg from "../../assets/bg.jpg";
 
 const inputBase =
   "w-full border border-green-300 rounded-xl px-4 py-3 text-base " +
-  "focus:border-green-500 focus:ring-2 focus:ring-green-300 outline-none transition";
+  "focus:border-green-500 focus:ring-2 focus:ring-green-300 outline-none transition bg-white/50 backdrop-blur-sm";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -19,9 +19,13 @@ const AdminLogin = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // If user is already logged in, send them straight to admin
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
+    if (auth.currentUser) {
+      navigate("/admin");
+    }
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -30,58 +34,64 @@ const AdminLogin = () => {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // Success: Navigate to protected admin dashboard
       navigate("/admin");
     } catch (err) {
       console.log("Firebase Error Code:", err.code);
 
       switch (err.code) {
         case "auth/user-not-found":
-          setError("User not found. Please check email.");
+          setError("User not found. Please check your email.");
           break;
         case "auth/wrong-password":
-          setError("Incorrect password.");
+          setError("Incorrect password. Please try again.");
           break;
         case "auth/invalid-email":
           setError("Invalid email format.");
           break;
         case "auth/invalid-credential":
-          setError("Invalid credentials.");
+          setError("Invalid credentials. Please verify email and password.");
           break;
         case "auth/too-many-requests":
-          setError("Too many attempts. Try again later.");
+          setError("Too many failed attempts. Try again later.");
           break;
         default:
-          setError("Login failed. Please try again.");
+          setError("Login failed. Contact system administrator.");
       }
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      <div
-        className="min-h-screen bg-cover bg-center flex items-center justify-center"
-        style={{
-          backgroundImage: `url(${bg})`,
-        }}
+      <main 
+        className="flex-grow bg-cover bg-center flex items-center justify-center mt-24 pb-10 p-4"
+        style={{ backgroundImage: `url(${bg})` }}
       >
-        <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-10 w-full max-w-md border border-green-300">
-          <h2 className="text-3xl font-bold text-center text-green-800 mb-8">
-            Admin Login
-          </h2>
+        {/* Glassmorphism Card */}
+        <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 md:p-12 w-full max-w-md border border-white/20">
+          <div className="flex flex-col items-center mb-8">
+            <div className="bg-green-100 p-4 rounded-full mb-4">
+              <LogIn className="w-8 h-8 text-green-600" />
+            </div>
+            <h2 className="text-3xl font-extrabold text-center text-green-900">
+              Admin Portal
+            </h2>
+            <p className="text-green-700 text-sm mt-2">Please sign in to continue</p>
+          </div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-slate-700 font-medium mb-1 flex items-center gap-2">
-                <Mail className="w-4 h-4 text-green-600" /> Email
+              <label className="block text-green-900 font-semibold mb-2 flex items-center gap-2">
+                <Mail className="w-4 h-4" /> Email Address
               </label>
               <input
                 type="email"
                 className={inputBase}
-                placeholder="admin@example.com"
+                placeholder="admin@yourdomain.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -89,13 +99,13 @@ const AdminLogin = () => {
             </div>
 
             <div>
-              <label className="block text-slate-700 font-medium mb-1 flex items-center gap-2">
-                <Lock className="w-4 h-4 text-green-600" /> Password
+              <label className="block text-green-900 font-semibold mb-2 flex items-center gap-2">
+                <Lock className="w-4 h-4" /> Password
               </label>
               <input
                 type="password"
                 className={inputBase}
-                placeholder="Enter password"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -103,20 +113,28 @@ const AdminLogin = () => {
             </div>
 
             {error && (
-              <p className="text-red-600 text-sm text-center">{error}</p>
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm text-center">
+                {error}
+              </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-green-600 text-white py-3 font-semibold hover:bg-green-700 transition duration-300 ease-out hover:-translate-y-1 disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-3 rounded-xl bg-green-600 text-white py-4 font-bold text-lg hover:bg-green-700 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-200"
             >
-              <LogIn className="w-5 h-5" />
-              {loading ? "Logging in..." : "Login"}
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Authenticating...
+                </>
+              ) : (
+                "Sign In"
+              )}
             </button>
           </form>
         </div>
-      </div>
+      </main>
 
       <Footer />
     </div>
