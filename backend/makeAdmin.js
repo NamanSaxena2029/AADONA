@@ -5,22 +5,28 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-const email = "namansaxena2029@gmail.com";
+const emails = [
+  "namansaxena2029@gmail.com",
+  "dembaninain@gmail.com"
+];
 
-async function makeAdmin() {
+async function makeAdmins() {
   try {
-    const user = await admin.auth().getUserByEmail(email);
+    for (let email of emails) {
+      const user = await admin.auth().getUserByEmail(email);
 
-    await admin.auth().setCustomUserClaims(user.uid, {
-      admin: true,
-    });
+      await admin.auth().setCustomUserClaims(user.uid, {
+        admin: true,
+      });
 
-    console.log("User is now ADMIN ✅");
+      console.log(`${email} is now ADMIN ✅`);
+    }
+
     process.exit();
   } catch (error) {
-    console.error(error);
+    console.error("Error:", error);
     process.exit(1);
   }
 }
 
-makeAdmin();
+makeAdmins();

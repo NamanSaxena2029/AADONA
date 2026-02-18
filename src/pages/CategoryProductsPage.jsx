@@ -24,12 +24,10 @@ const ProductCard = ({ product }) => {
       {/* Product Details - Left Aligned */}
       <div className="p-4 sm:p-6 flex-grow flex flex-col justify-between text-left">
         <div> 
-          {/* Model Name/Title */}
           <h3 className="text-2xl font-bold text-gray-800 mb-2">
             {product.name}
           </h3>
           
-          {/* Short Description */}
           {product.description && (
             <p className="text-gray-600 text-base mb-4">
               {product.description}
@@ -53,7 +51,6 @@ const ProductCard = ({ product }) => {
           </ul>
         )}
         
-        {/* CTA Button - Green with Hover Effect */}
         <div className="mt-auto"> 
           <Link 
             to={`/product/${product._id}`}
@@ -77,7 +74,6 @@ export default function CategoryProductsPage() {
   const [activeSubCategory, setActiveSubCategory] = useState("");
   const [activeDetail, setActiveDetail] = useState("");
 
-  // Content for the Info Box based on selection
   const detailContent = {
     "Business": {
       title: "Business Grade Solutions",
@@ -100,7 +96,6 @@ export default function CategoryProductsPage() {
     fetch(API)
       .then((res) => res.json())
       .then((data) => {
-        // Filter by main category
         const filtered = data.filter(p => p.category === decodedCategory);
         setProducts(filtered);
         
@@ -108,14 +103,15 @@ export default function CategoryProductsPage() {
           const subCats = [...new Set(filtered.map(p => p.subCategory))];
           setActiveSubCategory(subCats[0]);
         }
-      });
+      })
+      .catch(err => console.error("API Error:", err));
   }, [decodedCategory]);
 
-  // Sync Level 3 Detail (innerDetail) based on SubCategory
   useEffect(() => {
+    // AdminPanel ke 'extraCategory' ko yahan match kar rahe hain
     const availableDetails = [...new Set(products
-      .filter(p => p.subCategory === activeSubCategory && p.innerDetail)
-      .map(p => p.innerDetail))];
+      .filter(p => p.subCategory === activeSubCategory && p.extraCategory)
+      .map(p => p.extraCategory))];
     
     if (availableDetails.length > 0) {
       setActiveDetail(availableDetails[0]);
@@ -126,13 +122,13 @@ export default function CategoryProductsPage() {
 
   const subCategories = [...new Set(products.map(p => p.subCategory))];
   const detailOptions = [...new Set(products
-    .filter(p => p.subCategory === activeSubCategory && p.innerDetail)
-    .map(p => p.innerDetail))];
+    .filter(p => p.subCategory === activeSubCategory && p.extraCategory)
+    .map(p => p.extraCategory))];
 
   const filteredProducts = products.filter((p) => {
     const matchesSub = p.subCategory === activeSubCategory;
     if (detailOptions.length > 0) {
-      return matchesSub && p.innerDetail === activeDetail;
+      return matchesSub && p.extraCategory === activeDetail;
     }
     return matchesSub;
   });
@@ -141,7 +137,7 @@ export default function CategoryProductsPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
 
-      {/* Hero Header */}
+      {/* ORIGINAL HERO HEADER DESIGN */}
       <div className="bg-white py-12 shadow-md mt-20">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight mb-4 border-b-4 border-green-500 inline-block pb-1 uppercase">
@@ -166,7 +162,7 @@ export default function CategoryProductsPage() {
           ))}
         </div>
 
-        {/* Level 3 Toggle (Business/Enterprise or POE/Non-POE) */}
+        {/* Level 3 Toggle */}
         {detailOptions.length > 0 && (
           <div className="flex flex-col items-center space-y-8 w-full">
             <div className="flex items-center gap-2 bg-gray-200/60 p-1.5 rounded-full border border-gray-300">
@@ -183,7 +179,7 @@ export default function CategoryProductsPage() {
               ))}
             </div>
 
-            {/* 🔥 CATEGORY INFO BOX */}
+            {/* CATEGORY INFO BOX (With Safety Check to prevent crash) */}
             {activeDetail && detailContent[activeDetail] && (
               <div className="max-w-4xl w-full p-8 bg-white border-l-8 border-green-500 shadow-xl rounded-r-xl text-left">
                 <h2 className="text-2xl font-bold text-gray-900 mb-3">
