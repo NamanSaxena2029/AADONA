@@ -3,7 +3,7 @@ import { storage, auth } from "../../firebase";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Trash2, Edit, LogOut, Plus, X, Upload, CheckCircle2 } from "lucide-react";
+import { Trash2, Edit, LogOut, Plus, X, Upload, CheckCircle2, UserPlus } from "lucide-react";
 import Navbar from "../../Components/Navbar";
 
 const API = "http://localhost:5000/products";
@@ -28,24 +28,47 @@ const categories = {
   "Surveillance": { "Indoor": [], "Outdoor": [], "NVR": [], "Surveillance": [] }
 };
 
+// Safely parse JSON — prevents crashes when the server returns an HTML
+// error page (404/500) instead of JSON.
+const safeJson = async (res) => {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    console.error("Non-JSON response from server:", text);
+    throw new Error(
+      `Server returned an unexpected response (HTTP ${res.status}). ` +
+      `Make sure your backend is running on port 5000.`
+    );
+  }
+};
+
 export default function AdminPanel() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
-  const [form, setForm] = useState({ 
-    name: "", type: "", category: "", subCategory: "", description: "", features: [] 
+  const [form, setForm] = useState({
+    name: "", type: "", category: "", subCategory: "",
+    description: "", features: [], extraCategory: "", imageFile: null
   });
-  const [featureInput, setFeatureInput] = useState(""); 
+  const [featureInput, setFeatureInput] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [btnLoading, setBtnLoading] = useState(false);
 
+  // Create Admin states
+  const [showAdminForm, setShowAdminForm] = useState(false);
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminBtnLoading, setAdminBtnLoading] = useState(false);
+
   const load = async () => {
     try {
       const res = await fetch(API);
-      const data = await res.json();
-      setProducts(data);
+      const data = await safeJson(res);
+      setProducts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Fetch Error:", error);
+      alert(error.message || "Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -53,8 +76,8 @@ export default function AdminPanel() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) { load(); } 
-      else { navigate("/admin-login"); }
+      if (user) load();
+      else navigate("/admin-login");
     });
     return () => unsubscribe();
   }, [navigate]);
@@ -73,12 +96,15 @@ export default function AdminPanel() {
   };
 
   const removeFeature = (index) => {
-    const updatedFeatures = form.features.filter((_, i) => i !== index);
-    setForm({ ...form, features: updatedFeatures });
+    setForm({ ...form, features: form.features.filter((_, i) => i !== index) });
   };
 
+  const extraOptions = (form.category && form.subCategory)
+    ? (categories[form.category]?.[form.subCategory] || [])
+    : [];
+
   const save = async () => {
-    const hasExtraOptions = form.category && form.subCategory && categories[form.category][form.subCategory]?.length > 0;
+    const hasExtraOptions = extraOptions.length > 0;
 
     if (!form.name || !form.type || !form.category || !form.subCategory || !form.description || (hasExtraOptions && !form.extraCategory)) {
       alert("Please fill all required fields");
@@ -94,42 +120,46 @@ export default function AdminPanel() {
 
       if (!imageUrl) {
         alert("Please upload an image");
-        setBtnLoading(false);
         return;
       }
 
-      const slug = form.name.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '') + "-" + Date.now();
-      
-      const payload = { 
-        ...form,
+      const slug = editingId && form.slug
+        ? form.slug
+        : form.name.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "") + "-" + Date.now();
+
+      const payload = {
+        name: form.name.trim(),
+        description: form.description.trim(),
+        features: form.features,
         image: imageUrl,
-        slug: editingId ? form.slug : slug,
-        extraCategory: form.extraCategory || null,
+        slug,
+        type: form.type,
+        category: form.category.trim(),
+        subCategory: form.subCategory.trim(),
+        extraCategory: hasExtraOptions ? form.extraCategory.trim() : null
       };
 
       const token = await auth.currentUser.getIdToken();
 
       const res = await fetch(editingId ? `${API}/${editingId}` : API, {
         method: editingId ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload)
       });
 
+      const result = await safeJson(res);
+
       if (res.ok) {
-        setForm({ name: "", type: "", category: "", subCategory: "", description: "", features: [] });
+        setForm({ name: "", type: "", category: "", subCategory: "", description: "", features: [], extraCategory: "", imageFile: null });
         setEditingId(null);
         load();
         alert(editingId ? "Updated ✅" : "Added ✅");
       } else {
-        const result = await res.json();
-        alert("Server Error: " + (result.message || result.error));
+        alert("Server Error: " + (result.message || result.error || "Unknown error"));
       }
     } catch (error) {
       console.error(error);
-      alert("Error saving product");
+      alert(error.message || "Error saving product");
     } finally {
       setBtnLoading(false);
     }
@@ -141,73 +171,164 @@ export default function AdminPanel() {
       const token = await auth.currentUser.getIdToken();
       const res = await fetch(`${API}/${id}`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
-      if(res.ok) load();
+      if (res.ok) {
+        load();
+      } else {
+        const result = await safeJson(res);
+        alert("Delete failed: " + (result.message || result.error || "Unknown error"));
+      }
     } catch (err) {
       console.error(err);
+      alert(err.message || "Error deleting product");
     }
   };
 
   const edit = (p) => {
-    setForm({ ...p, imageFile: null, features: p.features || [] }); 
+    setForm({ ...p, imageFile: null, features: p.features || [] });
     setEditingId(p._id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const inputStyle = "w-full border border-green-300 rounded-xl px-4 py-3 focus:border-green-500 focus:ring-2 focus:ring-green-300 outline-none transition bg-white";
-  const extraOptions = (form.category && form.subCategory) ? categories[form.category][form.subCategory] : [];
+  const createAdmin = async () => {
+    if (!adminEmail || !adminPassword) {
+      alert("Enter email & password");
+      return;
+    }
+    setAdminBtnLoading(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch("http://localhost:5000/create-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email: adminEmail, password: adminPassword })
+      });
+      const data = await safeJson(res);
+      if (res.ok) {
+        alert(data.message || "Admin created ✅");
+        setAdminEmail("");
+        setAdminPassword("");
+        setShowAdminForm(false);
+      } else {
+        alert(data.message || data.error || "Failed to create admin");
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Error creating admin");
+    } finally {
+      setAdminBtnLoading(false);
+    }
+  };
 
-  if (loading) return <div className="h-screen flex items-center justify-center text-green-700 font-bold italic">Verifying Admin Access...</div>;
+  const inputStyle = "w-full border border-green-300 rounded-xl px-4 py-3 focus:border-green-500 focus:ring-2 focus:ring-green-300 outline-none transition bg-white";
+
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center text-green-700 font-bold italic">
+      Verifying Admin Access...
+    </div>
+  );
 
   return (
     <>
       <Navbar />
       <div className="min-h-screen bg-green-50 pt-28 px-4 md:px-10 pb-10">
         <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-10">
+
+          {/* Header */}
+          <div className="flex justify-between items-center mb-10 flex-wrap gap-4">
             <h1 className="text-3xl font-extrabold text-green-800 tracking-tight">Admin Dashboard</h1>
-            <button onClick={() => signOut(auth)} className="flex items-center gap-2 bg-red-500 text-white px-6 py-2.5 rounded-full hover:bg-red-600 transition shadow-md font-semibold">
-              <LogOut size={18} /> Logout
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowAdminForm(!showAdminForm)}
+                className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-full hover:bg-green-700 transition shadow-md font-semibold"
+              >
+                <UserPlus size={18} />
+                {showAdminForm ? "Cancel" : "Create Admin"}
+              </button>
+              <button
+                onClick={() => signOut(auth)}
+                className="flex items-center gap-2 bg-red-500 text-white px-6 py-2.5 rounded-full hover:bg-red-600 transition shadow-md font-semibold"
+              >
+                <LogOut size={18} /> Logout
+              </button>
+            </div>
           </div>
 
-          {/* Form Section */}
+          {/* Create Admin Panel (collapsible) */}
+          {showAdminForm && (
+            <div className="bg-white p-6 rounded-3xl shadow-xl border border-green-100 mb-8">
+              <h2 className="text-lg font-bold text-green-800 mb-4">Create New Admin</h2>
+              <div className="flex flex-wrap gap-3">
+                <input
+                  type="email"
+                  placeholder="Admin Email"
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  className={`${inputStyle} flex-1 min-w-[200px]`}
+                />
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  className={`${inputStyle} flex-1 min-w-[200px]`}
+                />
+                <button
+                  onClick={createAdmin}
+                  disabled={adminBtnLoading}
+                  className="bg-green-600 text-white px-6 py-2.5 rounded-xl hover:bg-green-700 transition font-semibold disabled:bg-gray-300"
+                >
+                  {adminBtnLoading ? "Creating..." : "Create Admin"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Product Form Section */}
           <div className="bg-white p-8 rounded-3xl shadow-xl border border-green-100 mb-12">
             <div className="grid md:grid-cols-2 gap-6">
-              <select className={inputStyle} value={form.type || ""} onChange={e => setForm({...form, type: e.target.value})}>
+              <select className={inputStyle} value={form.type || ""} onChange={e => setForm({ ...form, type: e.target.value })}>
                 <option value="">Select Type</option>
                 <option value="active">Active</option>
                 <option value="passive">Passive</option>
               </select>
 
-              <select className={inputStyle} value={form.category || ""} disabled={!form.type} onChange={e => setForm({...form, category: e.target.value, subCategory: "", extraCategory: ""})}>
+              <select className={inputStyle} value={form.category || ""} disabled={!form.type} onChange={e => setForm({ ...form, category: e.target.value, subCategory: "", extraCategory: "" })}>
                 <option value="">Category</option>
                 {Object.keys(categories).map(c => <option key={c} value={c}>{c}</option>)}
               </select>
 
-              <select className={inputStyle} value={form.subCategory || ""} disabled={!form.category} onChange={e => setForm({...form, subCategory: e.target.value, extraCategory: ""})}>
+              <select className={inputStyle} value={form.subCategory || ""} disabled={!form.category} onChange={e => setForm({ ...form, subCategory: e.target.value, extraCategory: "" })}>
                 <option value="">Sub Category</option>
                 {form.category && Object.keys(categories[form.category]).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
 
               {extraOptions.length > 0 && (
-                <select className={`${inputStyle} border-blue-300 bg-blue-50/30`} value={form.extraCategory || ""} onChange={e => setForm({...form, extraCategory: e.target.value})}>
+                <select className={`${inputStyle} border-blue-300 bg-blue-50/30`} value={form.extraCategory || ""} onChange={e => setForm({ ...form, extraCategory: e.target.value })}>
                   <option value="">Select Specification</option>
                   {extraOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               )}
 
-              <input className={inputStyle} placeholder="Product Name" value={form.name || ""} onChange={e => setForm({...form, name: e.target.value})} />
-              
-              <textarea className={`${inputStyle} md:col-span-2`} rows="2" placeholder="Description" value={form.description || ""} onChange={e => setForm({...form, description: e.target.value})} />
+              <input className={inputStyle} placeholder="Product Name" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
+
+              <textarea className={`${inputStyle} md:col-span-2`} rows="2" placeholder="Description" value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} />
 
               {/* Bullet Features */}
               <div className="md:col-span-2 bg-green-50/50 p-6 rounded-2xl border border-green-200">
                 <label className="block text-sm font-bold text-green-800 mb-3">Key Features (Bullet Points)</label>
                 <div className="flex gap-2 mb-4">
-                  <input className={inputStyle} placeholder="Type a feature and press Enter" value={featureInput} onChange={(e) => setFeatureInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())} />
-                  <button type="button" onClick={addFeature} className="bg-green-600 text-white px-5 rounded-xl hover:bg-green-700 transition"><Plus /></button>
+                  <input
+                    className={inputStyle}
+                    placeholder="Type a feature and press Enter"
+                    value={featureInput}
+                    onChange={(e) => setFeatureInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addFeature())}
+                  />
+                  <button type="button" onClick={addFeature} className="bg-green-600 text-white px-5 rounded-xl hover:bg-green-700 transition">
+                    <Plus />
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {form.features?.map((f, i) => (
@@ -219,10 +340,10 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* Custom Image Upload (Hides "No file chosen") */}
+              {/* Image Upload */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-bold text-green-800 mb-2">Product Image</label>
-                <input type="file" id="product-img" className="hidden" onChange={e => setForm({...form, imageFile: e.target.files[0]})} />
+                <input type="file" id="product-img" className="hidden" onChange={e => setForm({ ...form, imageFile: e.target.files[0] })} />
                 <label htmlFor="product-img" className={`flex items-center justify-between w-full border-2 border-dashed rounded-2xl px-5 py-4 cursor-pointer transition-all ${form.imageFile ? "border-green-500 bg-green-50" : "border-green-300 bg-white hover:border-green-500"}`}>
                   <div className="flex items-center gap-3">
                     {form.imageFile ? <CheckCircle2 className="text-green-600" /> : <Upload className="text-gray-400" />}
@@ -239,11 +360,18 @@ export default function AdminPanel() {
               <button onClick={save} disabled={btnLoading} className="bg-green-600 text-white px-12 py-3.5 rounded-full hover:bg-green-700 transition font-bold shadow-lg disabled:bg-gray-300">
                 {btnLoading ? "Saving..." : editingId ? "Update Product" : "Add Product"}
               </button>
-              {editingId && <button onClick={() => {setEditingId(null); setForm({name:"", type:"", category:"", subCategory:"", description:"", features:[]})}} className="text-gray-400 font-medium hover:text-red-500 transition">Cancel</button>}
+              {editingId && (
+                <button
+                  onClick={() => { setEditingId(null); setForm({ name: "", type: "", category: "", subCategory: "", description: "", features: [], extraCategory: "", imageFile: null }); }}
+                  className="text-gray-400 font-medium hover:text-red-500 transition"
+                >
+                  Cancel
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Tabular List Section */}
+          {/* Products Table */}
           <div className="bg-white rounded-3xl shadow-xl border border-green-100 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[800px]">
@@ -260,7 +388,7 @@ export default function AdminPanel() {
                     <tr key={p._id} className="hover:bg-green-50/40 transition group">
                       <td className="p-5">
                         <div className="flex items-center gap-4">
-                          <img src={p.image} className="h-14 w-14 object-contain rounded-xl border p-1 bg-white shadow-sm" />
+                          <img src={p.image} alt={p.name} className="h-14 w-14 object-contain rounded-xl border p-1 bg-white shadow-sm" />
                           <div>
                             <div className="font-bold text-green-900 group-hover:text-green-600">{p.name}</div>
                             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{p.type}</div>
@@ -287,8 +415,11 @@ export default function AdminPanel() {
                 </tbody>
               </table>
             </div>
-            {products.length === 0 && <div className="p-20 text-center text-gray-400 font-medium italic">No products available in the database.</div>}
+            {products.length === 0 && (
+              <div className="p-20 text-center text-gray-400 font-medium italic">No products available in the database.</div>
+            )}
           </div>
+
         </div>
       </div>
     </>
