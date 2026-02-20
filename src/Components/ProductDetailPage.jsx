@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Download, ArrowLeft } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { Download } from "lucide-react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
 const ProductDetailPage = () => {
   const { slug } = useParams();
-  const navigate = useNavigate();
 
   const [product, setProduct] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
@@ -29,8 +28,20 @@ const ProductDetailPage = () => {
     fetchProduct();
   }, [slug]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-medium text-gray-400">Loading...</div>;
-  if (error) return <div className="min-h-screen flex items-center justify-center text-red-500 font-bold">{error}</div>;
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center font-medium text-gray-400">
+        Loading...
+      </div>
+    );
+
+  if (error)
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-500 font-bold">
+        {error}
+      </div>
+    );
+
   if (!product) return null;
 
   return (
@@ -39,21 +50,10 @@ const ProductDetailPage = () => {
 
       <div className="max-w-[1240px] mx-auto px-6 pt-32 pb-24">
         
-        {/* --- BACK TO PRODUCTS (NEW) --- */}
-        <div className="mb-8">
-          <button
-            onClick={() => navigate(`/category/${product.name}`)} // Yahan apna products route confirm kar lein
-            className="group flex items-center gap-2 text-gray-400 hover:text-[#00A859] transition-colors duration-200"
-          >
-            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="text-[13px] font-bold uppercase tracking-[0.1em]">Back to Products</span>
-          </button>
-        </div>
-        
         {/* --- HERO SECTION --- */}
         <div className="bg-white rounded-sm border border-gray-100 shadow-[0_15px_50px_rgba(0,0,0,0.06)] flex flex-col lg:grid lg:grid-cols-12 items-stretch overflow-hidden">
           
-          {/* Left: Product Image with Dynamic Drop Shadow */}
+          {/* Left: Product Image */}
           <div className="lg:col-span-7 p-12 lg:p-20 flex items-center justify-center bg-[#fafafa]">
             <div className="relative group">
               <img 
@@ -64,7 +64,7 @@ const ProductDetailPage = () => {
             </div>
           </div>
 
-          {/* Right: Content Section */}
+          {/* Right: Content */}
           <div className="lg:col-span-5 p-12 lg:p-16 flex flex-col justify-center bg-white border-l border-gray-100">
             <h1 className="text-[34px] font-bold text-[#111] mb-5 leading-tight tracking-tight uppercase">
               {product.name}
@@ -114,7 +114,7 @@ const ProductDetailPage = () => {
 
           <div className="bg-[#f9f9f9] border border-gray-100 rounded-sm p-12">
             {activeTab === "overview" && (
-              <div className="max-w-4xl text-[16px] text-[#444] leading-[1.8] animate-in fade-in duration-300">
+              <div className="max-w-4xl text-[16px] text-[#444] leading-[1.8]">
                 <p className="whitespace-pre-line">
                   {product.overview?.content || product.description}
                 </p>
@@ -122,7 +122,7 @@ const ProductDetailPage = () => {
             )}
 
             {activeTab === "features" && (
-              <div className="grid md:grid-cols-2 gap-x-16 gap-y-6 animate-in slide-in-from-bottom-2 duration-300">
+              <div className="grid md:grid-cols-2 gap-x-16 gap-y-6">
                 {product.highlights?.map((item, i) => (
                   <div key={i} className="flex items-start gap-4">
                     <div className="text-[#00A859] font-bold text-lg leading-none mt-1">✓</div>
@@ -134,25 +134,26 @@ const ProductDetailPage = () => {
 
             {activeTab === "specifications" && (
               <div className="space-y-12">
-                {product.specifications && Object.entries(product.specifications).map(([category, specs]) => (
-                  <div key={category}>
-                    <h3 className="text-sm font-black text-[#111] uppercase tracking-[0.15em] mb-6 border-l-4 border-[#00A859] pl-4">
-                      {category}
-                    </h3>
-                    <div className="border border-gray-200 bg-white shadow-sm">
-                      {Object.entries(specs).map(([key, value], idx) => (
-                        <div key={key} className={`grid grid-cols-1 md:grid-cols-3 text-[14px] border-b border-gray-100 last:border-0`}>
-                          <div className="p-5 font-bold text-[#333] bg-[#f7f7f7] border-r border-gray-100 uppercase tracking-tight">
-                            {key}
+                {product.specifications &&
+                  Object.entries(product.specifications).map(([category, specs]) => (
+                    <div key={category}>
+                      <h3 className="text-sm font-black text-[#111] uppercase tracking-[0.15em] mb-6 border-l-4 border-[#00A859] pl-4">
+                        {category}
+                      </h3>
+                      <div className="border border-gray-200 bg-white shadow-sm">
+                        {Object.entries(specs).map(([key, value]) => (
+                          <div key={key} className="grid grid-cols-1 md:grid-cols-3 text-[14px] border-b border-gray-100 last:border-0">
+                            <div className="p-5 font-bold text-[#333] bg-[#f7f7f7] border-r border-gray-100 uppercase tracking-tight">
+                              {key}
+                            </div>
+                            <div className="md:col-span-2 p-5 text-[#666] leading-relaxed">
+                              {value}
+                            </div>
                           </div>
-                          <div className="md:col-span-2 p-5 text-[#666] leading-relaxed">
-                            {value}
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>

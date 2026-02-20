@@ -70,16 +70,10 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB Connected ✅");
-    console.log("Database Name:", mongoose.connection.name);
-    console.log("Host:", mongoose.connection.host);
   })
   .catch((err) => {
     console.log("MongoDB Connection Error ❌:", err);
   });
-
-mongoose.connection.on("error", (err) => {
-  console.log("MongoDB Error ❌:", err);
-});
 
 /* =============================
    MODEL
@@ -87,36 +81,49 @@ mongoose.connection.on("error", (err) => {
 
 const ProductSchema = new mongoose.Schema(
   {
-    name:          { type: String, required: true },
-    description:   { type: String, required: true },
-    features:      { type: [String], default: [] },
-    slug:          { type: String, required: true, unique: true },
-    image:         { type: String, required: true },
-    type:          { type: String, required: true },
-    category:      { type: String, required: true },
-    subCategory:   { type: String, required: true },
-    extraCategory: { type: String, required:false,default: null },
-    
-    // NEW DETAILED FIELDS ADDED BELOW
-    model:         { type: String },
-    fullName:      { type: String },
-    series:        { type: String },
-    highlights:    { type: [String], default: [] },
+    name: { type: String, required: true },
+    description: { type: String, required: true },
+    features: { type: [String], default: [] },
+    slug: { type: String, required: true, unique: true },
+    image: { type: String, required: true },
+    type: { type: String, required: true },
+    category: { type: String, required: true },
+    subCategory: { type: String, required: true },
+    extraCategory: { type: String, default: null },
+
+    model: { type: String },
+    fullName: { type: String },
+    series: { type: String },
+    highlights: { type: [String], default: [] },
     overview: {
-      title:       { type: String, default: 'Product Overview' },
-      content:     { type: String }
+      title: { type: String, default: "Product Overview" },
+      content: { type: String },
     },
-    featuresDetail: [{
-      iconType:    { type: String },
-      title:       { type: String },
-      description: { type: String }
-    }],
-    specifications: { type: Map, of: Map } 
+    featuresDetail: [
+      {
+        iconType: { type: String },
+        title: { type: String },
+        description: { type: String },
+      },
+    ],
+    specifications: { type: Map, of: Map },
   },
   { timestamps: true }
 );
 
 const Product = mongoose.model("Product", ProductSchema);
+
+/* =============================
+   SLUG GENERATOR
+============================= */
+
+const generateSlug = (name) => {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]+/g, "");
+};
 
 /* =============================
    ROUTES
@@ -142,7 +149,9 @@ app.get("/products", async (req, res) => {
 app.get("/products/:slug", async (req, res) => {
   try {
     const product = await Product.findOne({ slug: req.params.slug });
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (!product)
+      return res.status(404).json({ message: "Product not found" });
+
     res.json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -155,8 +164,19 @@ app.post("/products", verifyToken, requireAdmin, async (req, res) => {
   try {
     console.log("➕ Creating Product:", req.body.name);
 
+    // ✅ Generate slug
+    let baseSlug = generateSlug(req.body.name);
+    let slug = baseSlug;
+    let counter = 1;
+
+    while (await Product.findOne({ slug })) {
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+
     const productData = {
       ...req.body,
+      slug,
       extraCategory: req.body.extraCategory ?? null,
       features: Array.isArray(req.body.features)
         ? req.body.features.filter((f) => f.trim() !== "")
@@ -164,7 +184,8 @@ app.post("/products", verifyToken, requireAdmin, async (req, res) => {
     };
 
     const newProduct = await Product.create(productData);
-    console.log("✅ Product Saved:", newProduct.name, "| ID:", newProduct._id);
+
+    console.log("✅ Product Saved:", newProduct.slug);
     res.status(201).json(newProduct);
   } catch (err) {
     console.log("CREATE ERROR ❌:", err.message);
@@ -176,7 +197,7 @@ app.post("/products", verifyToken, requireAdmin, async (req, res) => {
 
 app.put("/products/:id", verifyToken, requireAdmin, async (req, res) => {
   try {
-    console.log("✏️  Updating Product ID:", req.params.id);
+    console.log("✏️ Updating Product ID:", req.params.id);
 
     const updateData = {
       ...req.body,
@@ -192,7 +213,6 @@ app.put("/products/:id", verifyToken, requireAdmin, async (req, res) => {
       { new: true }
     );
 
-    console.log("✅ Product Updated:", updated.name);
     res.json(updated);
   } catch (err) {
     console.log("UPDATE ERROR ❌:", err.message);
@@ -204,9 +224,7 @@ app.put("/products/:id", verifyToken, requireAdmin, async (req, res) => {
 
 app.delete("/products/:id", verifyToken, requireAdmin, async (req, res) => {
   try {
-    console.log("🗑️  Deleting Product ID:", req.params.id);
     await Product.findByIdAndDelete(req.params.id);
-    console.log("✅ Product Deleted");
     res.json({ message: "Deleted successfully" });
   } catch (err) {
     console.log("DELETE ERROR ❌:", err.message);
@@ -214,9 +232,7 @@ app.delete("/products/:id", verifyToken, requireAdmin, async (req, res) => {
   }
 });
 
-/* =============================
-   CREATE ADMIN FROM PANEL
-============================= */
+/* -------- CREATE ADMIN -------- */
 
 app.post("/create-admin", verifyToken, requireAdmin, async (req, res) => {
   try {
@@ -226,13 +242,9 @@ app.post("/create-admin", verifyToken, requireAdmin, async (req, res) => {
       return res.status(400).json({ message: "Email & password required" });
     }
 
-    console.log("👤 Creating new admin:", email);
-
     const user = await admin.auth().createUser({ email, password });
-
     await admin.auth().setCustomUserClaims(user.uid, { admin: true });
 
-    console.log("✅ Admin created:", email, "| UID:", user.uid);
     res.json({ message: "New Admin Created ✅" });
   } catch (error) {
     console.log("ADMIN CREATE ERROR ❌:", error.message);
@@ -247,5 +259,5 @@ app.post("/create-admin", verifyToken, requireAdmin, async (req, res) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });

@@ -36,7 +36,7 @@ const safeJson = async (res) => {
   } catch {
     console.error("Non-JSON response from server:", text);
     throw new Error(
-      `Server returned an unexpected response (HTTP ${res.status}). ` +
+      `Server returned an unexpected response (HTTP ${res.status}).  ` +
       `Make sure your backend is running on port 5000.`
     );
   }
@@ -102,53 +102,87 @@ export default function AdminPanel() {
     ? (categories[form.category]?.[form.subCategory] || [])
     : [];
 
+  // ✅ UPDATED save() — Slug removed, backend will generate it
   const save = async () => {
     const hasExtraOptions = extraOptions.length > 0;
-    if (!form.name || !form.type || !form.category || !form.subCategory || !form.description || (hasExtraOptions && !form.extraCategory)) {
+
+    if (
+      !form.name ||
+      !form.type ||
+      !form.category ||
+      !form.subCategory ||
+      !form.description ||
+      (hasExtraOptions && !form.extraCategory)
+    ) {
       alert("Please fill all required fields");
       return;
     }
+
     setBtnLoading(true);
+
     try {
       let imageUrl = form.image;
+
       if (form.imageFile) {
         imageUrl = await uploadImage(form.imageFile);
       }
+
       if (!imageUrl) {
         alert("Please upload an image");
         return;
       }
-      const slug = editingId && form.slug
-        ? form.slug
-        : form.name.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "") + "-" + Date.now();
 
+      // ✅ SLUG REMOVED — Backend will generate it
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
         features: form.features,
         image: imageUrl,
-        slug,
         type: form.type,
         category: form.category.trim(),
         subCategory: form.subCategory.trim(),
-        extraCategory: hasExtraOptions ? form.extraCategory.trim() : null
+        extraCategory: hasExtraOptions
+          ? form.extraCategory.trim()
+          : null
       };
 
       const token = await auth.currentUser.getIdToken();
-      const res = await fetch(editingId ? `${API}/${editingId}` : API, {
-        method: editingId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
+
+      const res = await fetch(
+        editingId ? `${API}/${editingId}` : API,
+        {
+          method: editingId ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        }
+      );
 
       const result = await safeJson(res);
+
       if (res.ok) {
-        setForm({ name: "", type: "", category: "", subCategory: "", description: "", features: [], extraCategory: "", imageFile: null });
+        setForm({
+          name: "",
+          type: "",
+          category: "",
+          subCategory: "",
+          description: "",
+          features: [],
+          extraCategory: "",
+          imageFile: null
+        });
+
         setEditingId(null);
         load();
+
         alert(editingId ? "Updated ✅" : "Added ✅");
       } else {
-        alert("Server Error: " + (result.message || result.error || "Unknown error"));
+        alert(
+          "Server Error: " +
+            (result.message || result.error || "Unknown error")
+        );
       }
     } catch (error) {
       console.error(error);
