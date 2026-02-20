@@ -95,7 +95,23 @@ const ProductSchema = new mongoose.Schema(
     type:          { type: String, required: true },
     category:      { type: String, required: true },
     subCategory:   { type: String, required: true },
-    extraCategory: { type: String, default: null },
+    extraCategory: { type: String, required:false,default: null },
+    
+    // NEW DETAILED FIELDS ADDED BELOW
+    model:         { type: String },
+    fullName:      { type: String },
+    series:        { type: String },
+    highlights:    { type: [String], default: [] },
+    overview: {
+      title:       { type: String, default: 'Product Overview' },
+      content:     { type: String }
+    },
+    featuresDetail: [{
+      iconType:    { type: String },
+      title:       { type: String },
+      description: { type: String }
+    }],
+    specifications: { type: Map, of: Map } 
   },
   { timestamps: true }
 );

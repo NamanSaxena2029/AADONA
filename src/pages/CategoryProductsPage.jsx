@@ -53,7 +53,7 @@ const ProductCard = ({ product }) => {
         
         <div className="mt-auto"> 
           <Link 
-            to={`/product/${product._id}`}
+            to={`/productDetails/${product.slug}`}
             className="inline-flex items-center justify-center px-6 py-3 border border-transparent 
                        text-base font-medium rounded-md shadow-sm text-white bg-green-600 
                        hover:bg-green-700 hover:shadow-lg transition duration-200 ease-in-out w-full"

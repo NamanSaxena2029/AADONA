@@ -38,6 +38,7 @@ import CategoryProductsPage from "./pages/CategoryProductsPage";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminPanel from "./pages/admin/AdminPanel";
 import ProtectedRoute from "./pages/admin/ProtectedRoute";
+import ProductDetailPage from "./Components/ProductDetailPage";
 
 const App = () => {
   return (
@@ -95,6 +96,7 @@ const App = () => {
 
           {/* 🔥 CMS CATEGORY ROUTE */}
           <Route path="/category/:categoryName" element={<CategoryProductsPage />} />
+          <Route path="/productDetails/:slug" element={<ProductDetailPage/>}/>
 
         </Routes>
       </Router>
