@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { jsPDF } from "jspdf";
 import { storage, auth } from "../../firebase";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -47,7 +48,8 @@ export default function AdminPanel() {
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({
     name: "", type: "", category: "", subCategory: "",
-    description: "", features: [], extraCategory: "", imageFile: null
+    description: "", features: [], extraCategory: "", imageFile: null,
+    overview: {}, highlights: [], specifications: {}, datasheet: ""
   });
   const [featureInput, setFeatureInput] = useState("");
   const [editingId, setEditingId] = useState(null);
@@ -102,7 +104,177 @@ export default function AdminPanel() {
     ? (categories[form.category]?.[form.subCategory] || [])
     : [];
 
-  // ✅ UPDATED save() — Slug removed, backend will generate it
+  // ✅ Basic completed check
+  const basicCompleted =
+    form.name &&
+    form.type &&
+    form.category &&
+    form.subCategory &&
+    form.description &&
+    (form.imageFile || form.image);
+
+  // ✅ Auto-generate Datasheet PDF from form data
+  const generateDatasheetPDF = async () => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    const colRight = pageW - margin;
+    let y = 20;
+
+    const checkPageEnd = (needed = 10) => {
+      if (y + needed > 280) { doc.addPage(); y = 20; }
+    };
+
+    // ── Header bar ──
+    doc.setFillColor(22, 101, 52); // green-800
+    doc.rect(0, 0, pageW, 14, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.text("PRODUCT DATASHEET", margin, 9);
+    doc.text(form.category || "", colRight, 9, { align: "right" });
+
+    y = 22;
+
+    // ── Product Name ──
+    doc.setTextColor(22, 101, 52);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text(form.name || "Product Name", margin, y);
+    y += 7;
+
+    // ── Sub info ──
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont("helvetica", "normal");
+    const subInfo = [form.subCategory, form.extraCategory, form.type?.toUpperCase()].filter(Boolean).join("  •  ");
+    doc.text(subInfo, margin, y);
+    y += 5;
+
+    // ── Divider ──
+    doc.setDrawColor(22, 101, 52);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, colRight, y);
+    y += 8;
+
+    // ── Description ──
+    if (form.description) {
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 30);
+      doc.text("Description", margin, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(60, 60, 60);
+      const descLines = doc.splitTextToSize(form.description, colRight - margin);
+      descLines.forEach(line => { checkPageEnd(); doc.text(line, margin, y); y += 5; });
+      y += 3;
+    }
+
+    // ── Overview ──
+    if (form.overview?.content) {
+      checkPageEnd(12);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 30);
+      doc.text("Product Overview", margin, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(60, 60, 60);
+      const ovLines = doc.splitTextToSize(form.overview.content, colRight - margin);
+      ovLines.forEach(line => { checkPageEnd(); doc.text(line, margin, y); y += 5; });
+      y += 3;
+    }
+
+    // ── Key Features ──
+    if (form.features?.length > 0) {
+      checkPageEnd(12);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 30);
+      doc.text("Key Features", margin, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(60, 60, 60);
+      form.features.forEach(f => {
+        checkPageEnd();
+        doc.text(`• ${f}`, margin + 2, y);
+        y += 5;
+      });
+      y += 3;
+    }
+
+    // ── Highlights ──
+    if (form.highlights?.length > 0) {
+      checkPageEnd(12);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 30);
+      doc.text("Highlights", margin, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(60, 60, 60);
+      form.highlights.forEach(h => {
+        checkPageEnd();
+        doc.text(`✦ ${h}`, margin + 2, y);
+        y += 5;
+      });
+      y += 3;
+    }
+
+    // ── Specifications ──
+    if (form.specifications && Object.keys(form.specifications).length > 0) {
+      checkPageEnd(14);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 30);
+      doc.text("Specifications", margin, y);
+      y += 6;
+
+      Object.entries(form.specifications).forEach(([catName, rows]) => {
+        checkPageEnd(10);
+        // Category heading bar
+        doc.setFillColor(220, 252, 231); // green-100
+        doc.rect(margin, y - 4, colRight - margin, 7, "F");
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(22, 101, 52);
+        doc.text(catName, margin + 2, y);
+        y += 6;
+
+        Object.entries(rows).forEach(([key, value]) => {
+          if (!key) return;
+          checkPageEnd();
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(40, 40, 40);
+          doc.text(key, margin + 3, y);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80, 80, 80);
+          const valLines = doc.splitTextToSize(String(value || ""), 80);
+          doc.text(valLines, pageW / 2, y);
+          y += valLines.length * 5;
+        });
+        y += 3;
+      });
+    }
+
+    // ── Footer ──
+    doc.setFillColor(22, 101, 52);
+    doc.rect(0, 287, pageW, 10, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text("Generated Datasheet  |  " + new Date().getFullYear(), margin, 293);
+
+    // Return as Blob
+    return doc.output("blob");
+  };
+
   const save = async () => {
     const hasExtraOptions = extraOptions.length > 0;
 
@@ -132,7 +304,15 @@ export default function AdminPanel() {
         return;
       }
 
-      // ✅ SLUG REMOVED — Backend will generate it
+      // ✅ Auto-generate Datasheet PDF from form data & upload to Firebase
+      let datasheetUrl = form.datasheet || "";
+      const pdfBlob = await generateDatasheetPDF();
+      const safeName = (form.name || "product").replace(/\s+/g, "_").toLowerCase();
+      const pdfRef = ref(storage, `datasheets/${Date.now()}-${safeName}.pdf`);
+      await uploadBytes(pdfRef, pdfBlob, { contentType: "application/pdf" });
+      datasheetUrl = await getDownloadURL(pdfRef);
+
+      // ✅ Payload with detailed fields included
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
@@ -143,7 +323,13 @@ export default function AdminPanel() {
         subCategory: form.subCategory.trim(),
         extraCategory: hasExtraOptions
           ? form.extraCategory.trim()
-          : null
+          : null,
+
+        // Detailed section
+        overview: form.overview || {},
+        highlights: form.highlights || [],
+        specifications: form.specifications || {},
+        datasheet: datasheetUrl
       };
 
       const token = await auth.currentUser.getIdToken();
@@ -171,7 +357,12 @@ export default function AdminPanel() {
           description: "",
           features: [],
           extraCategory: "",
-          imageFile: null
+          imageFile: null,
+          datasheetFile: null,
+          overview: {},
+          highlights: [],
+          specifications: {},
+          datasheet: ""
         });
 
         setEditingId(null);
@@ -213,7 +404,15 @@ export default function AdminPanel() {
   };
 
   const edit = (p) => {
-    setForm({ ...p, imageFile: null, features: p.features || [] });
+    setForm({
+      ...p,
+      imageFile: null,
+      features: p.features || [],
+      overview: p.overview || {},
+      highlights: p.highlights || [],
+      specifications: p.specifications || {},
+      datasheet: p.datasheet || ""
+    });
     setEditingId(p._id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -438,6 +637,7 @@ export default function AdminPanel() {
                 </div>
               )}
 
+              {/* ===== BASIC PRODUCT FORM ===== */}
               <div className="bg-white p-8 rounded-3xl shadow-xl border border-green-100 mb-12">
                 <div className="grid md:grid-cols-2 gap-6">
                   <select className={inputStyle} value={form.type || ""} onChange={e => setForm({ ...form, type: e.target.value })}>
@@ -477,6 +677,7 @@ export default function AdminPanel() {
                       ))}
                     </div>
                   </div>
+
                   <div className="md:col-span-2">
                     <label className="block text-sm font-bold text-green-800 mb-2">Product Image</label>
                     <input type="file" id="product-img" className="hidden" onChange={e => setForm({ ...form, imageFile: e.target.files[0] })} />
@@ -489,16 +690,218 @@ export default function AdminPanel() {
                     </label>
                   </div>
                 </div>
+
+                {/* ===== DETAILED PRODUCT SECTION (shows only when basic is filled) ===== */}
+                {basicCompleted && (
+                  <div className="mt-12 bg-white p-8 rounded-2xl border border-green-200 shadow-md">
+                    <h2 className="text-xl font-bold text-green-800 mb-6 flex items-center gap-2">
+                      <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Step 2</span>
+                      Detailed Product Information (New Tab Page)
+                    </h2>
+
+                    {/* Overview */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-semibold text-green-700 mb-2">
+                        Product Overview (Full Description)
+                      </label>
+                      <textarea
+                        rows="4"
+                        className={inputStyle}
+                        value={form.overview?.content || ""}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            overview: {
+                              title: "Product Overview",
+                              content: e.target.value
+                            }
+                          })
+                        }
+                        placeholder="Write a detailed product overview..."
+                      />
+                    </div>
+
+                    {/* Highlights */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-semibold text-green-700 mb-2">
+                        Highlights (For Features Tab)
+                      </label>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {(form.highlights || []).map((h, i) => (
+                          <div key={i} className="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1.5 rounded-lg border border-green-200 text-sm font-medium shadow-sm">
+                            <span>✦ {h}</span>
+                            <X
+                              size={14}
+                              className="cursor-pointer text-red-400 hover:text-red-600"
+                              onClick={() =>
+                                setForm({
+                                  ...form,
+                                  highlights: form.highlights.filter((_, idx) => idx !== i)
+                                })
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <input
+                        className={inputStyle}
+                        placeholder="Type highlight and press Enter"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && e.target.value.trim()) {
+                            e.preventDefault();
+                            setForm({
+                              ...form,
+                              highlights: [
+                                ...(form.highlights || []),
+                                e.target.value.trim()
+                              ]
+                            });
+                            e.target.value = "";
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Specifications — Dynamic Table Builder */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-semibold text-green-700 mb-4">
+                        Specifications (Category Wise)
+                      </label>
+
+                      {Object.entries(form.specifications || {}).map(([category, specs], catIndex) => (
+                        <div key={catIndex} className="mb-6 border border-green-200 p-5 rounded-xl bg-green-50/60">
+                          
+                          {/* Category Title Row */}
+                          <div className="flex items-center gap-3 mb-4">
+                            <input
+                              className="flex-1 font-bold text-green-800 bg-white border border-green-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-green-300"
+                              value={category}
+                              placeholder="Category Name (e.g. Hardware Specifications)"
+                              onChange={(e) => {
+                                const newSpecs = { ...form.specifications };
+                                const val = newSpecs[category];
+                                delete newSpecs[category];
+                                newSpecs[e.target.value] = val;
+                                setForm({ ...form, specifications: newSpecs });
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="text-red-400 hover:text-red-600 transition"
+                              title="Remove this category"
+                              onClick={() => {
+                                const newSpecs = { ...form.specifications };
+                                delete newSpecs[category];
+                                setForm({ ...form, specifications: newSpecs });
+                              }}
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+
+                          {/* Key-Value Rows */}
+                          {Object.entries(specs).map(([key, value], rowIndex) => (
+                            <div key={rowIndex} className="flex gap-2 mb-2">
+                              <input
+                                className="w-5/12 border border-gray-200 bg-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
+                                placeholder="Key (e.g. CPU)"
+                                value={key}
+                                onChange={(e) => {
+                                  const newSpecs = { ...form.specifications };
+                                  const oldVal = newSpecs[category][key];
+                                  // Rebuild preserving order
+                                  const rebuilt = {};
+                                  Object.entries(newSpecs[category]).forEach(([k, v]) => {
+                                    if (k === key) rebuilt[e.target.value] = oldVal;
+                                    else rebuilt[k] = v;
+                                  });
+                                  newSpecs[category] = rebuilt;
+                                  setForm({ ...form, specifications: newSpecs });
+                                }}
+                              />
+                              <input
+                                className="w-6/12 border border-gray-200 bg-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
+                                placeholder="Value (e.g. Intel Xeon)"
+                                value={value}
+                                onChange={(e) => {
+                                  const newSpecs = { ...form.specifications };
+                                  newSpecs[category][key] = e.target.value;
+                                  setForm({ ...form, specifications: newSpecs });
+                                }}
+                              />
+                              <button
+                                type="button"
+                                className="text-red-400 hover:text-red-600 transition"
+                                title="Remove row"
+                                onClick={() => {
+                                  const newSpecs = { ...form.specifications };
+                                  delete newSpecs[category][key];
+                                  setForm({ ...form, specifications: newSpecs });
+                                }}
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
+
+                          {/* Add Row Button */}
+                          <button
+                            type="button"
+                            className="mt-3 text-sm text-green-700 font-semibold flex items-center gap-1 hover:text-green-900 transition"
+                            onClick={() => {
+                              const newSpecs = { ...form.specifications };
+                              const newKey = `Key ${Object.keys(newSpecs[category]).length + 1}`;
+                              newSpecs[category][newKey] = "";
+                              setForm({ ...form, specifications: newSpecs });
+                            }}
+                          >
+                            <Plus size={14} /> Add Row
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Add Category Button */}
+                      <button
+                        type="button"
+                        className="mt-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center gap-2 transition shadow-sm"
+                        onClick={() => {
+                          const newCatName = `New Category ${Object.keys(form.specifications || {}).length + 1}`;
+                          setForm({
+                            ...form,
+                            specifications: {
+                              ...(form.specifications || {}),
+                              [newCatName]: { "": "" }
+                            }
+                          });
+                        }}
+                      >
+                        <Plus size={16} /> Add Specification Category
+                      </button>
+                    </div>
+
+                    {/* Datasheet — Auto Generated */}
+                    <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-5 py-4">
+                      <CheckCircle2 className="text-green-600 shrink-0" size={20} />
+                      <div>
+                        <p className="text-sm font-bold text-green-800">Datasheet PDF — Auto Generated</p>
+                        <p className="text-xs text-gray-500 mt-0.5">When you save this product, a professional PDF datasheet will be automatically created from the information above and stored in Firebase.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ===== SAVE BUTTON ===== */}
                 <div className="flex items-center gap-4 mt-10">
                   <button onClick={save} disabled={btnLoading} className="bg-green-600 text-white px-12 py-3.5 rounded-full hover:bg-green-700 transition font-bold shadow-lg disabled:bg-gray-300">
                     {btnLoading ? "Saving..." : editingId ? "Update Product" : "Add Product"}
                   </button>
                   {editingId && (
-                    <button onClick={() => { setEditingId(null); setForm({ name: "", type: "", category: "", subCategory: "", description: "", features: [], extraCategory: "", imageFile: null }); }} className="text-gray-400 font-medium hover:text-red-500 transition">Cancel</button>
+                    <button onClick={() => { setEditingId(null); setForm({ name: "", type: "", category: "", subCategory: "", description: "", features: [], extraCategory: "", imageFile: null, overview: {}, highlights: [], specifications: {}, datasheet: "" }); }} className="text-gray-400 font-medium hover:text-red-500 transition">Cancel</button>
                   )}
                 </div>
               </div>
 
+              {/* ===== PRODUCTS TABLE ===== */}
               <div className="bg-white rounded-3xl shadow-xl border border-green-100 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse min-w-[800px]">

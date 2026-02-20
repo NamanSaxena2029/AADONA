@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const admin = require("firebase-admin");
+const PDFDocument = require("pdfkit"); // ✅ ADDED
 require("dotenv").config();
 
 const app = express();
@@ -24,6 +25,7 @@ const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.log("❌ No token provided");
     return res.status(401).json({ message: "No token provided" });
   }
 
@@ -32,9 +34,10 @@ const verifyToken = async (req, res, next) => {
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.user = decodedToken;
+    console.log("✅ Token Verified:", decodedToken.email);
     next();
   } catch (error) {
-    console.log("TOKEN ERROR:", error);
+    console.log("❌ TOKEN ERROR:", error.message);
     return res.status(403).json({ message: "Invalid or expired token" });
   }
 };
@@ -44,9 +47,11 @@ const verifyToken = async (req, res, next) => {
 ============================= */
 
 const requireAdmin = (req, res, next) => {
-  if (req.user.admin !== true) {
+  if (!req.user.admin) {
+    console.log("❌ Not Admin:", req.user.email);
     return res.status(403).json({ message: "Not authorized as admin" });
   }
+  console.log("✅ Admin Access Granted");
   next();
 };
 
@@ -54,11 +59,17 @@ const requireAdmin = (req, res, next) => {
    MIDDLEWARE
 ============================= */
 
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 /* =============================
-   DATABASE
+   DATABASE CONNECTION
 ============================= */
 
 if (!process.env.MONGO_URI) {
@@ -69,10 +80,11 @@ if (!process.env.MONGO_URI) {
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("MongoDB Connected ✅");
+    console.log("✅ MongoDB Atlas Connected");
+    console.log("📂 Connected Database:", mongoose.connection.name);
   })
   .catch((err) => {
-    console.log("MongoDB Connection Error ❌:", err);
+    console.log("❌ MongoDB Connection Error:", err.message);
   });
 
 /* =============================
@@ -86,6 +98,8 @@ const ProductSchema = new mongoose.Schema(
     features: { type: [String], default: [] },
     slug: { type: String, required: true, unique: true },
     image: { type: String, required: true },
+    datasheet: { type: String },
+
     type: { type: String, required: true },
     category: { type: String, required: true },
     subCategory: { type: String, required: true },
@@ -94,11 +108,14 @@ const ProductSchema = new mongoose.Schema(
     model: { type: String },
     fullName: { type: String },
     series: { type: String },
+
     highlights: { type: [String], default: [] },
+
     overview: {
       title: { type: String, default: "Product Overview" },
       content: { type: String },
     },
+
     featuresDetail: [
       {
         iconType: { type: String },
@@ -106,7 +123,8 @@ const ProductSchema = new mongoose.Schema(
         description: { type: String },
       },
     ],
-    specifications: { type: Map, of: Map },
+
+    specifications: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }
 );
@@ -144,7 +162,7 @@ app.get("/products", async (req, res) => {
   }
 });
 
-/* -------- GET SINGLE PRODUCT BY SLUG -------- */
+/* -------- GET SINGLE PRODUCT -------- */
 
 app.get("/products/:slug", async (req, res) => {
   try {
@@ -158,13 +176,93 @@ app.get("/products/:slug", async (req, res) => {
   }
 });
 
+/* -------- GENERATE DATASHEET PDF -------- */
+
+app.get("/products/:slug/datasheet", async (req, res) => {
+  try {
+    const product = await Product.findOne({ slug: req.params.slug });
+    if (!product)
+      return res.status(404).json({ message: "Product not found" });
+
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${product.slug}-datasheet.pdf`
+    );
+
+    doc.pipe(res);
+
+    // Title
+    doc.fontSize(22).font("Helvetica-Bold").text(product.name, {
+      align: "center",
+    });
+
+    doc.moveDown(2);
+
+    // Overview
+    doc.fontSize(16).font("Helvetica-Bold").text("Product Overview");
+    doc.moveDown(0.5);
+    doc
+      .fontSize(12)
+      .font("Helvetica")
+      .text(product.overview?.content || product.description, {
+        align: "justify",
+      });
+
+    doc.moveDown(1.5);
+
+    // Features
+    if (product.highlights?.length) {
+      doc.fontSize(16).font("Helvetica-Bold").text("Features");
+      doc.moveDown(0.5);
+
+      product.highlights.forEach((item) => {
+        doc.fontSize(12).font("Helvetica").text("• " + item);
+      });
+
+      doc.moveDown(1.5);
+    }
+
+    // Specifications
+    if (product.specifications && Object.keys(product.specifications).length) {
+      doc.fontSize(16).font("Helvetica-Bold").text("Specifications");
+      doc.moveDown(0.5);
+
+      Object.entries(product.specifications).forEach(
+        ([category, specs]) => {
+          doc.fontSize(14).font("Helvetica-Bold").text(category);
+          doc.moveDown(0.3);
+
+          Object.entries(specs || {}).forEach(([key, value]) => {
+            doc.fontSize(12).font("Helvetica").text(`${key}: ${value}`);
+          });
+
+          doc.moveDown(1);
+        }
+      );
+    }
+
+    doc.moveDown(2);
+    doc
+      .fontSize(10)
+      .fillColor("gray")
+      .text("Generated automatically from AADONA Product System", {
+        align: "center",
+      });
+
+    doc.end();
+  } catch (err) {
+    console.log("PDF ERROR ❌:", err.message);
+    res.status(500).json({ error: "Failed to generate PDF" });
+  }
+});
+
 /* -------- CREATE PRODUCT -------- */
 
 app.post("/products", verifyToken, requireAdmin, async (req, res) => {
   try {
-    console.log("➕ Creating Product:", req.body.name);
-
-    // ✅ Generate slug
     let baseSlug = generateSlug(req.body.name);
     let slug = baseSlug;
     let counter = 1;
@@ -174,21 +272,13 @@ app.post("/products", verifyToken, requireAdmin, async (req, res) => {
       counter++;
     }
 
-    const productData = {
+    const newProduct = await Product.create({
       ...req.body,
       slug,
-      extraCategory: req.body.extraCategory ?? null,
-      features: Array.isArray(req.body.features)
-        ? req.body.features.filter((f) => f.trim() !== "")
-        : [],
-    };
+    });
 
-    const newProduct = await Product.create(productData);
-
-    console.log("✅ Product Saved:", newProduct.slug);
     res.status(201).json(newProduct);
   } catch (err) {
-    console.log("CREATE ERROR ❌:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -197,25 +287,14 @@ app.post("/products", verifyToken, requireAdmin, async (req, res) => {
 
 app.put("/products/:id", verifyToken, requireAdmin, async (req, res) => {
   try {
-    console.log("✏️ Updating Product ID:", req.params.id);
-
-    const updateData = {
-      ...req.body,
-      extraCategory: req.body.extraCategory ?? null,
-      features: Array.isArray(req.body.features)
-        ? req.body.features.filter((f) => f.trim() !== "")
-        : [],
-    };
-
     const updated = await Product.findByIdAndUpdate(
       req.params.id,
-      updateData,
+      req.body,
       { new: true }
     );
 
     res.json(updated);
   } catch (err) {
-    console.log("UPDATE ERROR ❌:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -227,7 +306,6 @@ app.delete("/products/:id", verifyToken, requireAdmin, async (req, res) => {
     await Product.findByIdAndDelete(req.params.id);
     res.json({ message: "Deleted successfully" });
   } catch (err) {
-    console.log("DELETE ERROR ❌:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -238,16 +316,11 @@ app.post("/create-admin", verifyToken, requireAdmin, async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email & password required" });
-    }
-
     const user = await admin.auth().createUser({ email, password });
     await admin.auth().setCustomUserClaims(user.uid, { admin: true });
 
     res.json({ message: "New Admin Created ✅" });
   } catch (error) {
-    console.log("ADMIN CREATE ERROR ❌:", error.message);
     res.status(500).json({ error: error.message });
   }
 });

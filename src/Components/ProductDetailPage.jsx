@@ -76,7 +76,7 @@ const ProductDetailPage = () => {
 
             <div className="w-full max-w-[380px]">
               <button 
-                onClick={() => product.datasheet ? window.open(product.datasheet, "_blank") : alert("Datasheet not available")}
+                onClick={() => product.datasheet ? window.open(`http://localhost:5000/products/${product.slug}/datasheet`, "_blank") : alert("Datasheet not available")}
                 className="w-full bg-green-600 hover:bg-[#008f4c] text-white py-4 rounded-full font-bold text-[15px] shadow-md shadow-green-100/50 flex items-center justify-center gap-3 transition-all active:scale-[0.98] uppercase tracking-wider"
               >
                 <Download size={19} strokeWidth={2.5} />
