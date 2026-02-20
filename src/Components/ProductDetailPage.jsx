@@ -75,13 +75,26 @@ const ProductDetailPage = () => {
             </p>
 
             <div className="w-full max-w-[380px]">
-              <button 
-                onClick={() => product.datasheet ? window.open(`http://localhost:5000/products/${product.slug}/datasheet`, "_blank") : alert("Datasheet not available")}
-                className="w-full bg-green-600 hover:bg-[#008f4c] text-white py-4 rounded-full font-bold text-[15px] shadow-md shadow-green-100/50 flex items-center justify-center gap-3 transition-all active:scale-[0.98] uppercase tracking-wider"
-              >
-                <Download size={19} strokeWidth={2.5} />
-                Download Datasheet
-              </button>
+              {/* ✅ FIXED: Direct Firebase URL open karo */}
+              {product.datasheet ? (
+                <a
+                  href={product.datasheet}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full bg-green-600 hover:bg-[#008f4c] text-white py-4 rounded-full font-bold text-[15px] shadow-md shadow-green-100/50 flex items-center justify-center gap-3 transition-all active:scale-[0.98] uppercase tracking-wider"
+                >
+                  <Download size={19} strokeWidth={2.5} />
+                  Download Datasheet
+                </a>
+              ) : (
+                <button
+                  disabled
+                  className="w-full bg-gray-200 text-gray-400 py-4 rounded-full font-bold text-[15px] flex items-center justify-center gap-3 uppercase tracking-wider cursor-not-allowed"
+                >
+                  <Download size={19} strokeWidth={2.5} />
+                  Datasheet Not Available
+                </button>
+              )}
               <p className="text-center text-[11px] text-[#aaa] mt-4 font-bold tracking-[0.05em] uppercase">
                 Inquire about volume pricing and availability
               </p>
