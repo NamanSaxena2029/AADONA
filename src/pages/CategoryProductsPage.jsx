@@ -7,10 +7,18 @@ import CheckCircle from "../assets/checkcircle.png";
 const API = "http://localhost:5000/products";
 
 const ProductCard = ({ product }) => {
+  // Function to handle the click on the entire card
+  const handleCardClick = () => {
+    window.open(`/productDetails/${product.slug}`, "_blank", "noopener,noreferrer");
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-xl overflow-hidden cursor-pointer flex flex-col group 
+    <div 
+      onClick={handleCardClick}
+      className="bg-white rounded-lg shadow-xl overflow-hidden cursor-pointer flex flex-col group 
                     transform transition duration-300 ease-in-out 
-                    hover:shadow-2xl hover:scale-[1.02] hover:border-green-500 border border-transparent">
+                    hover:shadow-2xl hover:scale-[1.02] hover:border-green-500 border border-transparent"
+    >
       
       {/* Product Image Area */}
       <div className="h-48 flex items-center justify-center p-4 bg-gray-50 border-b border-gray-100">
@@ -52,16 +60,14 @@ const ProductCard = ({ product }) => {
         )}
         
         <div className="mt-auto"> 
-          <Link 
-              to={`/productDetails/${product.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
+          {/* Changed from <Link> to <div> to avoid nested 'a' tag errors since parent is clickable */}
+          <div 
               className="inline-flex items-center justify-center px-6 py-3 border border-transparent 
                         text-base font-medium rounded-md shadow-sm text-white bg-green-600 
                         hover:bg-green-700 hover:shadow-lg transition duration-200 ease-in-out w-full"
             >
               View Product
-            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -110,7 +116,6 @@ export default function CategoryProductsPage() {
   }, [decodedCategory]);
 
   useEffect(() => {
-    // AdminPanel ke 'extraCategory' ko yahan match kar rahe hain
     const availableDetails = [...new Set(products
       .filter(p => p.subCategory === activeSubCategory && p.extraCategory)
       .map(p => p.extraCategory))];
@@ -139,7 +144,6 @@ export default function CategoryProductsPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
 
-      {/* ORIGINAL HERO HEADER DESIGN */}
       <div className="bg-white py-12 shadow-md mt-20">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight mb-4 border-b-4 border-green-500 inline-block pb-1 uppercase">
@@ -149,7 +153,6 @@ export default function CategoryProductsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 mt-10 space-y-8 flex flex-col items-center">
-        {/* SubCategory Selection Tabs */}
         <div className="flex flex-wrap justify-center gap-3">
           {subCategories.map((cat) => (
             <button
@@ -164,7 +167,6 @@ export default function CategoryProductsPage() {
           ))}
         </div>
 
-        {/* Level 3 Toggle */}
         {detailOptions.length > 0 && (
           <div className="flex flex-col items-center space-y-8 w-full">
             <div className="flex items-center gap-2 bg-gray-200/60 p-1.5 rounded-full border border-gray-300">
@@ -181,7 +183,6 @@ export default function CategoryProductsPage() {
               ))}
             </div>
 
-            {/* CATEGORY INFO BOX (With Safety Check to prevent crash) */}
             {activeDetail && detailContent[activeDetail] && (
               <div className="max-w-4xl w-full p-8 bg-white border-l-8 border-green-500 shadow-xl rounded-r-xl text-left">
                 <h2 className="text-2xl font-bold text-gray-900 mb-3">
@@ -196,7 +197,6 @@ export default function CategoryProductsPage() {
         )}
       </div>
 
-      {/* Products Grid */}
       <div className="max-w-7xl mx-auto py-12 px-4 flex-grow w-full">
         {filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
