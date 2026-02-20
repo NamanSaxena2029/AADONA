@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Download,
-  Check,
-  Wifi,
-  Shield,
-  Zap,
-} from "lucide-react";
+import { Download, ArrowLeft } from "lucide-react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
@@ -16,24 +9,16 @@ const ProductDetailPage = () => {
   const navigate = useNavigate();
 
   const [product, setProduct] = useState(null);
+  const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("overview");
-
-  const iconMap = {
-    wifi: <Wifi className="w-7 h-7" />,
-    zap: <Zap className="w-7 h-7" />,
-    shield: <Shield className="w-7 h-7" />,
-  };
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const response = await fetch(
-          `http://localhost:5000/products/${slug}`
-        );
-        if (!response.ok) throw new Error("Product not found");
-        const data = await response.json();
+        const res = await fetch(`http://localhost:5000/products/${slug}`);
+        if (!res.ok) throw new Error("Product not found");
+        const data = await res.json();
         setProduct(data);
       } catch (err) {
         setError(err.message);
@@ -41,150 +26,141 @@ const ProductDetailPage = () => {
         setLoading(false);
       }
     };
-
     fetchProduct();
   }, [slug]);
 
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        Loading...
-      </div>
-    );
-
-  if (error)
-    return (
-      <div className="min-h-screen flex items-center justify-center text-red-500">
-        {error}
-      </div>
-    );
-
+  if (loading) return <div className="min-h-screen flex items-center justify-center font-medium text-gray-400">Loading...</div>;
+  if (error) return <div className="min-h-screen flex items-center justify-center text-red-500 font-bold">{error}</div>;
   if (!product) return null;
 
   return (
-    <>
+    <div className="bg-[#fbf9f9] min-h-screen font-sans antialiased text-[#1a1a1a]">
       <Navbar />
 
-      <div className="min-h-screen bg-gray-50 mt-25 relative">
-
-        {/* Back Button */}
-        <button
-          onClick={() => navigate(-1)}
-          className="fixed top-24 left-6 bg-white shadow-md px-4 py-2 rounded-full flex items-center gap-2 hover:bg-green-600 hover:text-white transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
-
-        <div className="max-w-7xl mx-auto px-6 py-16">
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-
-            {/* Image */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <img
-                src={product.image}
-                alt={product.name}
-                className="max-h-[400px] mx-auto object-contain"
+      <div className="max-w-[1240px] mx-auto px-6 pt-32 pb-24">
+        
+        {/* --- BACK TO PRODUCTS (NEW) --- */}
+        <div className="mb-8">
+          <button
+            onClick={() => navigate(`/category/${product.name}`)} // Yahan apna products route confirm kar lein
+            className="group flex items-center gap-2 text-gray-400 hover:text-[#00A859] transition-colors duration-200"
+          >
+            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="text-[13px] font-bold uppercase tracking-[0.1em]">Back to Products</span>
+          </button>
+        </div>
+        
+        {/* --- HERO SECTION --- */}
+        <div className="bg-white rounded-sm border border-gray-100 shadow-[0_15px_50px_rgba(0,0,0,0.06)] flex flex-col lg:grid lg:grid-cols-12 items-stretch overflow-hidden">
+          
+          {/* Left: Product Image with Dynamic Drop Shadow */}
+          <div className="lg:col-span-7 p-12 lg:p-20 flex items-center justify-center bg-[#fafafa]">
+            <div className="relative group">
+              <img 
+                src={product.image} 
+                alt={product.name} 
+                className="max-h-[450px] w-auto object-contain drop-shadow-[0_35px_35px_rgba(0,0,0,0.15)] transition-transform duration-500 group-hover:scale-[1.02]"
               />
-            </div>
-
-            {/* Info */}
-            <div className="space-y-6">
-              <span className="bg-green-100 text-green-700 px-4 py-1 rounded-full text-sm">
-                {product.category}
-              </span>
-
-              <h1 className="text-4xl font-bold">
-                {product.name}
-              </h1>
-
-              <p className="text-gray-600 text-lg">
-                {product.description}
-              </p>
-
-              {product.highlights?.length > 0 && (
-                <ul className="space-y-2">
-                  {product.highlights.map((h, i) => (
-                    <li key={i} className="flex gap-2">
-                      <Check className="text-green-600 w-5 h-5" />
-                      {h}
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <button className="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                Download Datasheet
-              </button>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="mt-16">
+          {/* Right: Content Section */}
+          <div className="lg:col-span-5 p-12 lg:p-16 flex flex-col justify-center bg-white border-l border-gray-100">
+            <h1 className="text-[34px] font-bold text-[#111] mb-5 leading-tight tracking-tight uppercase">
+              {product.name}
+            </h1>
+            
+            <p className="text-[#666] text-[16px] leading-relaxed mb-12">
+              {product.description}
+            </p>
 
-            <div className="flex gap-6 border-b">
-              {["overview", "features", "specifications"].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`pb-2 capitalize ${
-                    activeTab === tab
-                      ? "border-b-2 border-green-600 text-green-600"
-                      : "text-gray-500"
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
+            <div className="w-full max-w-[380px]">
+              <button 
+                onClick={() => product.datasheet ? window.open(product.datasheet, "_blank") : alert("Datasheet not available")}
+                className="w-full bg-[#00A859] hover:bg-[#008f4c] text-white py-4 rounded-sm font-bold text-[15px] shadow-md shadow-green-100/50 flex items-center justify-center gap-3 transition-all active:scale-[0.98] uppercase tracking-wider"
+              >
+                <Download size={19} strokeWidth={2.5} />
+                Download Datasheet
+              </button>
+              <p className="text-center text-[11px] text-[#aaa] mt-4 font-bold tracking-[0.05em] uppercase">
+                Inquire about volume pricing and availability
+              </p>
             </div>
+          </div>
+        </div>
 
-            <div className="bg-white rounded-xl shadow-md p-8 mt-8">
+        {/* --- TABS SECTION --- */}
+        <div className="mt-20">
+          <div className="flex gap-14 border-b border-gray-200 mb-12 overflow-x-auto no-scrollbar">
+            {[
+              { id: "overview", label: "1. Product Overview" },
+              { id: "features", label: "2. Features" },
+              { id: "specifications", label: "3. Specifications" }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`pb-5 text-[14px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap ${
+                  activeTab === tab.id ? "text-[#00A859]" : "text-[#999] hover:text-[#555]"
+                }`}
+              >
+                {tab.label}
+                {activeTab === tab.id && (
+                  <div className="absolute bottom-[-1px] left-0 w-full h-[3px] bg-[#00A859]" />
+                )}
+              </button>
+            ))}
+          </div>
 
-              {activeTab === "overview" && (
-                <p>{product.overview?.content}</p>
-              )}
+          <div className="bg-[#f9f9f9] border border-gray-100 rounded-sm p-12">
+            {activeTab === "overview" && (
+              <div className="max-w-4xl text-[16px] text-[#444] leading-[1.8] animate-in fade-in duration-300">
+                <p className="whitespace-pre-line">
+                  {product.overview?.content || product.description}
+                </p>
+              </div>
+            )}
 
-              {activeTab === "features" && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  {product.featuresDetail?.map((f, i) => (
-                    <div key={i} className="border p-6 rounded-xl">
-                      {iconMap[f.iconType] || <Wifi />}
-                      <h3 className="font-bold mt-4">{f.title}</h3>
-                      <p>{f.description}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+            {activeTab === "features" && (
+              <div className="grid md:grid-cols-2 gap-x-16 gap-y-6 animate-in slide-in-from-bottom-2 duration-300">
+                {product.highlights?.map((item, i) => (
+                  <div key={i} className="flex items-start gap-4">
+                    <div className="text-[#00A859] font-bold text-lg leading-none mt-1">✓</div>
+                    <span className="text-[#444] text-[15px] font-medium leading-relaxed">{item}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
-              {activeTab === "specifications" &&
-                product.specifications &&
-                Object.entries(product.specifications).map(
-                  ([category, specs]) => (
-                    <div key={category} className="mb-8">
-                      <h3 className="font-bold text-xl mb-4">
-                        {category}
-                      </h3>
-                      {Object.entries(specs).map(([key, value]) => (
-                        <div
-                          key={key}
-                          className="flex justify-between py-2 border-b"
-                        >
-                          <span>{key}</span>
-                          <span>{value}</span>
+            {activeTab === "specifications" && (
+              <div className="space-y-12">
+                {product.specifications && Object.entries(product.specifications).map(([category, specs]) => (
+                  <div key={category}>
+                    <h3 className="text-sm font-black text-[#111] uppercase tracking-[0.15em] mb-6 border-l-4 border-[#00A859] pl-4">
+                      {category}
+                    </h3>
+                    <div className="border border-gray-200 bg-white shadow-sm">
+                      {Object.entries(specs).map(([key, value], idx) => (
+                        <div key={key} className={`grid grid-cols-1 md:grid-cols-3 text-[14px] border-b border-gray-100 last:border-0`}>
+                          <div className="p-5 font-bold text-[#333] bg-[#f7f7f7] border-r border-gray-100 uppercase tracking-tight">
+                            {key}
+                          </div>
+                          <div className="md:col-span-2 p-5 text-[#666] leading-relaxed">
+                            {value}
+                          </div>
                         </div>
                       ))}
                     </div>
-                  )
-                )}
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       <Footer />
-    </>
+    </div>
   );
 };
 
