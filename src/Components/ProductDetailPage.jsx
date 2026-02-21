@@ -51,10 +51,10 @@ const ProductDetailPage = () => {
       <div className="max-w-[1240px] mx-auto px-6 pt-32 pb-24">
         
         {/* --- HERO SECTION --- */}
-        <div className="bg-white rounded-sm border border-gray-100 shadow-[0_15px_50px_rgba(0,0,0,0.06)] flex flex-col lg:grid lg:grid-cols-12 items-stretch overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-[0_15px_50px_rgba(0,0,0,0.06)] flex flex-col lg:grid lg:grid-cols-12 items-stretch overflow-hidden">
           
           {/* Left: Product Image */}
-          <div className="lg:col-span-7 p-12 lg:p-20 flex items-center justify-center bg-[#fafafa]">
+          <div className="lg:col-span-7 p-12 lg:p-20 flex items-center justify-center  bg-white">
             <div className="relative group">
               <img 
                 src={product.image} 
