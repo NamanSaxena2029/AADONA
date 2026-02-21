@@ -455,143 +455,189 @@ export default function AdminPanel() {
     </div>
   );
 
-  const ProductAdminForm = () => {
-    const [formData, setFormData] = useState({
-      model: '',
-      fullName: '',
-      category: '',
-      series: '',
-      description: '',
-      mainImage: '',
-      highlights: [''],
-      overview: { title: 'Product Overview', content: '' },
-      features: [{ iconType: 'wifi', title: '', description: '' }],
-      specifications: {
-        'Hardware Specifications': { '': '' }
-      }
+  // const ProductAdminForm = () => {
+  //   const [formData, setFormData] = useState({
+  //     model: '',
+  //     fullName: '',
+  //     category: '',
+  //     series: '',
+  //     description: '',
+  //     mainImage: '',
+  //     highlights: [''],
+  //     overview: { title: 'Product Overview', content: '' },
+  //     features: [{ iconType: 'wifi', title: '', description: '' }],
+  //     specifications: {
+  //       'Hardware Specifications': { '': '' }
+  //     }
+  //   });
+
+  //   const handleChange = (e) => {
+  //     const { name, value } = e.target;
+  //     setFormData(prev => ({ ...prev, [name]: value }));
+  //   };
+
+  //   const handleHighlightChange = (index, value) => {
+  //     const newHighlights = [...formData.highlights];
+  //     newHighlights[index] = value;
+  //     setFormData(prev => ({ ...prev, highlights: newHighlights }));
+  //   };
+
+  //   const addHighlight = () => setFormData(prev => ({ ...prev, highlights: [...prev.highlights, ''] }));
+
+  //   const handleFeatureChange = (index, field, value) => {
+  //     const newFeatures = [...formData.features];
+  //     newFeatures[index][field] = value;
+  //     setFormData(prev => ({ ...prev, features: newFeatures }));
+  //   };
+
+  //   const addFeatureDetail = () => setFormData(prev => ({
+  //     ...prev,
+  //     features: [...prev.features, { iconType: 'wifi', title: '', description: '' }]
+  //   }));
+
+  //   const handleSpecChange = (category, oldKey, newKey, value) => {
+  //     const newSpecs = { ...formData.specifications };
+  //     if (oldKey !== newKey) {
+  //       delete newSpecs[category][oldKey];
+  //     }
+  //     newSpecs[category][newKey] = value;
+  //     setFormData(prev => ({ ...prev, specifications: newSpecs }));
+  //   };
+
+  //   const handleSubmit = (e) => {
+  //     e.preventDefault();
+  //     console.log('Final JSON for Backend:', JSON.stringify(formData, null, 2));
+  //     alert('Data logged to console!');
+  //   };
+
+    // return (
+  //     <div className="max-w-4xl mx-auto">
+  //       <button 
+  //         onClick={() => setShowProductForm(false)}
+  //         className="flex items-center gap-2 text-green-700 font-bold hover:text-green-900 transition mb-6"
+  //       >
+  //         <ArrowLeft size={20} /> Back to Dashboard
+  //       </button>
+
+  //       <div className="p-8 bg-white shadow-xl rounded-xl border border-gray-100 mb-10">
+  //         <h2 className="text-3xl font-bold text-gray-800 mb-8 border-b pb-4">Detailed Product Specifications</h2>
+  //         <form onSubmit={handleSubmit} className="space-y-8">
+  //           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  //             <div>
+  //               <label className="block text-sm font-semibold text-gray-700">Model Name (e.g., ASW-1200)</label>
+  //               <input type="text" name="model" onChange={handleChange} className="w-full mt-1 p-2 border rounded-md" />
+  //             </div>
+  //             <div>
+  //               <label className="block text-sm font-semibold text-gray-700">Full Display Name</label>
+  //               <input type="text" name="fullName" onChange={handleChange} className="w-full mt-1 p-2 border rounded-md" />
+  //             </div>
+  //             <div>
+  //               <label className="block text-sm font-semibold text-gray-700">Category</label>
+  //               <input type="text" name="category" onChange={handleChange} className="w-full mt-1 p-2 border rounded-md" />
+  //             </div>
+  //             <div>
+  //               <label className="block text-sm font-semibold text-gray-700">Series Badge</label>
+  //               <input type="text" name="series" onChange={handleChange} className="w-full mt-1 p-2 border rounded-md" />
+  //             </div>
+  //           </div>
+
+  //           <div className="bg-gray-50 p-6 rounded-lg">
+  //             <h3 className="font-bold text-gray-800 mb-4 flex justify-between items-center">
+  //               Key Highlights
+  //               <button type="button" onClick={addHighlight} className="text-sm bg-green-600 text-white px-3 py-1 rounded-md flex items-center gap-1">
+  //                 <Plus size={14} /> Add
+  //               </button>
+  //             </h3>
+  //             {formData.highlights.map((h, i) => (
+  //               <input key={i} type="text" value={h} onChange={(e) => handleHighlightChange(i, e.target.value)} className="w-full mb-2 p-2 border rounded-md" placeholder="e.g. 1200Mbps Speed" />
+  //             ))}
+  //           </div>
+
+  //           <div className="bg-gray-50 p-6 rounded-lg">
+  //             <h3 className="font-bold text-gray-800 mb-4">Features</h3>
+  //             {formData.features.map((feature, i) => (
+  //               <div key={i} className="grid grid-cols-3 gap-3 mb-4 p-3 border rounded-md bg-white">
+  //                 <select value={feature.iconType} onChange={(e) => handleFeatureChange(i, 'iconType', e.target.value)} className="p-2 border rounded">
+  //                   <option value="wifi">Wifi Icon</option>
+  //                   <option value="zap">Zap Icon</option>
+  //                   <option value="shield">Shield Icon</option>
+  //                 </select>
+  //                 <input type="text" placeholder="Feature Title" value={feature.title} onChange={(e) => handleFeatureChange(i, 'title', e.target.value)} className="p-2 border rounded" />
+  //                 <input type="text" placeholder="Description" value={feature.description} onChange={(e) => handleFeatureChange(i, 'description', e.target.value)} className="p-2 border rounded" />
+  //               </div>
+  //             ))}
+  //             <button type="button" onClick={addFeatureDetail} className="text-green-600 font-semibold flex items-center gap-1 text-sm"><Plus size={16} /> Add Feature</button>
+  //           </div>
+
+  //           <div className="bg-gray-50 p-6 rounded-lg">
+  //             <h3 className="font-bold text-gray-800 mb-4">Specifications</h3>
+  //             {Object.entries(formData.specifications).map(([category, specs]) => (
+  //               <div key={category} className="mb-6">
+  //                 <h4 className="text-sm font-bold text-green-700 underline mb-2">{category}</h4>
+  //                 {Object.entries(specs).map(([key, value], idx) => (
+  //                   <div key={idx} className="flex gap-2 mb-2">
+  //                     <input type="text" placeholder="Key (e.g. Memory)" value={key} onChange={(e) => handleSpecChange(category, key, e.target.value, value)} className="w-1/2 p-2 border rounded" />
+  //                     <input type="text" placeholder="Value (e.g. 128MB)" value={value} onChange={(e) => handleSpecChange(category, key, key, e.target.value)} className="w-1/2 p-2 border rounded" />
+  //                   </div>
+  //                 ))}
+  //               </div>
+  //             ))}
+  //           </div>
+
+  //           <button type="submit" className="w-full bg-green-700 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 hover:bg-green-800 transition-all">
+  //             <Save /> Save Product to Database
+  //           </button>
+  //         </form>
+  //       </div>
+  //     </div>
+  //   );
+  // };
+
+
+  // Related Product Logic
+       const saveRelatedProducts = async () => {
+  if (!form.relatedCategory || !form.relatedSubCategory) {
+    alert("Please select category and subcategory");
+    return;
+  }
+
+  if (!form.relatedProducts || form.relatedProducts.length === 0) {
+    alert("Please select at least one related product");
+    return;
+  }
+
+  try {
+    const token = await auth.currentUser.getIdToken();
+
+    const payload = {
+      type: form.relatedType || null,
+      category: form.relatedCategory,
+      subCategory: form.relatedSubCategory,
+      extraCategory: form.relatedExtraCategory || null,
+      relatedProducts: form.relatedProducts
+    };
+
+    const res = await fetch("http://localhost:5000/save-related-products", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
     });
 
-    const handleChange = (e) => {
-      const { name, value } = e.target;
-      setFormData(prev => ({ ...prev, [name]: value }));
-    };
+    const data = await safeJson(res);
 
-    const handleHighlightChange = (index, value) => {
-      const newHighlights = [...formData.highlights];
-      newHighlights[index] = value;
-      setFormData(prev => ({ ...prev, highlights: newHighlights }));
-    };
-
-    const addHighlight = () => setFormData(prev => ({ ...prev, highlights: [...prev.highlights, ''] }));
-
-    const handleFeatureChange = (index, field, value) => {
-      const newFeatures = [...formData.features];
-      newFeatures[index][field] = value;
-      setFormData(prev => ({ ...prev, features: newFeatures }));
-    };
-
-    const addFeatureDetail = () => setFormData(prev => ({
-      ...prev,
-      features: [...prev.features, { iconType: 'wifi', title: '', description: '' }]
-    }));
-
-    const handleSpecChange = (category, oldKey, newKey, value) => {
-      const newSpecs = { ...formData.specifications };
-      if (oldKey !== newKey) {
-        delete newSpecs[category][oldKey];
-      }
-      newSpecs[category][newKey] = value;
-      setFormData(prev => ({ ...prev, specifications: newSpecs }));
-    };
-
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      console.log('Final JSON for Backend:', JSON.stringify(formData, null, 2));
-      alert('Data logged to console!');
-    };
-
-    return (
-      <div className="max-w-4xl mx-auto">
-        <button 
-          onClick={() => setShowProductForm(false)}
-          className="flex items-center gap-2 text-green-700 font-bold hover:text-green-900 transition mb-6"
-        >
-          <ArrowLeft size={20} /> Back to Dashboard
-        </button>
-
-        <div className="p-8 bg-white shadow-xl rounded-xl border border-gray-100 mb-10">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8 border-b pb-4">Detailed Product Specifications</h2>
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700">Model Name (e.g., ASW-1200)</label>
-                <input type="text" name="model" onChange={handleChange} className="w-full mt-1 p-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700">Full Display Name</label>
-                <input type="text" name="fullName" onChange={handleChange} className="w-full mt-1 p-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700">Category</label>
-                <input type="text" name="category" onChange={handleChange} className="w-full mt-1 p-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700">Series Badge</label>
-                <input type="text" name="series" onChange={handleChange} className="w-full mt-1 p-2 border rounded-md" />
-              </div>
-            </div>
-
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h3 className="font-bold text-gray-800 mb-4 flex justify-between items-center">
-                Key Highlights
-                <button type="button" onClick={addHighlight} className="text-sm bg-green-600 text-white px-3 py-1 rounded-md flex items-center gap-1">
-                  <Plus size={14} /> Add
-                </button>
-              </h3>
-              {formData.highlights.map((h, i) => (
-                <input key={i} type="text" value={h} onChange={(e) => handleHighlightChange(i, e.target.value)} className="w-full mb-2 p-2 border rounded-md" placeholder="e.g. 1200Mbps Speed" />
-              ))}
-            </div>
-
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h3 className="font-bold text-gray-800 mb-4">Features</h3>
-              {formData.features.map((feature, i) => (
-                <div key={i} className="grid grid-cols-3 gap-3 mb-4 p-3 border rounded-md bg-white">
-                  <select value={feature.iconType} onChange={(e) => handleFeatureChange(i, 'iconType', e.target.value)} className="p-2 border rounded">
-                    <option value="wifi">Wifi Icon</option>
-                    <option value="zap">Zap Icon</option>
-                    <option value="shield">Shield Icon</option>
-                  </select>
-                  <input type="text" placeholder="Feature Title" value={feature.title} onChange={(e) => handleFeatureChange(i, 'title', e.target.value)} className="p-2 border rounded" />
-                  <input type="text" placeholder="Description" value={feature.description} onChange={(e) => handleFeatureChange(i, 'description', e.target.value)} className="p-2 border rounded" />
-                </div>
-              ))}
-              <button type="button" onClick={addFeatureDetail} className="text-green-600 font-semibold flex items-center gap-1 text-sm"><Plus size={16} /> Add Feature</button>
-            </div>
-
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h3 className="font-bold text-gray-800 mb-4">Specifications</h3>
-              {Object.entries(formData.specifications).map(([category, specs]) => (
-                <div key={category} className="mb-6">
-                  <h4 className="text-sm font-bold text-green-700 underline mb-2">{category}</h4>
-                  {Object.entries(specs).map(([key, value], idx) => (
-                    <div key={idx} className="flex gap-2 mb-2">
-                      <input type="text" placeholder="Key (e.g. Memory)" value={key} onChange={(e) => handleSpecChange(category, key, e.target.value, value)} className="w-1/2 p-2 border rounded" />
-                      <input type="text" placeholder="Value (e.g. 128MB)" value={value} onChange={(e) => handleSpecChange(category, key, key, e.target.value)} className="w-1/2 p-2 border rounded" />
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-
-            <button type="submit" className="w-full bg-green-700 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 hover:bg-green-800 transition-all">
-              <Save /> Save Product to Database
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  };
+    if (res.ok) {
+      alert("Related products saved successfully ✅");
+    } else {
+      alert(data.message || "Failed to save related products");
+    }
+  } catch (err) {
+    console.error(err);
+    alert(err.message || "Error saving related products");
+  }
+};
 
   return (
     <>
@@ -602,12 +648,12 @@ export default function AdminPanel() {
           <div className="flex justify-between items-center mb-10 flex-wrap gap-4">
             <h1 className="text-3xl font-extrabold text-green-800 tracking-tight">Admin Dashboard</h1>
             <div className="flex items-center gap-3">
-              <button
+              {/* <button
                 onClick={() => setShowProductForm(true)}
                 className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-full hover:bg-green-700 transition shadow-md font-semibold"
               >
                 <PackagePlus size={18} /> Add New Product
-              </button>
+              </button> */}
               <button
                 onClick={() => setShowAdminForm(!showAdminForm)}
                 className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-full hover:bg-green-700 transition shadow-md font-semibold"
@@ -901,6 +947,132 @@ export default function AdminPanel() {
                 </div>
               </div>
 
+
+        {/* Related Product Form */}
+<div className="bg-white p-8 rounded-3xl shadow-xl border border-green-100 mb-12">
+  <h2 className="text-xl font-bold text-green-800 mb-6">
+    Related Products Configuration
+  </h2>
+
+  <div className="grid md:grid-cols-4 gap-6 mb-6">
+
+    {/* Type (Active / Passive) */}
+    <select
+      className={inputStyle}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          relatedType: e.target.value
+        })
+      }
+      value={form.relatedType || ""}
+    >
+      <option value="">Select Type</option>
+      <option value="active">Active</option>
+      <option value="passive">Passive</option>
+    </select>
+
+    {/* Category */}
+    <select
+      className={inputStyle}
+      onChange={(e) => {
+        setForm({
+          ...form,
+          relatedCategory: e.target.value,
+          relatedSubCategory: "",
+          relatedExtraCategory: ""
+        });
+      }}
+      value={form.relatedCategory || ""}
+    >
+      <option value="">Select Category</option>
+      {Object.keys(categories).map((c) => (
+        <option key={c} value={c}>{c}</option>
+      ))}
+    </select>
+
+    {/* SubCategory */}
+    <select
+      className={inputStyle}
+      disabled={!form.relatedCategory}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          relatedSubCategory: e.target.value,
+          relatedExtraCategory: ""
+        })
+      }
+      value={form.relatedSubCategory || ""}
+    >
+      <option value="">Select Sub Category</option>
+      {form.relatedCategory &&
+        Object.keys(categories[form.relatedCategory]).map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+    </select>
+
+    {/* Extra Category */}
+    {form.relatedCategory &&
+      form.relatedSubCategory &&
+      categories[form.relatedCategory][form.relatedSubCategory]?.length > 0 && (
+        <select
+          className={inputStyle}
+          onChange={(e) =>
+            setForm({ ...form, relatedExtraCategory: e.target.value })
+          }
+          value={form.relatedExtraCategory || ""}
+        >
+          <option value="">Select Extra Category</option>
+          {categories[form.relatedCategory][form.relatedSubCategory].map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      )}
+  </div>
+
+  {/* Product Multi Select */}
+  <div>
+    <label className="block text-sm font-semibold text-green-700 mb-3">
+      Select Related Products
+    </label>
+
+    <div className="grid md:grid-cols-3 gap-3 max-h-64 overflow-y-auto border border-green-200 rounded-xl p-4 bg-green-50/40">
+      {products.map((product) => (
+        <div
+          key={product._id}
+          onClick={() => {
+            const current = form.relatedProducts || [];
+            const exists = current.includes(product._id);
+            setForm({
+              ...form,
+              relatedProducts: exists
+                ? current.filter((id) => id !== product._id)
+                : [...current, product._id]
+            });
+          }}
+          className={`cursor-pointer px-3 py-2 rounded-lg text-sm font-medium border transition ${
+            (form.relatedProducts || []).includes(product._id)
+              ? "bg-green-600 text-white border-green-600"
+              : "bg-white hover:bg-green-100 border-green-200"
+          }`}
+        >
+          {product.name}
+        </div>
+      ))}
+    </div>
+  </div>
+
+  {/* Save Button */}
+<div className="mt-6 flex justify-center">
+  <button
+    type="button"
+    className="bg-green-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-green-700 transition shadow-md"
+    onClick={saveRelatedProducts}
+  >
+    Save Related Products
+  </button>
+</div>
+</div>
               {/* ===== PRODUCTS TABLE ===== */}
               <div className="bg-white rounded-3xl shadow-xl border border-green-100 overflow-hidden">
                 <div className="overflow-x-auto">

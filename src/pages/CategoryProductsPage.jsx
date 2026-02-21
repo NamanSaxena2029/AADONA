@@ -60,7 +60,6 @@ const ProductCard = ({ product }) => {
         )}
         
         <div className="mt-auto"> 
-          {/* Changed from <Link> to <div> to avoid nested 'a' tag errors since parent is clickable */}
           <div 
               className="inline-flex items-center justify-center px-6 py-3 border border-transparent 
                         text-base font-medium rounded-md shadow-sm text-white bg-green-600 
@@ -73,6 +72,52 @@ const ProductCard = ({ product }) => {
     </div>
   );
 };
+
+/* -------------------- ONLY ADDED SECTION -------------------- */
+const RelatedProducts = ({ filteredProducts }) => {
+  if (!filteredProducts || filteredProducts.length === 0) return null;
+
+  return (
+    <div className="mt-24 bg-gray-100 py-16">
+      <div className="max-w-7xl mx-auto">
+        <h2 className="text-3xl font-bold text-center text-green-700 mb-10">
+          Related Products
+        </h2>
+
+        <div className="flex gap-12 overflow-x-auto px-6 scrollbar-hide">
+          {filteredProducts.map((product) => (
+            <div
+              key={product._id}
+              onClick={() =>
+                window.open(
+                  `/productDetails/${product.slug}`,
+                  "_blank",
+                  "noopener,noreferrer"
+                )
+              }
+              className="min-w-[200px] flex-shrink-0 cursor-pointer group"
+            >
+              <div className="flex flex-col items-center">
+                <div className="h-40 w-40 flex items-center justify-center mb-4">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="object-contain max-h-full group-hover:scale-105 transition duration-300"
+                  />
+                </div>
+
+                <h3 className="text-lg font-semibold text-gray-700 text-center">
+                  {product.name}
+                </h3>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+/* -------------------- END OF ADDED SECTION -------------------- */
 
 export default function CategoryProductsPage() {
   const { categoryName } = useParams();
@@ -210,6 +255,9 @@ export default function CategoryProductsPage() {
           </div>
         )}
       </div>
+
+      {/* ONLY THIS LINE ADDED */}
+      <RelatedProducts filteredProducts={filteredProducts} />
 
       <Footer />
     </div>
