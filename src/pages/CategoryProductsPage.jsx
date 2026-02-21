@@ -5,67 +5,48 @@ import Footer from "../Components/Footer";
 import CheckCircle from "../assets/checkcircle.png";
 
 const API = "http://localhost:5000/products";
+const RELATED_API = "http://localhost:5000/related-products";
 
 const ProductCard = ({ product }) => {
-  // Function to handle the click on the entire card
   const handleCardClick = () => {
     window.open(`/productDetails/${product.slug}`, "_blank", "noopener,noreferrer");
   };
 
   return (
-    <div 
+    <div
       onClick={handleCardClick}
       className="bg-white rounded-lg shadow-xl overflow-hidden cursor-pointer flex flex-col group 
                     transform transition duration-300 ease-in-out 
                     hover:shadow-2xl hover:scale-[1.02] hover:border-green-500 border border-transparent"
     >
-      
-      {/* Product Image Area */}
       <div className="h-48 flex items-center justify-center p-4 bg-gray-50 border-b border-gray-100">
-        <img
-          className="max-h-full object-contain"
-          src={product.image}
-          alt={product.name}
-        />
+        <img className="max-h-full object-contain" src={product.image} alt={product.name} />
       </div>
 
-      {/* Product Details - Left Aligned */}
       <div className="p-4 sm:p-6 flex-grow flex flex-col justify-between text-left">
-        <div> 
-          <h3 className="text-2xl font-bold text-gray-800 mb-2">
-            {product.name}
-          </h3>
-          
+        <div>
+          <h3 className="text-2xl font-bold text-gray-800 mb-2">{product.name}</h3>
           {product.description && (
-            <p className="text-gray-600 text-base mb-4">
-              {product.description}
-            </p>
+            <p className="text-gray-600 text-base mb-4">{product.description}</p>
           )}
         </div>
 
-        {/* Features with Image Checkmark Icons */}
         {product.features && product.features.length > 0 && (
           <ul className="text-gray-700 text-base mb-6 space-y-2">
             {product.features.map((feature, index) => (
               <li key={index} className="flex items-center">
-                <img
-                  src={CheckCircle}
-                  alt="Check"
-                  className="h-5 w-5 mr-2 flex-shrink-0"
-                />
+                <img src={CheckCircle} alt="Check" className="h-5 w-5 mr-2 flex-shrink-0" />
                 <span>{feature}</span>
               </li>
             ))}
           </ul>
         )}
-        
-        <div className="mt-auto"> 
-          <div 
-              className="inline-flex items-center justify-center px-6 py-3 border border-transparent 
+
+        <div className="mt-auto">
+          <div className="inline-flex items-center justify-center px-6 py-3 border border-transparent 
                         text-base font-medium rounded-md shadow-sm text-white bg-green-600 
-                        hover:bg-green-700 hover:shadow-lg transition duration-200 ease-in-out w-full"
-            >
-              View Product
+                        hover:bg-green-700 hover:shadow-lg transition duration-200 ease-in-out w-full">
+            View Product
           </div>
         </div>
       </div>
@@ -73,9 +54,9 @@ const ProductCard = ({ product }) => {
   );
 };
 
-/* -------------------- ONLY ADDED SECTION -------------------- */
-const RelatedProducts = ({ filteredProducts }) => {
-  if (!filteredProducts || filteredProducts.length === 0) return null;
+/* -------------------- RELATED PRODUCTS SECTION -------------------- */
+const RelatedProducts = ({ relatedProducts }) => {
+  if (!relatedProducts || relatedProducts.length === 0) return null;
 
   return (
     <div className="mt-24 bg-gray-100 py-16">
@@ -85,7 +66,7 @@ const RelatedProducts = ({ filteredProducts }) => {
         </h2>
 
         <div className="flex gap-12 overflow-x-auto px-6 scrollbar-hide">
-          {filteredProducts.map((product) => (
+          {relatedProducts.map((product) => (
             <div
               key={product._id}
               onClick={() =>
@@ -105,7 +86,6 @@ const RelatedProducts = ({ filteredProducts }) => {
                     className="object-contain max-h-full group-hover:scale-105 transition duration-300"
                   />
                 </div>
-
                 <h3 className="text-lg font-semibold text-gray-700 text-center">
                   {product.name}
                 </h3>
@@ -117,15 +97,16 @@ const RelatedProducts = ({ filteredProducts }) => {
     </div>
   );
 };
-/* -------------------- END OF ADDED SECTION -------------------- */
+/* -------------------- END RELATED PRODUCTS -------------------- */
 
 export default function CategoryProductsPage() {
   const { categoryName } = useParams();
   const decodedCategory = decodeURIComponent(categoryName);
-  
+
   const [products, setProducts] = useState([]);
   const [activeSubCategory, setActiveSubCategory] = useState("");
   const [activeDetail, setActiveDetail] = useState("");
+  const [relatedProducts, setRelatedProducts] = useState([]); // ✅ NEW
 
   const detailContent = {
     "Business": {
@@ -151,7 +132,7 @@ export default function CategoryProductsPage() {
       .then((data) => {
         const filtered = data.filter(p => p.category === decodedCategory);
         setProducts(filtered);
-        
+
         if (filtered.length > 0) {
           const subCats = [...new Set(filtered.map(p => p.subCategory))];
           setActiveSubCategory(subCats[0]);
@@ -164,13 +145,40 @@ export default function CategoryProductsPage() {
     const availableDetails = [...new Set(products
       .filter(p => p.subCategory === activeSubCategory && p.extraCategory)
       .map(p => p.extraCategory))];
-    
+
     if (availableDetails.length > 0) {
       setActiveDetail(availableDetails[0]);
     } else {
       setActiveDetail("");
     }
   }, [activeSubCategory, products]);
+
+  // ✅ FETCH RELATED PRODUCTS FROM BACKEND whenever subcategory or extraCategory changes
+  useEffect(() => {
+    if (!decodedCategory || !activeSubCategory) return;
+
+    const params = new URLSearchParams({
+      category: decodedCategory,
+      subCategory: activeSubCategory,
+    });
+
+    if (activeDetail) {
+      params.append("extraCategory", activeDetail);
+    }
+
+    console.log("🔍 Fetching related products with:", params.toString());
+
+    fetch(`${RELATED_API}?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("✅ Related products fetched:", data);
+        setRelatedProducts(data.relatedProducts || []);
+      })
+      .catch((err) => {
+        console.error("❌ Related products fetch error:", err);
+        setRelatedProducts([]);
+      });
+  }, [decodedCategory, activeSubCategory, activeDetail]);
 
   const subCategories = [...new Set(products.map(p => p.subCategory))];
   const detailOptions = [...new Set(products
@@ -204,7 +212,9 @@ export default function CategoryProductsPage() {
               key={cat}
               onClick={() => setActiveSubCategory(cat)}
               className={`px-8 py-2.5 rounded-lg font-semibold transition-all duration-300 ${
-                activeSubCategory === cat ? 'bg-green-600 text-white shadow-md' : 'bg-white text-gray-600 border hover:bg-gray-100'
+                activeSubCategory === cat
+                  ? 'bg-green-600 text-white shadow-md'
+                  : 'bg-white text-gray-600 border hover:bg-gray-100'
               }`}
             >
               {cat}
@@ -220,7 +230,9 @@ export default function CategoryProductsPage() {
                   key={opt}
                   onClick={() => setActiveDetail(opt)}
                   className={`px-10 py-2 rounded-full text-sm font-bold transition-all duration-300 ${
-                    activeDetail === opt ? 'bg-white text-green-700 shadow-md' : 'text-gray-500 hover:text-gray-700'
+                    activeDetail === opt
+                      ? 'bg-white text-green-700 shadow-md'
+                      : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   {opt}
@@ -256,8 +268,8 @@ export default function CategoryProductsPage() {
         )}
       </div>
 
-      {/* ONLY THIS LINE ADDED */}
-      <RelatedProducts filteredProducts={filteredProducts} />
+      {/* ✅ AB MONGODB SE FETCHED RELATED PRODUCTS DIKHENGE */}
+      <RelatedProducts relatedProducts={relatedProducts} />
 
       <Footer />
     </div>

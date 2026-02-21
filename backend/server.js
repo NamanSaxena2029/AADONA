@@ -2,7 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const admin = require("firebase-admin");
-const PDFDocument = require("pdfkit"); // ✅ ADDED
+const PDFDocument = require("pdfkit");
 require("dotenv").config();
 
 const app = express();
@@ -88,7 +88,7 @@ mongoose
   });
 
 /* =============================
-   MODEL
+   MODELS
 ============================= */
 
 const ProductSchema = new mongoose.Schema(
@@ -130,6 +130,19 @@ const ProductSchema = new mongoose.Schema(
 );
 
 const Product = mongoose.model("Product", ProductSchema);
+
+const RelatedProductSchema = new mongoose.Schema(
+  {
+    type: { type: String, default: null },
+    category: { type: String, required: true },
+    subCategory: { type: String, required: true },
+    extraCategory: { type: String, default: null },
+    relatedProducts: { type: [String], default: [] },
+  },
+  { timestamps: true }
+);
+
+const RelatedProduct = mongoose.model("RelatedProduct", RelatedProductSchema);
 
 /* =============================
    SLUG GENERATOR
@@ -194,14 +207,12 @@ app.get("/products/:slug/datasheet", async (req, res) => {
 
     doc.pipe(res);
 
-    // Title
     doc.fontSize(22).font("Helvetica-Bold").text(product.name, {
       align: "center",
     });
 
     doc.moveDown(2);
 
-    // Overview
     doc.fontSize(16).font("Helvetica-Bold").text("Product Overview");
     doc.moveDown(0.5);
     doc
@@ -213,7 +224,6 @@ app.get("/products/:slug/datasheet", async (req, res) => {
 
     doc.moveDown(1.5);
 
-    // Features
     if (product.highlights?.length) {
       doc.fontSize(16).font("Helvetica-Bold").text("Features");
       doc.moveDown(0.5);
@@ -225,23 +235,20 @@ app.get("/products/:slug/datasheet", async (req, res) => {
       doc.moveDown(1.5);
     }
 
-    // Specifications
     if (product.specifications && Object.keys(product.specifications).length) {
       doc.fontSize(16).font("Helvetica-Bold").text("Specifications");
       doc.moveDown(0.5);
 
-      Object.entries(product.specifications).forEach(
-        ([category, specs]) => {
-          doc.fontSize(14).font("Helvetica-Bold").text(category);
-          doc.moveDown(0.3);
+      Object.entries(product.specifications).forEach(([category, specs]) => {
+        doc.fontSize(14).font("Helvetica-Bold").text(category);
+        doc.moveDown(0.3);
 
-          Object.entries(specs || {}).forEach(([key, value]) => {
-            doc.fontSize(12).font("Helvetica").text(`${key}: ${value}`);
-          });
+        Object.entries(specs || {}).forEach(([key, value]) => {
+          doc.fontSize(12).font("Helvetica").text(`${key}: ${value}`);
+        });
 
-          doc.moveDown(1);
-        }
-      );
+        doc.moveDown(1);
+      });
     }
 
     doc.moveDown(2);
@@ -322,6 +329,91 @@ app.post("/create-admin", verifyToken, requireAdmin, async (req, res) => {
     res.json({ message: "New Admin Created ✅" });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+/* -------- SAVE RELATED PRODUCTS -------- */
+
+app.post("/save-related-products", verifyToken, requireAdmin, async (req, res) => {
+  console.log("📦 /save-related-products HIT");
+  console.log("📦 Body received:", JSON.stringify(req.body, null, 2));
+
+  try {
+    const { type, category, subCategory, extraCategory, relatedProducts } = req.body;
+
+    if (!category || !subCategory) {
+      console.log("❌ Missing category or subCategory");
+      return res.status(400).json({ message: "category and subCategory are required" });
+    }
+
+    if (!relatedProducts || relatedProducts.length === 0) {
+      console.log("❌ No related products selected");
+      return res.status(400).json({ message: "Select at least one related product" });
+    }
+
+    console.log("🔍 Searching for existing entry...");
+
+    const filter = {
+      category,
+      subCategory,
+      extraCategory: extraCategory || null,
+      type: type || null,
+    };
+
+    console.log("🔍 Filter:", filter);
+
+    const result = await RelatedProduct.findOneAndUpdate(
+      filter,
+      {
+        $set: {
+          type: type || null,
+          category,
+          subCategory,
+          extraCategory: extraCategory || null,
+          relatedProducts,
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    console.log("✅ Saved successfully:", result._id);
+    res.json({ message: "Related products saved successfully ✅", result });
+
+  } catch (err) {
+    console.log("❌ Save Related Products Error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- GET RELATED PRODUCTS -------- */
+
+app.get("/related-products", async (req, res) => {
+  try {
+    const { category, subCategory, extraCategory, type } = req.query;
+
+    console.log("🔍 GET /related-products query:", req.query);
+
+    const query = { category, subCategory };
+    if (extraCategory) query.extraCategory = extraCategory;
+    if (type) query.type = type;
+
+    const related = await RelatedProduct.findOne(query);
+
+    if (!related) {
+      console.log("⚠️ No related products found for query:", query);
+      return res.json({ relatedProducts: [] });
+    }
+
+    const products = await Product.find({
+      _id: { $in: related.relatedProducts },
+    });
+
+    console.log(`✅ Found ${products.length} related products`);
+    res.json({ relatedProducts: products });
+
+  } catch (err) {
+    console.log("❌ Get Related Products Error:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
