@@ -81,7 +81,7 @@ export default function App() {
     setErrors({ ...errors, [e.target.name]: '' });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
 
@@ -93,11 +93,35 @@ export default function App() {
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      console.log('Form submission successful:', formData);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/submit-contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setSubmitted(true);
+        setFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          subject: '',
+          phone: '',
+          natureOfBusiness: businessOptions[0],
+          message: '',
+        });
+      } else {
+        alert(data.message || "Something went wrong. Please try again.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error. Please try again.");
+    } finally {
       setIsSubmitting(false);
-      setSubmitted(true);
-    }, 2000);
+    }
   };
 
   const inputBaseClasses = useMemo(() => `
@@ -430,7 +454,3 @@ export default function App() {
     </>
   );
 }
-
-
-
-

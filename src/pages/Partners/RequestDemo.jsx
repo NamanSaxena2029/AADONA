@@ -21,24 +21,18 @@ const COUNTRIES = [
   "Yemen","Zambia","Zimbabwe"
 ];
 
-export default function RequestDemo() {
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    streetAddress: "",
-    streetAddress2: "",
-    phone: "",
-    modelName: "",
-    city: "",
-    regionStateProvince: "",
-    postalZipCode: "",
-    country: "",
-    customerType: [],
-    comment: ""
-  });
+const emptyForm = {
+  firstName: "", lastName: "", email: "", streetAddress: "",
+  streetAddress2: "", phone: "", modelName: "", city: "",
+  regionStateProvince: "", postalZipCode: "", country: "",
+  customerType: [], comment: ""
+};
 
-  // Matching RequestTraining input style
+export default function RequestDemo() {
+  const [formData, setFormData] = useState(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
   const inputClasses =
     "py-3 px-4 rounded-lg border border-gray-300 bg-white text-base text-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 placeholder:text-gray-400 shadow-sm w-full";
   const labelClasses = "text-sm font-medium text-gray-700 mb-1 block";
@@ -49,7 +43,6 @@ export default function RequestDemo() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
     if (type === "checkbox" && name === "customerType") {
       setFormData((prev) => ({
         ...prev,
@@ -59,306 +52,171 @@ export default function RequestDemo() {
       }));
       return;
     }
-
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
-    alert("Demo request submitted! Check console for data.");
-    setFormData({
-      firstName: "",
-      lastName: "",
-      email: "",
-      streetAddress: "",
-      streetAddress2: "",
-      phone: "",
-      modelName: "",
-      city: "",
-      regionStateProvince: "",
-      postalZipCode: "",
-      country: "",
-      customerType: [],
-      comment: ""
-    });
+    setSubmitting(true);
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/submit-demo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setSubmitted(true);
+        setFormData(emptyForm);
+      } else {
+        alert(data.message || "Something went wrong. Please try again.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <>
       <Navbar />
 
-    <div
+      <div
         className="min-h-screen bg-cover bg-center"
-        style={{
-          backgroundImage: `url(${bg})`,
-          backgroundSize: "cover",
-          backgroundRepeat: "no-repeat",
-        }}
+        style={{ backgroundImage: `url(${bg})`, backgroundSize: "cover", backgroundRepeat: "no-repeat" }}
       >
-        {/* Header (same as RequestTraining / Project Locking) */}
         <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16">
           <div className="max-w-7xl mx-auto px-4 text-center">
-            <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">
-              Request a Demo
-            </h1>
+            <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">Request a Demo</h1>
             <p className="mt-6 text-xl text-green-100 max-w-3xl mx-auto">
               Fill out the form and our team will contact you to schedule a personalized demonstration
             </p>
           </div>
         </div>
 
-        {/* Main white card */}
         <main className="flex justify-center py-16 px-5">
           <div className="relative bg-white w-full max-w-5xl rounded-xl p-10 md:p-14 lg:p-16 shadow-2xl">
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-green-600 rounded-t-xl"></div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-              {/* Contact Information */}
-              <h3 className="text-xl font-semibold text-emerald-700 border-b pb-2 mb-4">
-                Contact Information
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex flex-col">
-                  <label className={labelClasses}>
-                    First Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="firstName"
-                    placeholder="Enter your first name"
-                    required
-                    className={inputClasses}
-                    value={formData.firstName}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div className="flex flex-col">
-                  <label className={labelClasses}>Last Name</label>
-                  <input
-                    name="lastName"
-                    placeholder="Enter your last name"
-                    className={inputClasses}
-                    value={formData.lastName}
-                    onChange={handleChange}
-                  />
-                </div>
+            {/* ✅ Success Message */}
+            {submitted && (
+              <div className="bg-green-50 border border-green-300 text-green-800 rounded-xl px-6 py-5 text-center font-semibold text-lg mb-6">
+                ✅ Demo request submitted successfully! Our team will contact you soon.
               </div>
+            )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {!submitted && (
+              <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+                <h3 className="text-xl font-semibold text-emerald-700 border-b pb-2 mb-4">Contact Information</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex flex-col">
+                    <label className={labelClasses}>First Name <span className="text-red-500">*</span></label>
+                    <input name="firstName" placeholder="Enter your first name" required className={inputClasses} value={formData.firstName} onChange={handleChange} />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className={labelClasses}>Last Name</label>
+                    <input name="lastName" placeholder="Enter your last name" className={inputClasses} value={formData.lastName} onChange={handleChange} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex flex-col">
+                    <label className={labelClasses}>Email <span className="text-red-500">*</span></label>
+                    <input name="email" type="email" placeholder="Enter your email" required className={inputClasses} value={formData.email} onChange={handleChange} />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className={labelClasses}>Phone <span className="text-red-500">*</span></label>
+                    <input name="phone" placeholder="Enter your phone number" required className={inputClasses} value={formData.phone} onChange={handleChange} />
+                  </div>
+                </div>
+
+                <h3 className="text-xl font-semibold text-emerald-700 border-b pb-2 pt-4 mb-4">Address</h3>
+
                 <div className="flex flex-col">
-                  <label className={labelClasses}>
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    required
-                    className={inputClasses}
-                    value={formData.email}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClasses}>Street Address Line 1 <span className="text-red-500">*</span></label>
+                  <input name="streetAddress" placeholder="Enter street address line 1" required className={inputClasses} value={formData.streetAddress} onChange={handleChange} />
                 </div>
 
                 <div className="flex flex-col">
-                  <label className={labelClasses}>
-                    Phone <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="phone"
-                    placeholder="Enter your phone number"
-                    required
-                    className={inputClasses}
-                    value={formData.phone}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClasses}>Street Address Line 2</label>
+                  <input name="streetAddress2" placeholder="Apartment, Suite, Unit, etc. (optional)" className={inputClasses} value={formData.streetAddress2} onChange={handleChange} />
                 </div>
-              </div>
 
-              {/* Address */}
-              <h3 className="text-xl font-semibold text-emerald-700 border-b pb-2 pt-4 mb-4">
-                Address
-              </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="flex flex-col">
+                    <label className={labelClasses}>City <span className="text-red-500">*</span></label>
+                    <input name="city" placeholder="Enter your city" required className={inputClasses} value={formData.city} onChange={handleChange} />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className={labelClasses}>Region / State / Province <span className="text-red-500">*</span></label>
+                    <input name="regionStateProvince" placeholder="Enter state, region, or province" required className={inputClasses} value={formData.regionStateProvince} onChange={handleChange} />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className={labelClasses}>Postal / Zip code <span className="text-red-500">*</span></label>
+                    <input name="postalZipCode" placeholder="Enter postal or zip code" required className={inputClasses} value={formData.postalZipCode} onChange={handleChange} />
+                  </div>
+                </div>
 
-              <div className="flex flex-col">
-                <label className={labelClasses}>
-                  Street Address Line 1 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  name="streetAddress"
-                  placeholder="Enter street address line 1"
-                  required
-                  className={inputClasses}
-                  value={formData.streetAddress}
-                  onChange={handleChange}
-                />
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex flex-col">
+                    <label className={labelClasses}>Country <span className="text-red-500">*</span></label>
+                    <select name="country" required className={inputClasses + " cursor-pointer"} value={formData.country} onChange={handleChange}>
+                      <option value="" disabled>Select Country *</option>
+                      {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col">
+                    <label className={labelClasses}>Model Name</label>
+                    <input name="modelName" placeholder="Model Name (optional)" className={inputClasses} value={formData.modelName} onChange={handleChange} />
+                  </div>
+                </div>
 
-              <div className="flex flex-col">
-                <label className={labelClasses}>Street Address Line 2</label>
-                <input
-                  name="streetAddress2"
-                  placeholder="Apartment, Suite, Unit, etc. (optional)"
-                  className={inputClasses}
-                  value={formData.streetAddress2}
-                  onChange={handleChange}
-                />
-              </div>
+                <h3 className="text-xl font-semibold text-emerald-700 border-b pb-2 pt-4 mb-4">Additional Details</h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="flex flex-col">
-                  <label className={labelClasses}>
-                    City <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="city"
-                    placeholder="Enter your city"
-                    required
-                    className={inputClasses}
-                    value={formData.city}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClasses}>Customer Type</label>
+                  <div className="flex gap-8 flex-wrap py-2">
+                    <label className="flex items-center gap-2 font-normal text-gray-700 text-base cursor-pointer">
+                      <input type="checkbox" name="customerType" value="endCustomer" checked={formData.customerType.includes("endCustomer")} onChange={handleChange} className="accent-emerald-600 w-4 h-4 cursor-pointer" />
+                      <span>End Customer</span>
+                    </label>
+                    <label className="flex items-center gap-2 font-normal text-gray-700 text-base cursor-pointer">
+                      <input type="checkbox" name="customerType" value="siPartner" checked={formData.customerType.includes("siPartner")} onChange={handleChange} className="accent-emerald-600 w-4 h-4 cursor-pointer" />
+                      <span>SI Partner (Systems Integrator)</span>
+                    </label>
+                    <label className="flex items-center gap-2 font-normal text-gray-700 text-base cursor-pointer">
+                      <input type="checkbox" name="customerType" value="distributor" checked={formData.customerType.includes("distributor")} onChange={handleChange} className="accent-emerald-600 w-4 h-4 cursor-pointer" />
+                      <span>Distributor / Reseller</span>
+                    </label>
+                  </div>
                 </div>
 
                 <div className="flex flex-col">
-                  <label className={labelClasses}>
-                    Region / State / Province <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="regionStateProvince"
-                    placeholder="Enter state, region, or province"
-                    required
-                    className={inputClasses}
-                    value={formData.regionStateProvince}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClasses}>Comments or Notes</label>
+                  <textarea name="comment" placeholder="Tell us any specifics you'd like the demo to cover (features, timelines, integrations, etc.)" rows="5" className={inputClasses + " resize-y min-h-[8rem]"} value={formData.comment} onChange={handleChange} />
                 </div>
 
-                <div className="flex flex-col">
-                  <label className={labelClasses}>
-                    Postal / Zip code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="postalZipCode"
-                    placeholder="Enter postal or zip code"
-                    required
-                    className={inputClasses}
-                    value={formData.postalZipCode}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex flex-col">
-                  <label className={labelClasses}>
-                    Country <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="country"
-                    required
-                    className={inputClasses + " cursor-pointer"}
-                    value={formData.country}
-                    onChange={handleChange}
+                <div className="flex justify-center pt-4">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="bg-emerald-600 text-white font-semibold tracking-wider uppercase px-12 py-4 rounded-lg text-lg transition-all duration-300 shadow-md hover:bg-emerald-700 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-emerald-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <option value="" disabled>
-                      Select Country *
-                    </option>
-                    {COUNTRIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                    {submitting ? "Submitting..." : "Submit Demo Request"}
+                  </button>
                 </div>
 
-                <div className="flex flex-col">
-                  <label className={labelClasses}>Model Name</label>
-                  <input
-                    name="modelName"
-                    placeholder="Model Name (optional)"
-                    className={inputClasses}
-                    value={formData.modelName}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              {/* Additional Details */}
-              <h3 className="text-xl font-semibold text-emerald-700 border-b pb-2 pt-4 mb-4">
-                Additional Details
-              </h3>
-
-              <div className="flex flex-col">
-                <label className={labelClasses}>Customer Type</label>
-                <div className="flex gap-8 flex-wrap py-2">
-                  <label className="flex items-center gap-2 font-normal text-gray-700 text-base cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="customerType"
-                      value="endCustomer"
-                      checked={formData.customerType.includes("endCustomer")}
-                      onChange={handleChange}
-                      className="accent-emerald-600 w-4 h-4 cursor-pointer"
-                    />
-                    <span>End Customer</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 font-normal text-gray-700 text-base cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="customerType"
-                      value="siPartner"
-                      checked={formData.customerType.includes("siPartner")}
-                      onChange={handleChange}
-                      className="accent-emerald-600 w-4 h-4 cursor-pointer"
-                    />
-                    <span>SI Partner (Systems Integrator)</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 font-normal text-gray-700 text-base cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="customerType"
-                      value="distributor"
-                      checked={formData.customerType.includes("distributor")}
-                      onChange={handleChange}
-                      className="accent-emerald-600 w-4 h-4 cursor-pointer"
-                    />
-                    <span>Distributor / Reseller</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Comment */}
-              <div className="flex flex-col">
-                <label className={labelClasses}>Comments or Notes</label>
-                <textarea
-                  name="comment"
-                  placeholder="Tell us any specifics you'd like the demo to cover (features, timelines, integrations, etc.)"
-                  rows="5"
-                  className={inputClasses + " resize-y min-h-[8rem]"}
-                  value={formData.comment}
-                  onChange={handleChange}
-                />
-              </div>
-
-              {/* Submit */}
-              <div className="flex justify-center pt-4">
-                <button
-                  type="submit"
-                  className="bg-emerald-600 text-white font-semibold tracking-wider uppercase px-12 py-4 rounded-lg text-lg transition-all duration-300 shadow-md hover:bg-emerald-700 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-emerald-500 focus:ring-opacity-50"
-                >
-                  Submit Demo Request
-                </button>
-              </div>
-
-              <p className="text-center text-sm text-gray-500 mt-4">
-                Fields marked with <span className="text-red-500">*</span> are required.
-              </p>
-            </form>
+                <p className="text-center text-sm text-gray-500 mt-4">
+                  Fields marked with <span className="text-red-500">*</span> are required.
+                </p>
+              </form>
+            )}
           </div>
         </main>
       </div>

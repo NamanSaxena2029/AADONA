@@ -79,12 +79,35 @@ export default function AdminPanel() {
     }
   };
 
+  // Auth check
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) load();
       else navigate("/admin-login");
     });
     return () => unsubscribe();
+  }, [navigate]);
+
+  // ✅ 5 Min Inactivity Logout
+  useEffect(() => {
+    let timer;
+
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        await signOut(auth);
+        navigate("/admin-login");
+      }, 5 * 60 * 1000); // 5 minutes
+    };
+
+    const events = ["mousemove", "mousedown", "keypress", "scroll", "touchstart", "click"];
+    events.forEach(event => window.addEventListener(event, resetTimer));
+    resetTimer(); // Timer shuru karo immediately
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach(event => window.removeEventListener(event, resetTimer));
+    };
   }, [navigate]);
 
   const uploadImage = async (file) => {

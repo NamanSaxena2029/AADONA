@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const admin = require("firebase-admin");
 const PDFDocument = require("pdfkit");
+const nodemailer = require("nodemailer");
 require("dotenv").config();
 
 const app = express();
@@ -15,6 +16,18 @@ const serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
+});
+
+/* =============================
+   NODEMAILER SETUP
+============================= */
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
 /* =============================
@@ -59,26 +72,20 @@ const requireAdmin = (req, res, next) => {
    MIDDLEWARE
 ============================= */
 
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-  })
-);
-
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 /* =============================
    DATABASE CONNECTION
 ============================= */
 
-if (!process.env.MONGO_URI) {
-  console.log("❌ MONGO_URI not found in .env");
+if (!process.env.MONGO_URL) {
+  console.log("❌ MONGO_URL not found in .env");
   process.exit(1);
 }
 
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URL)
   .then(() => {
     console.log("✅ MongoDB Atlas Connected");
     console.log("📂 Connected Database:", mongoose.connection.name);
@@ -99,23 +106,18 @@ const ProductSchema = new mongoose.Schema(
     slug: { type: String, required: true, unique: true },
     image: { type: String, required: true },
     datasheet: { type: String },
-
     type: { type: String, required: true },
     category: { type: String, required: true },
     subCategory: { type: String, required: true },
     extraCategory: { type: String, default: null },
-
     model: { type: String },
     fullName: { type: String },
     series: { type: String },
-
     highlights: { type: [String], default: [] },
-
     overview: {
       title: { type: String, default: "Product Overview" },
       content: { type: String },
     },
-
     featuresDetail: [
       {
         iconType: { type: String },
@@ -123,7 +125,6 @@ const ProductSchema = new mongoose.Schema(
         description: { type: String },
       },
     ],
-
     specifications: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }
@@ -180,9 +181,7 @@ app.get("/products", async (req, res) => {
 app.get("/products/:slug", async (req, res) => {
   try {
     const product = await Product.findOne({ slug: req.params.slug });
-    if (!product)
-      return res.status(404).json({ message: "Product not found" });
-
+    if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -194,71 +193,44 @@ app.get("/products/:slug", async (req, res) => {
 app.get("/products/:slug/datasheet", async (req, res) => {
   try {
     const product = await Product.findOne({ slug: req.params.slug });
-    if (!product)
-      return res.status(404).json({ message: "Product not found" });
+    if (!product) return res.status(404).json({ message: "Product not found" });
 
     const doc = new PDFDocument({ margin: 50, size: "A4" });
-
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=${product.slug}-datasheet.pdf`
-    );
-
+    res.setHeader("Content-Disposition", `attachment; filename=${product.slug}-datasheet.pdf`);
     doc.pipe(res);
 
-    doc.fontSize(22).font("Helvetica-Bold").text(product.name, {
-      align: "center",
-    });
-
+    doc.fontSize(22).font("Helvetica-Bold").text(product.name, { align: "center" });
     doc.moveDown(2);
-
     doc.fontSize(16).font("Helvetica-Bold").text("Product Overview");
     doc.moveDown(0.5);
-    doc
-      .fontSize(12)
-      .font("Helvetica")
-      .text(product.overview?.content || product.description, {
-        align: "justify",
-      });
-
+    doc.fontSize(12).font("Helvetica").text(product.overview?.content || product.description, { align: "justify" });
     doc.moveDown(1.5);
 
     if (product.highlights?.length) {
       doc.fontSize(16).font("Helvetica-Bold").text("Features");
       doc.moveDown(0.5);
-
       product.highlights.forEach((item) => {
         doc.fontSize(12).font("Helvetica").text("• " + item);
       });
-
       doc.moveDown(1.5);
     }
 
     if (product.specifications && Object.keys(product.specifications).length) {
       doc.fontSize(16).font("Helvetica-Bold").text("Specifications");
       doc.moveDown(0.5);
-
       Object.entries(product.specifications).forEach(([category, specs]) => {
         doc.fontSize(14).font("Helvetica-Bold").text(category);
         doc.moveDown(0.3);
-
         Object.entries(specs || {}).forEach(([key, value]) => {
           doc.fontSize(12).font("Helvetica").text(`${key}: ${value}`);
         });
-
         doc.moveDown(1);
       });
     }
 
     doc.moveDown(2);
-    doc
-      .fontSize(10)
-      .fillColor("gray")
-      .text("Generated automatically from AADONA Product System", {
-        align: "center",
-      });
-
+    doc.fontSize(10).fillColor("gray").text("Generated automatically from AADONA Product System", { align: "center" });
     doc.end();
   } catch (err) {
     console.log("PDF ERROR ❌:", err.message);
@@ -279,11 +251,7 @@ app.post("/products", verifyToken, requireAdmin, async (req, res) => {
       counter++;
     }
 
-    const newProduct = await Product.create({
-      ...req.body,
-      slug,
-    });
-
+    const newProduct = await Product.create({ ...req.body, slug });
     res.status(201).json(newProduct);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -294,12 +262,7 @@ app.post("/products", verifyToken, requireAdmin, async (req, res) => {
 
 app.put("/products/:id", verifyToken, requireAdmin, async (req, res) => {
   try {
-    const updated = await Product.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-
+    const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -322,10 +285,8 @@ app.delete("/products/:id", verifyToken, requireAdmin, async (req, res) => {
 app.post("/create-admin", verifyToken, requireAdmin, async (req, res) => {
   try {
     const { email, password } = req.body;
-
     const user = await admin.auth().createUser({ email, password });
     await admin.auth().setCustomUserClaims(user.uid, { admin: true });
-
     res.json({ message: "New Admin Created ✅" });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -336,22 +297,17 @@ app.post("/create-admin", verifyToken, requireAdmin, async (req, res) => {
 
 app.post("/save-related-products", verifyToken, requireAdmin, async (req, res) => {
   console.log("📦 /save-related-products HIT");
-  console.log("📦 Body received:", JSON.stringify(req.body, null, 2));
 
   try {
     const { type, category, subCategory, extraCategory, relatedProducts } = req.body;
 
     if (!category || !subCategory) {
-      console.log("❌ Missing category or subCategory");
       return res.status(400).json({ message: "category and subCategory are required" });
     }
 
     if (!relatedProducts || relatedProducts.length === 0) {
-      console.log("❌ No related products selected");
       return res.status(400).json({ message: "Select at least one related product" });
     }
-
-    console.log("🔍 Searching for existing entry...");
 
     const filter = {
       category,
@@ -360,25 +316,14 @@ app.post("/save-related-products", verifyToken, requireAdmin, async (req, res) =
       type: type || null,
     };
 
-    console.log("🔍 Filter:", filter);
-
     const result = await RelatedProduct.findOneAndUpdate(
       filter,
-      {
-        $set: {
-          type: type || null,
-          category,
-          subCategory,
-          extraCategory: extraCategory || null,
-          relatedProducts,
-        },
-      },
+      { $set: { type: type || null, category, subCategory, extraCategory: extraCategory || null, relatedProducts } },
       { upsert: true, new: true }
     );
 
     console.log("✅ Saved successfully:", result._id);
     res.json({ message: "Related products saved successfully ✅", result });
-
   } catch (err) {
     console.log("❌ Save Related Products Error:", err.message);
     res.status(500).json({ error: err.message });
@@ -391,29 +336,442 @@ app.get("/related-products", async (req, res) => {
   try {
     const { category, subCategory, extraCategory, type } = req.query;
 
-    console.log("🔍 GET /related-products query:", req.query);
-
     const query = { category, subCategory };
     if (extraCategory) query.extraCategory = extraCategory;
     if (type) query.type = type;
 
     const related = await RelatedProduct.findOne(query);
+    if (!related) return res.json({ relatedProducts: [] });
 
-    if (!related) {
-      console.log("⚠️ No related products found for query:", query);
-      return res.json({ relatedProducts: [] });
-    }
-
-    const products = await Product.find({
-      _id: { $in: related.relatedProducts },
-    });
-
-    console.log(`✅ Found ${products.length} related products`);
+    const products = await Product.find({ _id: { $in: related.relatedProducts } });
     res.json({ relatedProducts: products });
-
   } catch (err) {
     console.log("❌ Get Related Products Error:", err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- SUBMIT PARTNER FORM -------- */
+
+app.post("/submit-partner", async (req, res) => {
+  const form = req.body;
+  console.log("📧 Partner form received:", form.email);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Partner Application - ${form.companyName || "Unknown"}`,
+      html: `
+        <h2 style="color:#166534">New Partner Application</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
+          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+          <tr><td><b>Company</b></td><td>${form.companyName || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Website</b></td><td>${form.websiteAddress || "-"}</td></tr>
+          <tr><td><b>Address</b></td><td>${form.companyAddress || "-"}, ${form.companyCity || ""}, ${form.regionStateProvince || ""}, ${form.postalZip || ""}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Country</b></td><td>${form.country || "-"}</td></tr>
+          <tr><td><b>Primary Interest</b></td><td>${form.primaryInterest || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Geographies Served</b></td><td>${form.geographiesServed || "-"}</td></tr>
+          <tr><td><b>Annual Revenue</b></td><td>${form.revenueAnnual || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Verticals</b></td><td>${form.verticals || "-"}</td></tr>
+          <tr><td><b>Revenue - Private Projects</b></td><td>${form.revenuePrivateProjects || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Revenue - Government</b></td><td>${form.revenueFromGovt || "-"}</td></tr>
+          <tr><td><b>Revenue - Direct End Customer</b></td><td>${form.revenueFromDirectEnd || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Revenue - Retail/Trading</b></td><td>${form.revenueRetailTrading || "-"}</td></tr>
+          <tr><td><b>Sales Team Strength</b></td><td>${form.strengthSalesTeam || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Technical Sales Team</b></td><td>${form.strengthTechnicalSalesTeam || "-"}</td></tr>
+          <tr><td><b>Market Segment</b></td><td>${form.marketSegmentExpertise || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>WLAN & LAN Expertise</b></td><td>${form.wlanLanExpertise || "-"}</td></tr>
+          <tr><td><b>Brands They Sell</b></td><td>${form.brandsYouSell || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Comments</b></td><td>${form.otherComments || "-"}</td></tr>
+          <tr><td><b>Additional Notes</b></td><td>${form.additionalNotes || "-"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ Partner email sent");
+    res.json({ success: true, message: "Application submitted successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+});
+
+/* -------- SUBMIT PROJECT LOCKING FORM -------- */
+
+app.post("/submit-project-locking", async (req, res) => {
+  const form = req.body;
+  console.log("📧 Project Locking form received:", form.email);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Project Locking Request - ${form.projectName || "Unknown"}`,
+      html: `
+        <h2 style="color:#166534">New Project Locking Request</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
+          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+          <tr><td><b>Company</b></td><td>${form.company || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Address</b></td><td>${form.streetAddress || "-"}, ${form.streetAddress2 || ""}, ${form.city || ""}, ${form.regionState || ""}, ${form.postalZip || ""}</td></tr>
+          <tr><td><b>Country</b></td><td>${form.country || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Model</b></td><td>${form.modelName || "-"}</td></tr>
+          <tr><td><b>Quantity</b></td><td>${form.quantity || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>AADONA Sales</b></td><td>${form.aadonaSales || "-"}</td></tr>
+          <tr><td><b>Project Name</b></td><td>${form.projectName || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Project / Tender Name</b></td><td>${form.projectTenderName || "-"}</td></tr>
+          <tr><td><b>End Customer Name</b></td><td>${form.endCustomerName || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>End Customer Contact</b></td><td>${form.endCustomerContact || "-"}</td></tr>
+          <tr><td><b>Expected Closure</b></td><td>${form.expectedClosure || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>SI Partner Involved</b></td><td>${form.siPartner ? "Yes" : "No"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ Project Locking email sent");
+    res.json({ success: true, message: "Application submitted successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+});
+
+/* -------- SUBMIT DEMO REQUEST -------- */
+
+app.post("/submit-demo", async (req, res) => {
+  const form = req.body;
+  console.log("📧 Demo request received:", form.email);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Demo Request - ${form.firstName} ${form.lastName}`,
+      html: `
+        <h2 style="color:#166534">New Demo Request</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
+          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+          <tr><td><b>Address</b></td><td>${form.streetAddress || "-"}, ${form.streetAddress2 || ""}, ${form.city || ""}, ${form.regionStateProvince || ""}, ${form.postalZipCode || ""}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Country</b></td><td>${form.country || "-"}</td></tr>
+          <tr><td><b>Model Name</b></td><td>${form.modelName || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Customer Type</b></td><td>${(form.customerType || []).join(", ") || "-"}</td></tr>
+          <tr><td><b>Comments</b></td><td>${form.comment || "-"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ Demo request email sent");
+    res.json({ success: true, message: "Demo request submitted successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+});
+
+/* -------- SUBMIT TRAINING REQUEST -------- */
+
+app.post("/submit-training", async (req, res) => {
+  const form = req.body;
+  console.log("📧 Training request received:", form.email);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Training Request - ${form.firstName} ${form.lastName}`,
+      html: `
+        <h2 style="color:#166534">New Training Request</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
+          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+          <tr><td><b>Company</b></td><td>${form.company || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Number of Participants</b></td><td>${form.numberOfParticipants || "-"}</td></tr>
+          <tr><td><b>Training Location</b></td><td>${form.streetAddress || "-"}, ${form.streetAddress2 || ""}, ${form.city || ""}, ${form.regionStateProvince || ""}, ${form.postalZipCode || ""}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Country</b></td><td>${form.country || "-"}</td></tr>
+          <tr><td><b>Customer Type</b></td><td>${(form.customerType || []).join(", ") || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Comments</b></td><td>${form.comment || "-"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ Training request email sent");
+    res.json({ success: true, message: "Training request submitted successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+});
+
+/* -------- SUBMIT WARRANTY CHECK -------- */
+
+app.post("/submit-warranty", async (req, res) => {
+  const form = req.body;
+  console.log("📧 Warranty check received:", form.email);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Warranty Check - Serial: ${form.serialNumber || "Unknown"}`,
+      html: `
+        <h2 style="color:#166534">New Warranty Check Request</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Email</b></td><td>${form.email}</td></tr>
+          <tr><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Serial Number</b></td><td>${form.serialNumber || "-"}</td></tr>
+          <tr><td><b>Purchase Date</b></td><td>${form.purchaseDate || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Place of Purchase</b></td><td>${form.placeOfPurchase || "-"}</td></tr>
+          <tr><td><b>Invoice File</b></td><td>${form.invoiceFileName || "-"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ Warranty check email sent");
+    res.json({ success: true, message: "Warranty check submitted successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+});
+
+/* -------- SUBMIT TECH SQUAD REQUEST -------- */
+
+app.post("/submit-techsquad", async (req, res) => {
+  const form = req.body;
+  console.log("📧 Tech Squad request received:", form.email);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Tech Squad Request - ${form.firstName} ${form.lastName}`,
+      html: `
+        <h2 style="color:#166534">New Tech Squad Request</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
+          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+          <tr><td><b>Address</b></td><td>${form.address || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Purchase Date</b></td><td>${form.purchaseDate || "-"}</td></tr>
+          <tr><td><b>Service Type</b></td><td>${form.serviceType || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Invoice File</b></td><td>${form.invoiceFileName || "-"}</td></tr>
+          <tr><td><b>Issue Description</b></td><td>${form.issue || "-"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ Tech Squad email sent");
+    res.json({ success: true, message: "Tech Squad request submitted successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+});
+
+/* -------- SUBMIT DOA REQUEST -------- */
+
+app.post("/submit-doa", async (req, res) => {
+  const form = req.body;
+  console.log("📧 DOA request received:", form.email);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New DOA Request - Serial: ${form.serialNumber || "Unknown"}`,
+      html: `
+        <h2 style="color:#166534">New DOA Request</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
+          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+          <tr><td><b>Address</b></td><td>${form.address || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Product Type</b></td><td>${form.productType || "-"}</td></tr>
+          <tr><td><b>Purchase Date</b></td><td>${form.purchaseDate || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Warranty Year</b></td><td>${form.warrantyYear || "-"}</td></tr>
+          <tr><td><b>Serial Number</b></td><td>${form.serialNumber || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Invoice Number</b></td><td>${form.invoiceNumber || "-"}</td></tr>
+          <tr><td><b>DOA Auth Code</b></td><td>${form.doaAuthCode || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Invoice File</b></td><td>${form.invoiceFileName || "-"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ DOA request email sent");
+    res.json({ success: true, message: "DOA request submitted successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+});
+
+/* -------- SUBMIT PRODUCT SUPPORT -------- */
+
+app.post("/submit-product-support", async (req, res) => {
+  const form = req.body;
+  console.log("📧 Product Support request received:", form.email);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Product Support Request - ${form.productModel || "Unknown"}`,
+      html: `
+        <h2 style="color:#166534">New Product Support Request</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Product Model</b></td><td>${form.productModel || "-"}</td></tr>
+          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+          <tr><td><b>Issue / Question</b></td><td>${form.details || "-"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ Product Support email sent");
+    res.json({ success: true, message: "Support request submitted successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+});
+
+/* -------- SUBMIT PRODUCT REGISTRATION -------- */
+
+app.post("/submit-product-registration", async (req, res) => {
+  const form = req.body;
+  console.log("📧 Product Registration received:", form.email);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Product Registration - Serial: ${form.serialNumber || "Unknown"}`,
+      html: `
+        <h2 style="color:#166534">New Product Registration</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
+          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+          <tr><td><b>City</b></td><td>${form.companyCity || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Region/State</b></td><td>${form.regionStateProvince || "-"}</td></tr>
+          <tr><td><b>Postal Code</b></td><td>${form.postalZipCode || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Country</b></td><td>${form.country || "-"}</td></tr>
+          <tr><td><b>Serial Number</b></td><td>${form.serialNumber || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Invoice Number</b></td><td>${form.invoiceNumber || "-"}</td></tr>
+          <tr><td><b>Purchased From</b></td><td>${form.purchasedFrom || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Purchase Date</b></td><td>${form.purchaseDate || "-"}</td></tr>
+          <tr><td><b>Invoice File</b></td><td>${form.invoiceFileName || "-"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ Product Registration email sent");
+    res.json({ success: true, message: "Product registered successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+});
+
+/* -------- SUBMIT CONTACT FORM -------- */
+
+app.post("/submit-contact", async (req, res) => {
+  const form = req.body;
+  console.log("📧 Contact form received:", form.email);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Contact Message - ${form.subject || "Unknown"}`,
+      html: `
+        <h2 style="color:#166534">New Contact Message</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
+          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+          <tr><td><b>Subject</b></td><td>${form.subject || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Nature of Business</b></td><td>${form.natureOfBusiness || "-"}</td></tr>
+          <tr><td><b>Message</b></td><td>${form.message || "-"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ Contact email sent");
+    res.json({ success: true, message: "Message sent successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+});
+
+/* -------- SUBMIT APPLY NOW FORM -------- */
+
+app.post("/submit-apply", async (req, res) => {
+  const form = req.body;
+  console.log("📧 Job application received:", form.email);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Job Application - ${form.firstName} ${form.lastName}`,
+      html: `
+        <h2 style="color:#166534">New Job Application</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
+          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+          <tr><td><b>Availability</b></td><td>${(form.availability || []).join(", ") || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Resume File</b></td><td>${form.resumeFileName || "-"}</td></tr>
+          <tr><td><b>About</b></td><td>${form.about || "-"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ Job application email sent");
+    res.json({ success: true, message: "Application submitted successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+});
+
+/* -------- SUBMIT WHISTLE BLOWER FORM -------- */
+
+app.post("/submit-whistleblower", async (req, res) => {
+  const form = req.body;
+  console.log("📧 Whistle blower report received:", form.email || "Anonymous");
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Whistle Blower Report`,
+      html: `
+        <h2 style="color:#166534">New Whistle Blower Report</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+          <tr style="background:#f0fdf4"><td><b>Issue Details</b></td><td>${form.issueDetails || "-"}</td></tr>
+          <tr><td><b>Serial Number</b></td><td>${form.serialNumber || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>References</b></td><td>${form.references || "-"}</td></tr>
+          <tr><td><b>Evidence File</b></td><td>${form.evidenceFileName || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Email (optional)</b></td><td>${form.email || "Anonymous"}</td></tr>
+        </table>
+      `,
+    });
+
+    console.log("✅ Whistle blower email sent");
+    res.json({ success: true, message: "Report submitted successfully" });
+  } catch (err) {
+    console.error("❌ Mail error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
