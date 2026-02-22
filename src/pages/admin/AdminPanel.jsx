@@ -9,7 +9,6 @@ import Navbar from "../../Components/Navbar";
 import ProductDetailPage from "../../Components/ProductDetailPage";
 
 const API = "http://localhost:5000/products";
-
 const categories = {
   "Network Switches": {
     "Unmanaged Switches": [],
@@ -20,16 +19,45 @@ const categories = {
     "Accessories": ["Essential", "Media Convertors", "Power Supply"]
   },
   "Industrial & Rugged Switches": {
-    "Un-Managed PoE": [], "Un-Managed Non PoE": [], "Managed PoE": [], "Managed Non PoE": []
+    "Un-Managed PoE": [],
+    "Un-Managed Non PoE": [],
+    "Managed PoE": [],
+    "Managed Non PoE": []
   },
   "Wireless Solutions": {
     "Indoor": ["Business", "Enterprise"],
     "Outdoor": ["Business", "Enterprise"],
     "Controller": ["Business", "Enterprise"]
   },
-  "Server and Workstations": { "Servers": [], "Workstations": [] },
-  "Network Attached Storage": { "Desktop NAS": [], "Rackmount NAS": [] },
-  "Surveillance": { "Indoor": [], "Outdoor": [], "NVR": [], "Surveillance": [] }
+  "Server and Workstations": {
+    "Servers": [],
+    "Workstations": []
+  },
+  "Network Attached Storage": {
+    "Desktop NAS": [],
+    "Rackmount NAS": []
+  },
+  "Surveillance": {
+    "Indoor": [],
+    "Outdoor": [],
+    "NVR": [],
+    "Surveillance": []
+  },
+
+  // 🔹 Passive Categories
+  "Cables": {
+    "Copper Cables": [],
+    "Fiber Cables": []
+  },
+  "Racks": {
+    "Wall Mount Racks": [],
+    "Floor Standing Racks": []
+  },
+  "Network Accessories": {
+    "Patch Panels": [],
+    "Face Plates": [],
+    "Keystone Jacks": []
+  }
 };
 
 const safeJson = async (res) => {
@@ -127,8 +155,9 @@ export default function AdminPanel() {
     setForm({ ...form, features: form.features.filter((_, i) => i !== index) });
   };
 
-  const extraOptions = (form.category && form.subCategory)
-    ? (categories[form.category]?.[form.subCategory] || [])
+ const extraOptions =
+  form.category && form.subCategory
+    ? (categories[form.category] || {})[form.subCategory] || []
     : [];
 
   const basicCompleted =
@@ -507,14 +536,34 @@ export default function AdminPanel() {
                 <select className={inputStyle} value={form.category || ""} disabled={!form.type}
                   onChange={e => setForm({ ...form, category: e.target.value, subCategory: "", extraCategory: "" })}>
                   <option value="">Category</option>
-                  {Object.keys(categories).map(c => <option key={c} value={c}>{c}</option>)}
+                  {Object.keys(categories)
+                    .filter((c) => {
+                      const passiveCategories = ["Cables", "Racks", "Network Accessories"];
+                  
+                      if (form.type === "passive") {
+                        return passiveCategories.includes(c);
+                      }
+                  
+                      if (form.type === "active") {
+                        return !passiveCategories.includes(c);
+                      }
+                  
+                      return false;
+                    })
+                    .map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                 </select>
 
                 <select className={inputStyle} value={form.subCategory || ""} disabled={!form.category}
                   onChange={e => setForm({ ...form, subCategory: e.target.value, extraCategory: "" })}>
                   <option value="">Sub Category</option>
-                  {form.category && Object.keys(categories[form.category]).map(s =>
-                    <option key={s} value={s}>{s}</option>)}
+                  {form.category &&
+  Object.keys(categories[form.category] || {}).map((s) => (
+    <option key={s} value={s}>{s}</option>
+))}
                 </select>
 
                 {extraOptions.length > 0 && (
@@ -761,9 +810,24 @@ export default function AdminPanel() {
                     relatedExtraCategory: ""
                   })}>
                   <option value="">Select Category</option>
-                  {Object.keys(categories).map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
+                  {form.type &&
+  Object.keys(categories)
+    .filter((c) => {
+      const passiveCategories = ["Cables", "Racks", "Network Accessories"];
+
+      if (form.type === "passive") {
+        return passiveCategories.includes(c);
+      }
+
+      if (form.type === "active") {
+        return !passiveCategories.includes(c);
+      }
+
+      return false;
+    })
+    .map((c) => (
+      <option key={c} value={c}>{c}</option>
+    ))}
                 </select>
 
                 <select className={inputStyle} disabled={!form.relatedCategory}

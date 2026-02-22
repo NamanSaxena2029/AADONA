@@ -4,46 +4,32 @@ import Navbar from "../../Components/Navbar";
 import Footer from "../../Components/Footer";
 import customArrow from "../../assets/arrow.png";
 import hero from "../../assets/hero6.jpg";
+import cables from '../../assets/cables.png';
+import racks from '../../assets/racks.png';
+import networkaccessories from '../../assets/network-accessories.png';
 
 const FilterOptions = () => {
 
   const options = [
     {
-      title: "Network Switches",
-      description: "Reliable and scalable switching solutions.",
-      category: "Network Switches",
-      imageSrc: hero
+      title: "Cables",
+      description: "High Performance CAT6+ Cables.",
+      category: "Cables",
+      imageSrc: cables
     },
     {
-      title: "Industrial & Rugged Switches",
-      description: "Durable switching solutions.",
-      category: "Industrial & Rugged Switches",
-      imageSrc: hero
+      title: "Racks",
+      description: "Indoor Wall / Pole Mount Rack.",
+      category: "Racks",
+      imageSrc: racks
     },
     {
-      title: "Wireless Solutions",
-      description: "Secure and fast wireless networking.",
-      category: "Wireless Solutions",
-      imageSrc: hero
+      title: "Network Accessories",
+      description: "Essential products for network setup.",
+      category: "Network Accessories",
+      imageSrc: networkaccessories
     },
-    {
-      title: "Server and Workstations",
-      description: "High performance computing systems.",
-      category: "Server and Workstations",
-      imageSrc: hero
-    },
-    {
-      title: "Network Attached Storage",
-      description: "Centralized storage systems.",
-      category: "Network Attached Storage",
-      imageSrc: hero
-    },
-    {
-      title: "Surveillance",
-      description: "Cameras and video analytics.",
-      category: "Surveillance",
-      imageSrc: hero
-    }
+
   ];
 
   useEffect(() => {
