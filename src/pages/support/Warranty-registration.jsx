@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '../../Components/Navbar';
 import Footer from '../../Components/Footer';
+import { X, UploadCloud } from 'lucide-react';
 import bg from '../../assets/bg.jpg';
 
 const COUNTRIES = [
@@ -32,14 +33,18 @@ const COUNTRIES = [
 const emptyForm = {
   firstName: '', lastName: '', email: '', phone: '', companyCity: '',
   postalZipCode: '', regionStateProvince: '', country: '', serialNumber: '',
-  invoiceNumber: '', purchasedFrom: '', purchaseDate: '', invoiceFile: null
+  invoiceNumber: '', purchasedFrom: '', purchaseDate: ''
 };
 
 const ProductRegistration = () => {
   const [formData, setFormData] = useState(emptyForm);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileName, setFileName] = useState("Choose file");
   const [errors, setErrors] = useState({});
+  const [fileError, setFileError] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -48,15 +53,41 @@ const ProductRegistration = () => {
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
+    setFileError("");
+
     if (file) {
-      if (file.size > 15 * 1024 * 1024) {
-        setErrors(prev => ({ ...prev, invoiceFile: 'File size must be less than 15MB' }));
+      // Validate file size (15MB = 15 * 1024 * 1024 bytes)
+      const maxSize = 15 * 1024 * 1024;
+      if (file.size > maxSize) {
+        setFileError("File size must be less than 15MB");
+        setSelectedFile(null);
+        setFileName("Choose file");
+        if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
-      setFormData(prev => ({ ...prev, invoiceFile: file }));
-      setErrors(prev => ({ ...prev, invoiceFile: '' }));
+
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        setFileError("Only PDF, JPG, and PNG files are allowed");
+        setSelectedFile(null);
+        setFileName("Choose file");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      setSelectedFile(file);
+      setFileName(file.name);
+      if (errors.invoiceFile) setErrors(prev => ({ ...prev, invoiceFile: '' }));
     }
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    setFileName("Choose file");
+    setFileError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const validateForm = () => {
@@ -84,20 +115,22 @@ const ProductRegistration = () => {
     setIsSubmitting(true);
 
     try {
-      const payload = {
-        firstName: formData.firstName, lastName: formData.lastName,
-        email: formData.email, phone: formData.phone,
-        companyCity: formData.companyCity, postalZipCode: formData.postalZipCode,
-        regionStateProvince: formData.regionStateProvince, country: formData.country,
-        serialNumber: formData.serialNumber, invoiceNumber: formData.invoiceNumber,
-        purchasedFrom: formData.purchasedFrom, purchaseDate: formData.purchaseDate,
-        invoiceFileName: formData.invoiceFile ? formData.invoiceFile.name : "-"
-      };
+      // Create FormData object to handle file upload
+      const formDataToSend = new FormData();
+      
+      // Append all form fields
+      Object.keys(formData).forEach(key => {
+        formDataToSend.append(key, formData[key]);
+      });
+
+      // Append file if selected
+      if (selectedFile) {
+        formDataToSend.append('invoiceFile', selectedFile);
+      }
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/submit-product-registration`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: formDataToSend, // Send FormData directly (don't set Content-Type header)
       });
 
       const data = await res.json();
@@ -105,6 +138,10 @@ const ProductRegistration = () => {
       if (res.ok) {
         setIsSubmitted(true);
         setFormData(emptyForm);
+        setSelectedFile(null);
+        setFileName("Choose file");
+        setFileError("");
+        if (fileInputRef.current) fileInputRef.current.value = "";
         setTimeout(() => setIsSubmitted(false), 5000);
       } else {
         alert(data.message || "Something went wrong. Please try again.");
@@ -235,25 +272,50 @@ const ProductRegistration = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Upload Invoice</label>
-                    <div className="relative">
-                      <input type="file" id="invoiceFile" name="invoiceFile" onChange={handleFileChange} accept=".pdf,.jpg,.jpeg,.png" className="hidden" />
-                      <label htmlFor="invoiceFile" className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 transition duration-200">
-                        <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span className="text-green-600 font-medium">
-                          {formData.invoiceFile ? formData.invoiceFile.name : 'Upload Invoice'}
-                        </span>
-                      </label>
+                    <div className={`relative flex items-center justify-between border rounded-lg px-4 py-3 cursor-pointer transition-all ${
+                      fileError ? 'border-red-400 bg-red-50' : 'border-gray-300 hover:border-green-500'
+                    }`}>
+                      <span className={`truncate text-sm ${selectedFile ? 'text-slate-800 font-medium' : 'text-slate-500'}`}>
+                        {fileName}
+                      </span>
+                      <div className="flex items-center gap-2 ml-2">
+                        {selectedFile && (
+                          <button
+                            type="button"
+                            onClick={removeFile}
+                            className="p-1 hover:bg-red-100 rounded-full transition flex-shrink-0"
+                            title="Remove file"
+                          >
+                            <X className="w-4 h-4 text-red-600" />
+                          </button>
+                        )}
+                        <UploadCloud className="w-5 h-5 text-green-600 flex-shrink-0" />
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                        onChange={handleFileChange}
+                        accept=".pdf,.jpg,.jpeg,.png"
+                      />
                     </div>
-                    <p className="mt-1 text-xs text-gray-500">Supported formats: PDF, JPG, PNG (Max 15MB)</p>
-                    {errors.invoiceFile && <p className="mt-1 text-sm text-red-600">{errors.invoiceFile}</p>}
+                    {fileError && (
+                      <p className="mt-1 text-sm text-red-600">{fileError}</p>
+                    )}
+                    {!fileError && (
+                      <p className="mt-1 text-xs text-gray-500">Supported formats: PDF, JPG, PNG (Max 15MB)</p>
+                    )}
+                    {selectedFile && !fileError && (
+                      <p className="text-sm mt-1 text-green-600">
+                        ✓ File ready: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex justify-center pt-4">
                     <button
-                      type="submit" disabled={isSubmitting}
-                      className={`px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      type="submit" disabled={isSubmitting || !!fileError}
+                      className={`px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${isSubmitting || fileError ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {isSubmitting ? 'Submitting...' : 'Register Product'}
                     </button>

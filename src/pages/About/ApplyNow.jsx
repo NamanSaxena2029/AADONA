@@ -11,12 +11,12 @@ const emptyForm = {
   phone: "",
   availability: [],
   about: "",
-  resumeFileName: "",
 };
 
 const ApplyNow = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState(emptyForm);
+  const [resumeFile, setResumeFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -38,15 +38,60 @@ const ApplyNow = () => {
     }
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        e.target.value = '';
+        return;
+      }
+
+      // Validate file type
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Only PDF, DOC, and DOCX files are allowed');
+        e.target.value = '';
+        return;
+      }
+
+      setResumeFile(file);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
 
     try {
+      // Create FormData object
+      const formDataToSend = new FormData();
+
+      // Add all form fields
+      Object.keys(form).forEach(key => {
+        if (key === 'availability') {
+          // Convert array to JSON string for backend
+          formDataToSend.append(key, JSON.stringify(form[key]));
+        } else if (form[key]) {
+          formDataToSend.append(key, form[key]);
+        }
+      });
+
+      // Add file if selected - field name MUST match backend: 'resumeFile'
+      if (resumeFile) {
+        formDataToSend.append('resumeFile', resumeFile);
+        console.log('📎 Resume attached:', resumeFile.name);
+      }
+
       const res = await fetch(`${import.meta.env.VITE_API_URL}/submit-apply`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        // DO NOT set Content-Type header - browser sets it automatically with boundary
+        body: formDataToSend,
       });
 
       const data = await res.json();
@@ -54,6 +99,10 @@ const ApplyNow = () => {
       if (res.ok) {
         setSubmitted(true);
         setForm(emptyForm);
+        setResumeFile(null);
+        // Reset file input
+        const fileInput = document.getElementById('resumeFileInput');
+        if (fileInput) fileInput.value = '';
       } else {
         alert(data.message || "Something went wrong. Please try again.");
       }
@@ -198,21 +247,17 @@ const ApplyNow = () => {
                     />
                   </svg>
                   <label className="mt-3 cursor-pointer text-green-700 font-medium hover:underline">
-                    {form.resumeFileName || "Upload a file"}
+                    {resumeFile ? resumeFile.name : "Upload a file"}
                     <input
+                      id="resumeFileInput"
                       type="file"
                       accept=".pdf,.doc,.docx"
                       className="sr-only"
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          resumeFileName: e.target.files?.[0]?.name || "",
-                        }))
-                      }
+                      onChange={handleFileChange}
                     />
                   </label>
                   <p className="text-xs text-gray-500 mt-1">
-                    Supported: PDF / DOC / DOCX — max 15MB
+                    Supported: PDF / DOC / DOCX — max 10MB
                   </p>
                 </div>
               </div>

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../Components/Navbar";
 import Footer from "../../Components/Footer";
-import { Wrench, ClipboardList, CheckCircle2, Mail, Phone, MapPin, Calendar, UploadCloud, Send } from "lucide-react";
+import { Wrench, ClipboardList, CheckCircle2, Mail, Phone, MapPin, Calendar, UploadCloud, Send, X } from "lucide-react";
 import bg from "../../assets/bg.jpg";
 
 const Reveal = ({ children, className = "" }) => {
@@ -55,14 +55,54 @@ const emptyForm = {
 };
 
 const TechSquad = () => {
+  const [selectedFile, setSelectedFile] = useState(null);
   const [fileName, setFileName] = useState("Choose file");
+  const [fileError, setFileError] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const fileInputRef = useRef(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    setFileError("");
+
+    if (file) {
+      // Validate file size (15MB = 15 * 1024 * 1024 bytes)
+      const maxSize = 15 * 1024 * 1024;
+      if (file.size > maxSize) {
+        setFileError("File size must be less than 15MB");
+        setSelectedFile(null);
+        setFileName("Choose file");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        setFileError("Only PDF, JPG, and PNG files are allowed");
+        setSelectedFile(null);
+        setFileName("Choose file");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      setSelectedFile(file);
+      setFileName(file.name);
+    }
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    setFileName("Choose file");
+    setFileError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSubmit = async (e) => {
@@ -70,10 +110,22 @@ const TechSquad = () => {
     setSubmitting(true);
 
     try {
+      // Create FormData object to handle file upload
+      const formData = new FormData();
+      
+      // Append all form fields
+      Object.keys(form).forEach(key => {
+        formData.append(key, form[key]);
+      });
+
+      // Append file if selected
+      if (selectedFile) {
+        formData.append('invoiceFile', selectedFile);
+      }
+
       const res = await fetch(`${import.meta.env.VITE_API_URL}/submit-techsquad`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, invoiceFileName: fileName !== "Choose file" ? fileName : "-" }),
+        body: formData, // Send FormData directly (don't set Content-Type header, browser will set it automatically with boundary)
       });
 
       const data = await res.json();
@@ -82,6 +134,9 @@ const TechSquad = () => {
         setSubmitted(true);
         setForm(emptyForm);
         setFileName("Choose file");
+        setSelectedFile(null);
+        setFileError("");
+        if (fileInputRef.current) fileInputRef.current.value = "";
       } else {
         alert(data.message || "Something went wrong. Please try again.");
       }
@@ -202,7 +257,7 @@ const TechSquad = () => {
                   <form onSubmit={handleSubmit}>
                     <div className="grid md:grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-slate-700 font-medium mb-1">First Name</label>
+                        <label className="block text-slate-700 font-medium mb-1">First Name *</label>
                         <input name="firstName" value={form.firstName} onChange={handleChange} className={inputBase} placeholder="Enter first name" required />
                       </div>
                       <div>
@@ -211,19 +266,19 @@ const TechSquad = () => {
                       </div>
                       <div>
                         <label className="block text-slate-700 font-medium mb-1 flex items-center gap-2">
-                          <Mail className="w-4 h-4 text-green-600" /> Email
+                          <Mail className="w-4 h-4 text-green-600" /> Email *
                         </label>
                         <input type="email" name="email" value={form.email} onChange={handleChange} className={inputBase} placeholder="you@example.com" required />
                       </div>
                       <div>
                         <label className="block text-slate-700 font-medium mb-1 flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-green-600" /> Phone
+                          <Phone className="w-4 h-4 text-green-600" /> Phone *
                         </label>
                         <input name="phone" value={form.phone} onChange={handleChange} className={inputBase} placeholder="Enter phone number" required />
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-slate-700 font-medium mb-1 flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-green-600" /> Address
+                          <MapPin className="w-4 h-4 text-green-600" /> Address *
                         </label>
                         <input name="address" value={form.address} onChange={handleChange} className={inputBase} placeholder="Full address with city & pin code" required />
                       </div>
@@ -235,8 +290,8 @@ const TechSquad = () => {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-slate-700 font-medium mb-1">Service Type</label>
-                        <select name="serviceType" value={form.serviceType} onChange={handleChange} className={inputBase + " bg-white"}>
+                        <label className="block text-slate-700 font-medium mb-1">Service Type *</label>
+                        <select name="serviceType" value={form.serviceType} onChange={handleChange} className={inputBase + " bg-white"} required>
                           <option value="">Choose an option</option>
                           <option>On-site Visit</option>
                           <option>Remote Support</option>
@@ -247,15 +302,47 @@ const TechSquad = () => {
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-slate-700 font-medium mb-1">Upload Invoice / Evidence (Max 15MB)</label>
-                        <div className="relative flex items-center justify-between border border-green-300 rounded-xl px-4 py-3 hover:border-green-500 cursor-pointer transition">
-                          <span className="text-slate-600">{fileName}</span>
-                          <UploadCloud className="w-5 h-5 text-green-700" />
-                          <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setFileName(e.target.files?.[0]?.name || "Choose file")} accept=".pdf,.jpg,.jpeg,.png" />
+                        <div className={`relative flex items-center justify-between border rounded-xl px-4 py-3 cursor-pointer transition ${
+                          fileError ? 'border-red-400 bg-red-50' : 'border-green-300 hover:border-green-500'
+                        }`}>
+                          <span className={`text-sm ${selectedFile ? 'text-slate-800 font-medium' : 'text-slate-500'}`}>
+                            {fileName}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {selectedFile && (
+                              <button
+                                type="button"
+                                onClick={removeFile}
+                                className="p-1 hover:bg-red-100 rounded-full transition"
+                                title="Remove file"
+                              >
+                                <X className="w-4 h-4 text-red-600" />
+                              </button>
+                            )}
+                            <UploadCloud className="w-5 h-5 text-green-700" />
+                          </div>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            onChange={handleFileChange}
+                            accept=".pdf,.jpg,.jpeg,.png"
+                          />
                         </div>
-                        <p className="text-sm mt-1 text-slate-500">PDF / JPG / PNG supported</p>
+                        {fileError && (
+                          <p className="text-sm mt-1 text-red-600">{fileError}</p>
+                        )}
+                        {!fileError && (
+                          <p className="text-sm mt-1 text-slate-500">PDF / JPG / PNG supported (Max 15MB)</p>
+                        )}
+                        {selectedFile && !fileError && (
+                          <p className="text-sm mt-1 text-green-600">
+                            ✓ File ready: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        )}
                       </div>
                       <div className="md:col-span-2">
-                        <label className="block text-slate-700 font-medium mb-1">Describe the issue</label>
+                        <label className="block text-slate-700 font-medium mb-1">Describe the issue *</label>
                         <textarea name="issue" value={form.issue} onChange={handleChange} rows={4} className={inputBase} placeholder="Describe your issue..." required />
                       </div>
                     </div>
@@ -263,7 +350,7 @@ const TechSquad = () => {
                     <div className="flex justify-center mt-8">
                       <button
                         type="submit"
-                        disabled={submitting}
+                        disabled={submitting || !!fileError}
                         className="inline-flex items-center gap-2 rounded-full bg-green-600 text-white px-10 py-4 font-semibold hover:bg-green-700 transition duration-300 ease-out hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Send className="w-5 h-5" />
