@@ -1,16 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Navbar from "../../Components/Navbar";
 import Footer from "../../Components/Footer";
+import { X, UploadCloud, Send } from "lucide-react";
 import bg from "../../assets/bg.jpg";
 
 const WarrantyCheckButton = () => {
+  const [selectedFile, setSelectedFile] = useState(null);
   const [fileName, setFileName] = useState("Choose file");
+  const [fileError, setFileError] = useState("");
   const [form, setForm] = useState({
     serialNumber: "", purchaseDate: "", placeOfPurchase: "",
     email: "", phone: ""
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -21,15 +25,64 @@ const WarrantyCheckButton = () => {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    setFileError("");
+
+    if (file) {
+      // Validate file size (15MB = 15 * 1024 * 1024 bytes)
+      const maxSize = 15 * 1024 * 1024;
+      if (file.size > maxSize) {
+        setFileError("File size must be less than 15MB");
+        setSelectedFile(null);
+        setFileName("Choose file");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        setFileError("Only PDF, JPG, and PNG files are allowed");
+        setSelectedFile(null);
+        setFileName("Choose file");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      setSelectedFile(file);
+      setFileName(file.name);
+    }
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    setFileName("Choose file");
+    setFileError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
 
     try {
+      // Create FormData object to handle file upload
+      const formData = new FormData();
+      
+      // Append all form fields
+      Object.keys(form).forEach(key => {
+        formData.append(key, form[key]);
+      });
+
+      // Append file if selected
+      if (selectedFile) {
+        formData.append('invoiceFile', selectedFile);
+      }
+
       const res = await fetch(`${import.meta.env.VITE_API_URL}/submit-warranty`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, invoiceFileName: fileName !== "Choose file" ? fileName : "-" }),
+        body: formData, // Send FormData directly (don't set Content-Type header, browser will set it automatically with boundary)
       });
 
       const data = await res.json();
@@ -38,6 +91,9 @@ const WarrantyCheckButton = () => {
         setSubmitted(true);
         setForm({ serialNumber: "", purchaseDate: "", placeOfPurchase: "", email: "", phone: "" });
         setFileName("Choose file");
+        setSelectedFile(null);
+        setFileError("");
+        if (fileInputRef.current) fileInputRef.current.value = "";
       } else {
         alert(data.message || "Something went wrong. Please try again.");
       }
@@ -89,7 +145,7 @@ const WarrantyCheckButton = () => {
                 {/* Serial Number */}
                 <div>
                   <label className="text-green-700 font-semibold block text-lg">
-                    Enter Serial Number
+                    Enter Serial Number *
                   </label>
                   <input
                     type="text"
@@ -108,19 +164,44 @@ const WarrantyCheckButton = () => {
                     <label className="text-green-700 font-semibold block text-lg">
                       Upload Invoice (Max 15MB)
                     </label>
-                    <div className="relative flex items-center justify-between border border-green-300 rounded-xl px-4 py-3 mt-2 hover:border-green-500 cursor-pointer transition-all">
-                      <span className="text-slate-600 truncate">{fileName}</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 16l-4-4m0 0l-4 4m4-4v12M20 16a4 4 0 00-4-4H8a4 4 0 00-4 4" />
-                      </svg>
+                    <div className={`relative flex items-center justify-between border rounded-xl px-4 py-3 mt-2 cursor-pointer transition-all ${
+                      fileError ? 'border-red-400 bg-red-50' : 'border-green-300 hover:border-green-500'
+                    }`}>
+                      <span className={`truncate text-base ${selectedFile ? 'text-slate-800 font-medium' : 'text-slate-500'}`}>
+                        {fileName}
+                      </span>
+                      <div className="flex items-center gap-2 ml-2">
+                        {selectedFile && (
+                          <button
+                            type="button"
+                            onClick={removeFile}
+                            className="p-1 hover:bg-red-100 rounded-full transition flex-shrink-0"
+                            title="Remove file"
+                          >
+                            <X className="w-4 h-4 text-red-600" />
+                          </button>
+                        )}
+                        <UploadCloud className="w-5 h-5 text-green-700 flex-shrink-0" />
+                      </div>
                       <input
+                        ref={fileInputRef}
                         type="file"
                         className="absolute inset-0 opacity-0 cursor-pointer"
-                        onChange={(e) => setFileName(e.target.files?.[0]?.name || "Choose file")}
+                        onChange={handleFileChange}
                         accept=".pdf,.jpg,.jpeg,.png"
                       />
                     </div>
-                    <p className="text-sm mt-1 text-slate-500">Supported: PDF / JPG / PNG — max 15MB</p>
+                    {fileError && (
+                      <p className="text-sm mt-1 text-red-600">{fileError}</p>
+                    )}
+                    {!fileError && (
+                      <p className="text-sm mt-1 text-slate-500">Supported: PDF / JPG / PNG — max 15MB</p>
+                    )}
+                    {selectedFile && !fileError && (
+                      <p className="text-sm mt-1 text-green-600">
+                        ✓ File ready: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -179,13 +260,10 @@ const WarrantyCheckButton = () => {
                 <div className="flex justify-center pt-2">
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || !!fileError}
                     className="inline-flex items-center gap-2 rounded-full bg-green-600 text-white px-10 py-4 font-semibold shadow-xl hover:shadow-2xl hover:shadow-green-300/50 hover:bg-green-700 transition-all duration-500 ease-out transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M22 2L11 13" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M22 2L15 22L11 13L2 9L22 2Z" />
-                    </svg>
+                    <Send className="w-5 h-5" />
                     {submitting ? "Submitting..." : "Submit Application"}
                   </button>
                 </div>

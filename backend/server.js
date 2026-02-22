@@ -4,6 +4,7 @@ const cors = require("cors");
 const admin = require("firebase-admin");
 const PDFDocument = require("pdfkit");
 const nodemailer = require("nodemailer");
+const multer = require("multer");
 require("dotenv").config();
 
 const app = express();
@@ -12,10 +13,20 @@ const app = express();
    FIREBASE ADMIN SETUP
 ============================= */
 
-const serviceAccount = require("./serviceAccountKey.json");
+const serviceAccount = require("./ServiceAccountKey.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
+});
+
+/* =============================
+   MULTER SETUP FOR FILE UPLOADS
+============================= */
+
+const storage = multer.memoryStorage(); // Store files in memory as Buffer
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 15 * 1024 * 1024 } // 15MB limit (matching frontend validation)
 });
 
 /* =============================
@@ -378,15 +389,8 @@ app.post("/submit-partner", async (req, res) => {
           <tr style="background:#f0fdf4"><td><b>Verticals</b></td><td>${form.verticals || "-"}</td></tr>
           <tr><td><b>Revenue - Private Projects</b></td><td>${form.revenuePrivateProjects || "-"}</td></tr>
           <tr style="background:#f0fdf4"><td><b>Revenue - Government</b></td><td>${form.revenueFromGovt || "-"}</td></tr>
-          <tr><td><b>Revenue - Direct End Customer</b></td><td>${form.revenueFromDirectEnd || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Revenue - Retail/Trading</b></td><td>${form.revenueRetailTrading || "-"}</td></tr>
-          <tr><td><b>Sales Team Strength</b></td><td>${form.strengthSalesTeam || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Technical Sales Team</b></td><td>${form.strengthTechnicalSalesTeam || "-"}</td></tr>
-          <tr><td><b>Market Segment</b></td><td>${form.marketSegmentExpertise || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>WLAN & LAN Expertise</b></td><td>${form.wlanLanExpertise || "-"}</td></tr>
-          <tr><td><b>Brands They Sell</b></td><td>${form.brandsYouSell || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Comments</b></td><td>${form.otherComments || "-"}</td></tr>
-          <tr><td><b>Additional Notes</b></td><td>${form.additionalNotes || "-"}</td></tr>
+          <tr><td><b>Best Describe You</b></td><td>${form.bestDescribeYou || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Details</b></td><td>${form.details || "-"}</td></tr>
         </table>
       `,
     });
@@ -509,14 +513,14 @@ app.post("/submit-training", async (req, res) => {
   }
 });
 
-/* -------- SUBMIT WARRANTY CHECK -------- */
+/* -------- SUBMIT WARRANTY CHECK (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-warranty", async (req, res) => {
+app.post("/submit-warranty", upload.single('invoiceFile'), async (req, res) => {
   const form = req.body;
   console.log("📧 Warranty check received:", form.email);
 
   try {
-    await transporter.sendMail({
+    const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.COMPANY_EMAIL,
       subject: `New Warranty Check - Serial: ${form.serialNumber || "Unknown"}`,
@@ -528,10 +532,20 @@ app.post("/submit-warranty", async (req, res) => {
           <tr style="background:#f0fdf4"><td><b>Serial Number</b></td><td>${form.serialNumber || "-"}</td></tr>
           <tr><td><b>Purchase Date</b></td><td>${form.purchaseDate || "-"}</td></tr>
           <tr style="background:#f0fdf4"><td><b>Place of Purchase</b></td><td>${form.placeOfPurchase || "-"}</td></tr>
-          <tr><td><b>Invoice File</b></td><td>${form.invoiceFileName || "-"}</td></tr>
         </table>
       `,
-    });
+    };
+
+    // Add attachment if file was uploaded
+    if (req.file) {
+      mailOptions.attachments = [{
+        filename: req.file.originalname,
+        content: req.file.buffer
+      }];
+      console.log("📎 Attachment added:", req.file.originalname);
+    }
+
+    await transporter.sendMail(mailOptions);
 
     console.log("✅ Warranty check email sent");
     res.json({ success: true, message: "Warranty check submitted successfully" });
@@ -541,14 +555,14 @@ app.post("/submit-warranty", async (req, res) => {
   }
 });
 
-/* -------- SUBMIT TECH SQUAD REQUEST -------- */
+/* -------- SUBMIT TECH SQUAD REQUEST (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-techsquad", async (req, res) => {
+app.post("/submit-techsquad", upload.single('invoiceFile'), async (req, res) => {
   const form = req.body;
   console.log("📧 Tech Squad request received:", form.email);
 
   try {
-    await transporter.sendMail({
+    const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.COMPANY_EMAIL,
       subject: `New Tech Squad Request - ${form.firstName} ${form.lastName}`,
@@ -561,11 +575,21 @@ app.post("/submit-techsquad", async (req, res) => {
           <tr><td><b>Address</b></td><td>${form.address || "-"}</td></tr>
           <tr style="background:#f0fdf4"><td><b>Purchase Date</b></td><td>${form.purchaseDate || "-"}</td></tr>
           <tr><td><b>Service Type</b></td><td>${form.serviceType || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Invoice File</b></td><td>${form.invoiceFileName || "-"}</td></tr>
-          <tr><td><b>Issue Description</b></td><td>${form.issue || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Issue Description</b></td><td>${form.issue || "-"}</td></tr>
         </table>
       `,
-    });
+    };
+
+    // Add attachment if file was uploaded
+    if (req.file) {
+      mailOptions.attachments = [{
+        filename: req.file.originalname,
+        content: req.file.buffer
+      }];
+      console.log("📎 Attachment added:", req.file.originalname);
+    }
+
+    await transporter.sendMail(mailOptions);
 
     console.log("✅ Tech Squad email sent");
     res.json({ success: true, message: "Tech Squad request submitted successfully" });
@@ -575,14 +599,14 @@ app.post("/submit-techsquad", async (req, res) => {
   }
 });
 
-/* -------- SUBMIT DOA REQUEST -------- */
+/* -------- SUBMIT DOA REQUEST (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-doa", async (req, res) => {
+app.post("/submit-doa", upload.single('invoiceFile'), async (req, res) => {
   const form = req.body;
   console.log("📧 DOA request received:", form.email);
 
   try {
-    await transporter.sendMail({
+    const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.COMPANY_EMAIL,
       subject: `New DOA Request - Serial: ${form.serialNumber || "Unknown"}`,
@@ -599,10 +623,20 @@ app.post("/submit-doa", async (req, res) => {
           <tr><td><b>Serial Number</b></td><td>${form.serialNumber || "-"}</td></tr>
           <tr style="background:#f0fdf4"><td><b>Invoice Number</b></td><td>${form.invoiceNumber || "-"}</td></tr>
           <tr><td><b>DOA Auth Code</b></td><td>${form.doaAuthCode || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Invoice File</b></td><td>${form.invoiceFileName || "-"}</td></tr>
         </table>
       `,
-    });
+    };
+
+    // Add attachment if file was uploaded
+    if (req.file) {
+      mailOptions.attachments = [{
+        filename: req.file.originalname,
+        content: req.file.buffer
+      }];
+      console.log("📎 Attachment added:", req.file.originalname);
+    }
+
+    await transporter.sendMail(mailOptions);
 
     console.log("✅ DOA request email sent");
     res.json({ success: true, message: "DOA request submitted successfully" });
@@ -642,14 +676,14 @@ app.post("/submit-product-support", async (req, res) => {
   }
 });
 
-/* -------- SUBMIT PRODUCT REGISTRATION -------- */
+/* -------- SUBMIT PRODUCT REGISTRATION (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-product-registration", async (req, res) => {
+app.post("/submit-product-registration", upload.single('invoiceFile'), async (req, res) => {
   const form = req.body;
   console.log("📧 Product Registration received:", form.email);
 
   try {
-    await transporter.sendMail({
+    const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.COMPANY_EMAIL,
       subject: `New Product Registration - Serial: ${form.serialNumber || "Unknown"}`,
@@ -667,10 +701,20 @@ app.post("/submit-product-registration", async (req, res) => {
           <tr style="background:#f0fdf4"><td><b>Invoice Number</b></td><td>${form.invoiceNumber || "-"}</td></tr>
           <tr><td><b>Purchased From</b></td><td>${form.purchasedFrom || "-"}</td></tr>
           <tr style="background:#f0fdf4"><td><b>Purchase Date</b></td><td>${form.purchaseDate || "-"}</td></tr>
-          <tr><td><b>Invoice File</b></td><td>${form.invoiceFileName || "-"}</td></tr>
         </table>
       `,
-    });
+    };
+
+    // Add attachment if file was uploaded
+    if (req.file) {
+      mailOptions.attachments = [{
+        filename: req.file.originalname,
+        content: req.file.buffer
+      }];
+      console.log("📎 Attachment added:", req.file.originalname);
+    }
+
+    await transporter.sendMail(mailOptions);
 
     console.log("✅ Product Registration email sent");
     res.json({ success: true, message: "Product registered successfully" });
@@ -712,14 +756,14 @@ app.post("/submit-contact", async (req, res) => {
   }
 });
 
-/* -------- SUBMIT APPLY NOW FORM -------- */
+/* -------- SUBMIT APPLY NOW FORM (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-apply", async (req, res) => {
+app.post("/submit-apply", upload.single('resumeFile'), async (req, res) => {
   const form = req.body;
   console.log("📧 Job application received:", form.email);
 
   try {
-    await transporter.sendMail({
+    const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.COMPANY_EMAIL,
       subject: `New Job Application - ${form.firstName} ${form.lastName}`,
@@ -730,11 +774,21 @@ app.post("/submit-apply", async (req, res) => {
           <tr><td><b>Email</b></td><td>${form.email}</td></tr>
           <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
           <tr><td><b>Availability</b></td><td>${(form.availability || []).join(", ") || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Resume File</b></td><td>${form.resumeFileName || "-"}</td></tr>
-          <tr><td><b>About</b></td><td>${form.about || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>About</b></td><td>${form.about || "-"}</td></tr>
         </table>
       `,
-    });
+    };
+
+    // Add attachment if file was uploaded
+    if (req.file) {
+      mailOptions.attachments = [{
+        filename: req.file.originalname,
+        content: req.file.buffer
+      }];
+      console.log("📎 Attachment added:", req.file.originalname);
+    }
+
+    await transporter.sendMail(mailOptions);
 
     console.log("✅ Job application email sent");
     res.json({ success: true, message: "Application submitted successfully" });
@@ -744,28 +798,37 @@ app.post("/submit-apply", async (req, res) => {
   }
 });
 
-/* -------- SUBMIT WHISTLE BLOWER FORM -------- */
+/* -------- SUBMIT WHISTLE BLOWER FORM (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-whistleblower", async (req, res) => {
+app.post("/submit-whistleblower", upload.single('attachmentFile'), async (req, res) => {
   const form = req.body;
-  console.log("📧 Whistle blower report received:", form.email || "Anonymous");
+  console.log("📧 Whistle blower report received:", form.name || "Anonymous");
 
   try {
-    await transporter.sendMail({
+    const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.COMPANY_EMAIL,
-      subject: `New Whistle Blower Report`,
+      subject: `New Whistle Blower Report - ${form.name || "Anonymous"}`,
       html: `
         <h2 style="color:#166534">New Whistle Blower Report</h2>
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
-          <tr style="background:#f0fdf4"><td><b>Issue Details</b></td><td>${form.issueDetails || "-"}</td></tr>
-          <tr><td><b>Serial Number</b></td><td>${form.serialNumber || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>References</b></td><td>${form.references || "-"}</td></tr>
-          <tr><td><b>Evidence File</b></td><td>${form.evidenceFileName || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Email (optional)</b></td><td>${form.email || "Anonymous"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.name || "-"}</td></tr>
+          <tr><td><b>Telephone</b></td><td>${form.telephone || "-"}</td></tr>
+          <tr style="background:#f0fdf4"><td><b>Comment</b></td><td>${form.comment || "-"}</td></tr>
         </table>
       `,
-    });
+    };
+
+    // Add attachment if file was uploaded
+    if (req.file) {
+      mailOptions.attachments = [{
+        filename: req.file.originalname,
+        content: req.file.buffer
+      }];
+      console.log("📎 Attachment added:", req.file.originalname);
+    }
+
+    await transporter.sendMail(mailOptions);
 
     console.log("✅ Whistle blower email sent");
     res.json({ success: true, message: "Report submitted successfully" });
