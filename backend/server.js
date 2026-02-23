@@ -39,7 +39,7 @@ const deleteFromFirebase = async (url) => {
   if (!path) return;
   try {
     await admin.storage().bucket().file(path).delete();
-    console.log("🗑️ Firebase file deleted:", path);
+    console.log(" Firebase file deleted:", path);
   } catch (e) {
     console.log(" Firebase delete failed:", e.message);
   }
