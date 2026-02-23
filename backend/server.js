@@ -5,7 +5,6 @@ const admin = require("./firebaseAdmin");
 const PDFDocument = require("pdfkit");
 const multer = require("multer");
 const transporter = require("./mailer");
-require("dotenv").config();
 
 const app = express();
 

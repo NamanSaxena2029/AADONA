@@ -1,4 +1,4 @@
-require("dotenv").config(); // ✅ Yeh add karo
+require("dotenv").config();
 const admin = require("firebase-admin");
 
 admin.initializeApp({
