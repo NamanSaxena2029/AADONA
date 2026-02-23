@@ -20,9 +20,9 @@ const FilterOptions = () => {
       imageSrc: networkswitch
     },
     {
-      title: "Industrial & Rugged Switches",
+      title: "Industrial Switches",
       description: "Durable, high-performance switches built for critical industrial environments.",
-      category: "Industrial & Rugged Switches",
+      category: "Industrial Switches",
       imageSrc: ruggedswitches
     },
     {

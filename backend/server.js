@@ -9,6 +9,16 @@ const transporter = require("./mailer");
 const app = express();
 
 /* =============================
+   FIREBASE ADMIN SETUP
+============================= */
+
+const serviceAccount = require("./serviceAccountKey.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+/* =============================
    MULTER SETUP FOR FILE UPLOADS
 ============================= */
 
