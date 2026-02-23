@@ -13,7 +13,7 @@ const app = express();
    FIREBASE ADMIN SETUP
 ============================= */
 
-const serviceAccount = require("./ServiceAccountKey.json");
+const serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),

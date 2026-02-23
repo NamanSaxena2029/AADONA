@@ -18,7 +18,7 @@ const categories = {
     "Core Switches": ["POE Switches", "Non POE Switches"],
     "Accessories": ["Essential", "Media Convertors", "Power Supply"]
   },
-  "Industrial & Rugged Switches": {
+  "Industrial Switches": {
     "Un-Managed PoE": [],
     "Un-Managed Non PoE": [],
     "Managed PoE": [],
@@ -94,6 +94,9 @@ export default function AdminPanel() {
   const [adminBtnLoading, setAdminBtnLoading] = useState(false);
   const [relatedBtnLoading, setRelatedBtnLoading] = useState(false);
 
+  // ✅ FIXED: Moved relatedSearch useState here — BEFORE any early return
+  const [relatedSearch, setRelatedSearch] = useState("");
+
   const load = async () => {
     try {
       const res = await fetch(API);
@@ -155,15 +158,20 @@ export default function AdminPanel() {
     setForm({ ...form, features: form.features.filter((_, i) => i !== index) });
   };
 
- const extraOptions =
-  form.category && form.subCategory
-    ? (categories[form.category] || {})[form.subCategory] || []
-    : [];
+  const extraOptions =
+    form.category && form.subCategory
+      ? (categories[form.category] || {})[form.subCategory] || []
+      : [];
 
   const basicCompleted =
     form.name && form.type && form.category &&
     form.subCategory && form.description &&
     (form.imageFile || form.image);
+
+  // ✅ FIXED: filteredProducts derived here — after state declarations, before early return
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(relatedSearch.toLowerCase())
+  );
 
   const generateDatasheetPDF = async () => {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -539,15 +547,15 @@ export default function AdminPanel() {
                   {Object.keys(categories)
                     .filter((c) => {
                       const passiveCategories = ["Cables", "Racks", "Network Accessories"];
-                  
+
                       if (form.type === "passive") {
                         return passiveCategories.includes(c);
                       }
-                  
+
                       if (form.type === "active") {
                         return !passiveCategories.includes(c);
                       }
-                  
+
                       return false;
                     })
                     .map((c) => (
@@ -561,9 +569,9 @@ export default function AdminPanel() {
                   onChange={e => setForm({ ...form, subCategory: e.target.value, extraCategory: "" })}>
                   <option value="">Sub Category</option>
                   {form.category &&
-  Object.keys(categories[form.category] || {}).map((s) => (
-    <option key={s} value={s}>{s}</option>
-))}
+                    Object.keys(categories[form.category] || {}).map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
                 </select>
 
                 {extraOptions.length > 0 && (
@@ -795,63 +803,94 @@ export default function AdminPanel() {
               </h2>
 
               <div className="grid md:grid-cols-4 gap-6 mb-6">
-                <select className={inputStyle} value={form.relatedType || ""}
-                  onChange={(e) => setForm({ ...form, relatedType: e.target.value })}>
+                <select
+                  className={inputStyle}
+                  value={form.relatedType || ""}
+                  onChange={(e) => setForm({ ...form, relatedType: e.target.value })}
+                >
                   <option value="">Select Type</option>
                   <option value="active">Active</option>
                   <option value="passive">Passive</option>
                 </select>
 
-                <select className={inputStyle} value={form.relatedCategory || ""}
-                  onChange={(e) => setForm({
-                    ...form,
-                    relatedCategory: e.target.value,
-                    relatedSubCategory: "",
-                    relatedExtraCategory: ""
-                  })}>
+                <select
+                  className={inputStyle}
+                  value={form.relatedCategory || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      relatedCategory: e.target.value,
+                      relatedSubCategory: "",
+                      relatedExtraCategory: "",
+                    })
+                  }
+                >
                   <option value="">Select Category</option>
-                  {form.type &&
-  Object.keys(categories)
-    .filter((c) => {
-      const passiveCategories = ["Cables", "Racks", "Network Accessories"];
+                  {form.relatedType &&
+                    Object.keys(categories)
+                      .filter((c) => {
+                        const passiveCategories = [
+                          "Cables",
+                          "Racks",
+                          "Network Accessories",
+                        ];
 
-      if (form.type === "passive") {
-        return passiveCategories.includes(c);
-      }
+                        if (form.relatedType === "passive") {
+                          return passiveCategories.includes(c);
+                        }
 
-      if (form.type === "active") {
-        return !passiveCategories.includes(c);
-      }
+                        if (form.relatedType === "active") {
+                          return !passiveCategories.includes(c);
+                        }
 
-      return false;
-    })
-    .map((c) => (
-      <option key={c} value={c}>{c}</option>
-    ))}
+                        return false;
+                      })
+                      .map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
                 </select>
 
-                <select className={inputStyle} disabled={!form.relatedCategory}
+                <select
+                  className={inputStyle}
+                  disabled={!form.relatedCategory}
                   value={form.relatedSubCategory || ""}
-                  onChange={(e) => setForm({
-                    ...form,
-                    relatedSubCategory: e.target.value,
-                    relatedExtraCategory: ""
-                  })}>
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      relatedSubCategory: e.target.value,
+                      relatedExtraCategory: "",
+                    })
+                  }
+                >
                   <option value="">Select Sub Category</option>
                   {form.relatedCategory &&
                     Object.keys(categories[form.relatedCategory]).map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
                     ))}
                 </select>
 
-                {form.relatedCategory && form.relatedSubCategory &&
+                {form.relatedCategory &&
+                  form.relatedSubCategory &&
                   categories[form.relatedCategory][form.relatedSubCategory]?.length > 0 && (
-                    <select className={inputStyle} value={form.relatedExtraCategory || ""}
-                      onChange={(e) => setForm({ ...form, relatedExtraCategory: e.target.value })}>
+                    <select
+                      className={inputStyle}
+                      value={form.relatedExtraCategory || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, relatedExtraCategory: e.target.value })
+                      }
+                    >
                       <option value="">Select Extra Category</option>
-                      {categories[form.relatedCategory][form.relatedSubCategory].map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
+                      {categories[form.relatedCategory][form.relatedSubCategory].map(
+                        (opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        )
+                      )}
                     </select>
                   )}
               </div>
@@ -860,8 +899,18 @@ export default function AdminPanel() {
                 <label className="block text-sm font-semibold text-green-700 mb-3">
                   Select Related Products ({(form.relatedProducts || []).length} selected)
                 </label>
+
+                {/* 🔍 SEARCH INPUT */}
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={relatedSearch}
+                  onChange={(e) => setRelatedSearch(e.target.value)}
+                  className="w-full mb-4 px-4 py-2 border border-green-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+
                 <div className="grid md:grid-cols-3 gap-3 max-h-64 overflow-y-auto border border-green-200 rounded-xl p-4 bg-green-50/40">
-                  {products.map((product) => {
+                  {filteredProducts.map((product) => {
                     const isSelected = (form.relatedProducts || []).includes(product._id);
                     return (
                       <div
