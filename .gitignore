@@ -38,3 +38,4 @@ Thumbs.db
 *.sw?
 
 serviceAccountKey.json
+makeAdmin.js
