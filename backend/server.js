@@ -1,48 +1,52 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const admin = require("firebase-admin");
+const admin = require("./firebaseAdmin");
 const PDFDocument = require("pdfkit");
-const nodemailer = require("nodemailer");
 const multer = require("multer");
+const transporter = require("./mailer");
 require("dotenv").config();
 
 const app = express();
 
 /* =============================
-   FIREBASE ADMIN SETUP
-============================= */
-
-const serviceAccount = require("./ServiceAccountKey.json");
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
-
-/* =============================
    MULTER SETUP FOR FILE UPLOADS
 ============================= */
 
-const storage = multer.memoryStorage(); // Store files in memory as Buffer
-const upload = multer({ 
+const storage = multer.memoryStorage();
+const upload = multer({
   storage: storage,
-  limits: { fileSize: 15 * 1024 * 1024 } // 15MB limit (matching frontend validation)
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
 });
 
 /* =============================
-   NODEMAILER SETUP
+   FIREBASE STORAGE HELPER
 ============================= */
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const getFirebasePath = (url) => {
+  try {
+    const decoded = decodeURIComponent(url);
+    const match = decoded.match(/\/o\/(.+?)\?/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+};
+
+const deleteFromFirebase = async (url) => {
+  if (!url) return;
+  const path = getFirebasePath(url);
+  if (!path) return;
+  try {
+    await admin.storage().bucket().file(path).delete();
+    console.log("🗑️ Firebase file deleted:", path);
+  } catch (e) {
+    console.log("⚠️ Firebase delete failed:", e.message);
+  }
+};
 
 /* =============================
-   VERIFY TOKEN MIDDLEWARE
+   VERIFY TOKEN MIDDLEWARE (with admin check inside)
 ============================= */
 
 const verifyToken = async (req, res, next) => {
@@ -57,26 +61,19 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
+
+    if (decodedToken.admin !== true) {
+      console.log("❌ Not Admin:", decodedToken.email);
+      return res.status(403).json({ message: "Not authorized as admin" });
+    }
+
     req.user = decodedToken;
-    console.log("✅ Token Verified:", decodedToken.email);
+    console.log("✅ Admin Verified:", decodedToken.email);
     next();
   } catch (error) {
     console.log("❌ TOKEN ERROR:", error.message);
     return res.status(403).json({ message: "Invalid or expired token" });
   }
-};
-
-/* =============================
-   ADMIN CHECK MIDDLEWARE
-============================= */
-
-const requireAdmin = (req, res, next) => {
-  if (!req.user.admin) {
-    console.log("❌ Not Admin:", req.user.email);
-    return res.status(403).json({ message: "Not authorized as admin" });
-  }
-  console.log("✅ Admin Access Granted");
-  next();
 };
 
 /* =============================
@@ -251,7 +248,7 @@ app.get("/products/:slug/datasheet", async (req, res) => {
 
 /* -------- CREATE PRODUCT -------- */
 
-app.post("/products", verifyToken, requireAdmin, async (req, res) => {
+app.post("/products", verifyToken, async (req, res) => {
   try {
     let baseSlug = generateSlug(req.body.name);
     let slug = baseSlug;
@@ -271,7 +268,7 @@ app.post("/products", verifyToken, requireAdmin, async (req, res) => {
 
 /* -------- UPDATE PRODUCT -------- */
 
-app.put("/products/:id", verifyToken, requireAdmin, async (req, res) => {
+app.put("/products/:id", verifyToken, async (req, res) => {
   try {
     const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updated);
@@ -282,9 +279,20 @@ app.put("/products/:id", verifyToken, requireAdmin, async (req, res) => {
 
 /* -------- DELETE PRODUCT -------- */
 
-app.delete("/products/:id", verifyToken, requireAdmin, async (req, res) => {
+app.delete("/products/:id", verifyToken, async (req, res) => {
   try {
+    // Pehle product find karo
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    // Firebase Storage se image aur datasheet delete karo
+    await deleteFromFirebase(product.image);
+    await deleteFromFirebase(product.datasheet);
+
+    // MongoDB se delete karo
     await Product.findByIdAndDelete(req.params.id);
+
+    console.log("🗑️ Product deleted:", product.name);
     res.json({ message: "Deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -293,7 +301,7 @@ app.delete("/products/:id", verifyToken, requireAdmin, async (req, res) => {
 
 /* -------- CREATE ADMIN -------- */
 
-app.post("/create-admin", verifyToken, requireAdmin, async (req, res) => {
+app.post("/create-admin", verifyToken, async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await admin.auth().createUser({ email, password });
@@ -306,7 +314,7 @@ app.post("/create-admin", verifyToken, requireAdmin, async (req, res) => {
 
 /* -------- SAVE RELATED PRODUCTS -------- */
 
-app.post("/save-related-products", verifyToken, requireAdmin, async (req, res) => {
+app.post("/save-related-products", verifyToken, async (req, res) => {
   console.log("📦 /save-related-products HIT");
 
   try {
@@ -329,7 +337,15 @@ app.post("/save-related-products", verifyToken, requireAdmin, async (req, res) =
 
     const result = await RelatedProduct.findOneAndUpdate(
       filter,
-      { $set: { type: type || null, category, subCategory, extraCategory: extraCategory || null, relatedProducts } },
+      {
+        $set: {
+          type: type || null,
+          category,
+          subCategory,
+          extraCategory: extraCategory || null,
+          relatedProducts,
+        },
+      },
       { upsert: true, new: true }
     );
 
@@ -515,7 +531,7 @@ app.post("/submit-training", async (req, res) => {
 
 /* -------- SUBMIT WARRANTY CHECK (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-warranty", upload.single('invoiceFile'), async (req, res) => {
+app.post("/submit-warranty", upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
   console.log("📧 Warranty check received:", form.email);
 
@@ -536,17 +552,12 @@ app.post("/submit-warranty", upload.single('invoiceFile'), async (req, res) => {
       `,
     };
 
-    // Add attachment if file was uploaded
     if (req.file) {
-      mailOptions.attachments = [{
-        filename: req.file.originalname,
-        content: req.file.buffer
-      }];
+      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
       console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);
-
     console.log("✅ Warranty check email sent");
     res.json({ success: true, message: "Warranty check submitted successfully" });
   } catch (err) {
@@ -557,7 +568,7 @@ app.post("/submit-warranty", upload.single('invoiceFile'), async (req, res) => {
 
 /* -------- SUBMIT TECH SQUAD REQUEST (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-techsquad", upload.single('invoiceFile'), async (req, res) => {
+app.post("/submit-techsquad", upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
   console.log("📧 Tech Squad request received:", form.email);
 
@@ -580,17 +591,12 @@ app.post("/submit-techsquad", upload.single('invoiceFile'), async (req, res) => 
       `,
     };
 
-    // Add attachment if file was uploaded
     if (req.file) {
-      mailOptions.attachments = [{
-        filename: req.file.originalname,
-        content: req.file.buffer
-      }];
+      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
       console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);
-
     console.log("✅ Tech Squad email sent");
     res.json({ success: true, message: "Tech Squad request submitted successfully" });
   } catch (err) {
@@ -601,7 +607,7 @@ app.post("/submit-techsquad", upload.single('invoiceFile'), async (req, res) => 
 
 /* -------- SUBMIT DOA REQUEST (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-doa", upload.single('invoiceFile'), async (req, res) => {
+app.post("/submit-doa", upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
   console.log("📧 DOA request received:", form.email);
 
@@ -627,17 +633,12 @@ app.post("/submit-doa", upload.single('invoiceFile'), async (req, res) => {
       `,
     };
 
-    // Add attachment if file was uploaded
     if (req.file) {
-      mailOptions.attachments = [{
-        filename: req.file.originalname,
-        content: req.file.buffer
-      }];
+      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
       console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);
-
     console.log("✅ DOA request email sent");
     res.json({ success: true, message: "DOA request submitted successfully" });
   } catch (err) {
@@ -678,7 +679,7 @@ app.post("/submit-product-support", async (req, res) => {
 
 /* -------- SUBMIT PRODUCT REGISTRATION (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-product-registration", upload.single('invoiceFile'), async (req, res) => {
+app.post("/submit-product-registration", upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
   console.log("📧 Product Registration received:", form.email);
 
@@ -705,17 +706,12 @@ app.post("/submit-product-registration", upload.single('invoiceFile'), async (re
       `,
     };
 
-    // Add attachment if file was uploaded
     if (req.file) {
-      mailOptions.attachments = [{
-        filename: req.file.originalname,
-        content: req.file.buffer
-      }];
+      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
       console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);
-
     console.log("✅ Product Registration email sent");
     res.json({ success: true, message: "Product registered successfully" });
   } catch (err) {
@@ -758,7 +754,7 @@ app.post("/submit-contact", async (req, res) => {
 
 /* -------- SUBMIT APPLY NOW FORM (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-apply", upload.single('resumeFile'), async (req, res) => {
+app.post("/submit-apply", upload.single("resumeFile"), async (req, res) => {
   const form = req.body;
   console.log("📧 Job application received:", form.email);
 
@@ -779,17 +775,12 @@ app.post("/submit-apply", upload.single('resumeFile'), async (req, res) => {
       `,
     };
 
-    // Add attachment if file was uploaded
     if (req.file) {
-      mailOptions.attachments = [{
-        filename: req.file.originalname,
-        content: req.file.buffer
-      }];
+      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
       console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);
-
     console.log("✅ Job application email sent");
     res.json({ success: true, message: "Application submitted successfully" });
   } catch (err) {
@@ -800,7 +791,7 @@ app.post("/submit-apply", upload.single('resumeFile'), async (req, res) => {
 
 /* -------- SUBMIT WHISTLE BLOWER FORM (WITH FILE UPLOAD) -------- */
 
-app.post("/submit-whistleblower", upload.single('attachmentFile'), async (req, res) => {
+app.post("/submit-whistleblower", upload.single("attachmentFile"), async (req, res) => {
   const form = req.body;
   console.log("📧 Whistle blower report received:", form.name || "Anonymous");
 
@@ -819,17 +810,12 @@ app.post("/submit-whistleblower", upload.single('attachmentFile'), async (req, r
       `,
     };
 
-    // Add attachment if file was uploaded
     if (req.file) {
-      mailOptions.attachments = [{
-        filename: req.file.originalname,
-        content: req.file.buffer
-      }];
+      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
       console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);
-
     console.log("✅ Whistle blower email sent");
     res.json({ success: true, message: "Report submitted successfully" });
   } catch (err) {
