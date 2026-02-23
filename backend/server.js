@@ -5,18 +5,9 @@ const admin = require("./firebaseAdmin");
 const PDFDocument = require("pdfkit");
 const multer = require("multer");
 const transporter = require("./mailer");
+require("dotenv").config();
 
 const app = express();
-
-/* =============================
-   FIREBASE ADMIN SETUP
-============================= */
-
-const serviceAccount = require("./serviceAccountKey.json");
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
 
 /* =============================
    MULTER SETUP FOR FILE UPLOADS
@@ -48,9 +39,9 @@ const deleteFromFirebase = async (url) => {
   if (!path) return;
   try {
     await admin.storage().bucket().file(path).delete();
-    console.log(" Firebase file deleted:", path);
+    console.log("🗑️ Firebase file deleted:", path);
   } catch (e) {
-    console.log(" Firebase delete failed:", e.message);
+    console.log("⚠️ Firebase delete failed:", e.message);
   }
 };
 
@@ -290,15 +281,12 @@ app.put("/products/:id", verifyToken, async (req, res) => {
 
 app.delete("/products/:id", verifyToken, async (req, res) => {
   try {
-    // Pehle product find karo
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    // Firebase Storage se image aur datasheet delete karo
     await deleteFromFirebase(product.image);
     await deleteFromFirebase(product.datasheet);
 
-    // MongoDB se delete karo
     await Product.findByIdAndDelete(req.params.id);
 
     console.log("🗑️ Product deleted:", product.name);
