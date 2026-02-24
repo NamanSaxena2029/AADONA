@@ -50,10 +50,10 @@ const App = () => {
 
           <Route path="/" element={<Home />} />
 
-          {/* Admin */}
-          <Route path="/admin-login" element={<AdminLogin />} />
+          {/* Admin — URLs hidden for security */}
+          <Route path="/namanisrockstar" element={<AdminLogin />} />
           <Route
-            path="/admin"
+            path="/zx91-cms-panel-k3m7"
             element={
               <ProtectedRoute>
                 <AdminPanel />
