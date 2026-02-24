@@ -4,8 +4,8 @@ import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import CheckCircle from "../assets/checkcircle.png";
 
-const API = "http://localhost:5000/products";
-const RELATED_API = "http://localhost:5000/related-products";
+const API = `${import.meta.env.VITE_API_URL}/products`;
+const RELATED_API = `${import.meta.env.VITE_API_URL}/related-products`;
 
 const ProductCard = ({ product }) => {
   const handleCardClick = () => {

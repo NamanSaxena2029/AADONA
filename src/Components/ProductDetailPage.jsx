@@ -15,7 +15,7 @@ const ProductDetailPage = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/products/${slug}`);
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/products/${slug}`);
         if (!res.ok) throw new Error("Product not found");
         const data = await res.json();
         setProduct(data);
