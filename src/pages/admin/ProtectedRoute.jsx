@@ -4,22 +4,17 @@ import { auth } from "../../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
 export default function ProtectedRoute({ children }) {
-  const [user, setUser] = useState(undefined);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState(undefined); // undefined = checking auth
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        const tokenResult = await currentUser.getIdTokenResult();
-        setIsAdmin(tokenResult.claims.admin === true);
-        setUser(currentUser);
-      } else {
-        setUser(null);
-      }
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
     });
+
     return () => unsubscribe();
   }, []);
 
+  // ⏳ While checking auth
   if (user === undefined) {
     return (
       <div className="flex justify-center items-center h-screen text-green-700 font-semibold">
@@ -28,8 +23,11 @@ export default function ProtectedRoute({ children }) {
     );
   }
 
-  if (!user) return <Navigate to="/namanisrockstar" replace />;
-  if (!isAdmin) return <Navigate to="/" replace />;
+  // ❌ Not logged in
+  if (!user) {
+    return <Navigate to="/admin-login" replace />;
+  }
 
+  // ✅ Logged in
   return children;
 }

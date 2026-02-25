@@ -21,6 +21,7 @@ const AdminLogin = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    // auth.currentUser check hataya - browserSessionPersistence handle karega
   }, [navigate]);
 
   const handleLogin = async (e) => {
@@ -29,15 +30,8 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      // ✅ Admin claim verify karo before navigating
-      const tokenResult = await userCredential.user.getIdTokenResult();
-      if (tokenResult.claims.admin === true) {
-        navigate("/zx91-cms-panel-k3m7");
-      } else {
-        setError("Access denied. You are not an admin.");
-        await auth.signOut();
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      navigate("/admin");
     } catch (err) {
       console.log("Firebase Error Code:", err.code);
 

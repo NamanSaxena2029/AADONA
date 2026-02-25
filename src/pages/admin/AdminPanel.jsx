@@ -8,8 +8,7 @@ import { Trash2, Edit, LogOut, Plus, X, Upload, CheckCircle2, UserPlus, Save, Pa
 import Navbar from "../../Components/Navbar";
 import ProductDetailPage from "../../Components/ProductDetailPage";
 
-const API = `${import.meta.env.VITE_API_URL}/products`;
-
+const API = "http://localhost:5000/products";
 const categories = {
   "Network Switches": {
     "Unmanaged Switches": [],
@@ -69,7 +68,7 @@ const safeJson = async (res) => {
     console.error("Non-JSON response from server:", text);
     throw new Error(
       `Server returned an unexpected response (HTTP ${res.status}). ` +
-      `Make sure your backend is running correctly.`
+      `Make sure your backend is running on port 5000.`
     );
   }
 };
@@ -94,6 +93,8 @@ export default function AdminPanel() {
   const [adminPassword, setAdminPassword] = useState("");
   const [adminBtnLoading, setAdminBtnLoading] = useState(false);
   const [relatedBtnLoading, setRelatedBtnLoading] = useState(false);
+
+  // ✅ FIXED: Moved relatedSearch useState here — BEFORE any early return
   const [relatedSearch, setRelatedSearch] = useState("");
 
   const load = async () => {
@@ -109,20 +110,11 @@ export default function AdminPanel() {
     }
   };
 
-  // ✅ Auth check — admin claim verify
+  // Auth check
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const tokenResult = await user.getIdTokenResult();
-        if (tokenResult.claims.admin === true) {
-          load();
-        } else {
-          await signOut(auth);
-          navigate("/");
-        }
-      } else {
-        navigate("/namanisgod");
-      }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) load();
+      else navigate("/admin-login");
     });
     return () => unsubscribe();
   }, [navigate]);
@@ -135,13 +127,13 @@ export default function AdminPanel() {
       clearTimeout(timer);
       timer = setTimeout(async () => {
         await signOut(auth);
-        navigate("/namanisgod");
+        navigate("/admin-login");
       }, 5 * 60 * 1000); // 5 minutes
     };
 
     const events = ["mousemove", "mousedown", "keypress", "scroll", "touchstart", "click"];
     events.forEach(event => window.addEventListener(event, resetTimer));
-    resetTimer();
+    resetTimer(); // Timer shuru karo immediately
 
     return () => {
       clearTimeout(timer);
@@ -176,6 +168,7 @@ export default function AdminPanel() {
     form.subCategory && form.description &&
     (form.imageFile || form.image);
 
+  // ✅ FIXED: filteredProducts derived here — after state declarations, before early return
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(relatedSearch.toLowerCase())
   );
@@ -404,7 +397,7 @@ export default function AdminPanel() {
     setAdminBtnLoading(true);
     try {
       const token = await auth.currentUser.getIdToken();
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/create-admin`, {
+      const res = await fetch("http://localhost:5000/create-admin", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ email: adminEmail, password: adminPassword })
@@ -455,7 +448,7 @@ export default function AdminPanel() {
 
       console.log("🚀 Sending payload:", payload);
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/save-related-products`, {
+      const res = await fetch("http://localhost:5000/save-related-products", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -554,12 +547,21 @@ export default function AdminPanel() {
                   {Object.keys(categories)
                     .filter((c) => {
                       const passiveCategories = ["Cables", "Racks", "Network Accessories"];
-                      if (form.type === "passive") return passiveCategories.includes(c);
-                      if (form.type === "active") return !passiveCategories.includes(c);
+
+                      if (form.type === "passive") {
+                        return passiveCategories.includes(c);
+                      }
+
+                      if (form.type === "active") {
+                        return !passiveCategories.includes(c);
+                      }
+
                       return false;
                     })
                     .map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                 </select>
 
@@ -827,13 +829,26 @@ export default function AdminPanel() {
                   {form.relatedType &&
                     Object.keys(categories)
                       .filter((c) => {
-                        const passiveCategories = ["Cables", "Racks", "Network Accessories"];
-                        if (form.relatedType === "passive") return passiveCategories.includes(c);
-                        if (form.relatedType === "active") return !passiveCategories.includes(c);
+                        const passiveCategories = [
+                          "Cables",
+                          "Racks",
+                          "Network Accessories",
+                        ];
+
+                        if (form.relatedType === "passive") {
+                          return passiveCategories.includes(c);
+                        }
+
+                        if (form.relatedType === "active") {
+                          return !passiveCategories.includes(c);
+                        }
+
                         return false;
                       })
                       .map((c) => (
-                        <option key={c} value={c}>{c}</option>
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
                       ))}
                 </select>
 
@@ -852,7 +867,9 @@ export default function AdminPanel() {
                   <option value="">Select Sub Category</option>
                   {form.relatedCategory &&
                     Object.keys(categories[form.relatedCategory]).map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
                     ))}
                 </select>
 
@@ -869,7 +886,9 @@ export default function AdminPanel() {
                       <option value="">Select Extra Category</option>
                       {categories[form.relatedCategory][form.relatedSubCategory].map(
                         (opt) => (
-                          <option key={opt} value={opt}>{opt}</option>
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
                         )
                       )}
                     </select>

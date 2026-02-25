@@ -1,9 +1,6 @@
 {
   "name": "cms-backend",
   "type": "commonjs",
-  "scripts": {
-    "start": "node server.js"
-  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
