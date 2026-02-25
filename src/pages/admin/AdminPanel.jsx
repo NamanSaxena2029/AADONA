@@ -7,6 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Trash2, Edit, LogOut, Plus, X, Upload, CheckCircle2, UserPlus, Save, PackagePlus, ArrowLeft } from "lucide-react";
 import Navbar from "../../Components/Navbar";
 import ProductDetailPage from "../../Components/ProductDetailPage";
+import Footer from "../../Components/Footer";
 
 const API = "http://localhost:5000/products";
 const categories = {
@@ -97,6 +98,12 @@ export default function AdminPanel() {
   // ✅ FIXED: Moved relatedSearch useState here — BEFORE any early return
   const [relatedSearch, setRelatedSearch] = useState("");
 
+  // ✅ FIXED: Moved filter states here — BEFORE any early return (were incorrectly placed after if(loading) return)
+  const [filterType, setFilterType] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterSubCategory, setFilterSubCategory] = useState("");
+  const [filterExtraCategory, setFilterExtraCategory] = useState("");
+
   const load = async () => {
     try {
       const res = await fetch(API);
@@ -172,6 +179,16 @@ export default function AdminPanel() {
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(relatedSearch.toLowerCase())
   );
+
+  const safeCategories = categories || {};
+
+  const categoryFilteredProducts = products.filter((p) => {
+    if (filterType && p.type !== filterType) return false;
+    if (filterCategory && p.category !== filterCategory) return false;
+    if (filterSubCategory && p.subCategory !== filterSubCategory) return false;
+    if (filterExtraCategory && p.extraCategory !== filterExtraCategory) return false;
+    return true;
+  });
 
   const generateDatasheetPDF = async () => {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -487,6 +504,18 @@ export default function AdminPanel() {
       Verifying Admin Access...
     </div>
   );
+  
+  // Duplicate Product Logic
+ const duplicateProduct = async (product) => {
+  const { _id, ...rest } = product;
+
+  const duplicatedProduct = {
+    ...rest,
+    name: rest.name + " Copy",
+  };
+
+  edit(duplicatedProduct); // open in edit mode directly
+};
 
   return (
     <>
@@ -949,61 +978,211 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            {/* ===== PRODUCTS TABLE ===== */}
-            <div className="bg-white rounded-3xl shadow-xl border border-green-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[800px]">
-                  <thead className="bg-green-700 text-white">
-                    <tr>
-                      <th className="p-5 text-xs font-bold uppercase tracking-widest">Product</th>
-                      <th className="p-5 text-xs font-bold uppercase tracking-widest">Category</th>
-                      <th className="p-5 text-xs font-bold uppercase tracking-widest text-center">Features</th>
-                      <th className="p-5 text-xs font-bold uppercase tracking-widest text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {products.map((p) => (
-                      <tr key={p._id} className="hover:bg-green-50/40 transition group">
-                        <td className="p-5">
-                          <div className="flex items-center gap-4">
-                            <img src={p.image} alt={p.name}
-                              className="h-14 w-14 object-contain rounded-xl border p-1 bg-white shadow-sm" />
-                            <div>
-                              <div className="font-bold text-green-900 group-hover:text-green-600">{p.name}</div>
-                              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{p.type}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-5">
-                          <div className="text-sm font-semibold text-gray-700">{p.category}</div>
-                          <div className="text-xs text-gray-400 italic">{p.subCategory}</div>
-                        </td>
-                        <td className="p-5 text-center">
-                          <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[11px] font-bold border border-blue-100">
-                            {p.features?.length || 0} Bullets
-                          </span>
-                        </td>
-                        <td className="p-5 text-center">
-                          <div className="flex justify-center gap-3">
-                            <button onClick={() => edit(p)}
-                              className="p-2.5 bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white rounded-xl transition shadow-sm">
-                              <Edit size={18} />
-                            </button>
-                            <button onClick={() => del(p._id)}
-                              className="p-2.5 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition shadow-sm">
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            
+
+  <div className="bg-white rounded-3xl shadow-lg border border-green-100 mb-8 overflow-hidden">
+
+  {/* ===== PRODUCTS FILTER ===== */}
+  <div className="p-6 border-b border-green-100">
+    <h3 className="text-lg font-bold text-green-800 mb-4">
+      Filter Listed Products
+    </h3>
+
+    <div className="grid md:grid-cols-4 gap-4">
+
+      {/* TYPE */}
+      <select
+        className={inputStyle}
+        value={filterType}
+        onChange={(e) => {
+          setFilterType(e.target.value);
+          setFilterCategory("");
+          setFilterSubCategory("");
+          setFilterExtraCategory("");
+        }}
+      >
+        <option value="">Select Type</option>
+        <option value="active">Active</option>
+        <option value="passive">Passive</option>
+      </select>
+
+      {/* CATEGORY */}
+      <select
+        className={inputStyle}
+        disabled={!filterType}
+        value={filterCategory}
+        onChange={(e) => {
+          setFilterCategory(e.target.value);
+          setFilterSubCategory("");
+          setFilterExtraCategory("");
+        }}
+      >
+        <option value="">Select Category</option>
+
+        {filterType &&
+          Object.keys(safeCategories || {})
+            .filter((c) => {
+              const passiveCategories = ["Cables", "Racks", "Network Accessories"];
+
+              if (filterType === "passive") {
+                return passiveCategories.includes(c);
+              }
+
+              if (filterType === "active") {
+                return !passiveCategories.includes(c);
+              }
+
+              return false;
+            })
+            .map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+      </select>
+
+      {/* SUBCATEGORY */}
+      <select
+        className={inputStyle}
+        disabled={!filterCategory}
+        value={filterSubCategory}
+        onChange={(e) => {
+          setFilterSubCategory(e.target.value);
+          setFilterExtraCategory("");
+        }}
+      >
+        <option value="">Select Sub Category</option>
+
+        {filterCategory &&
+          safeCategories?.[filterCategory] &&
+          Object.keys(safeCategories[filterCategory] || {}).map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+      </select>
+
+      {/* EXTRA CATEGORY */}
+      {filterCategory &&
+        filterSubCategory &&
+        safeCategories?.[filterCategory]?.[filterSubCategory]?.length > 0 && (
+          <select
+            className={inputStyle}
+            value={filterExtraCategory}
+            onChange={(e) => setFilterExtraCategory(e.target.value)}
+          >
+            <option value="">Select Extra Category</option>
+
+            {(safeCategories?.[filterCategory]?.[filterSubCategory] || []).map(
+              (opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              )
+            )}
+          </select>
+        )}
+    </div>
+  </div>
+
+  {/* ===== PRODUCTS TABLE ===== */}
+  <div className="overflow-x-auto">
+    <table className="w-full text-left border-collapse min-w-[800px]">
+      <thead className="bg-green-700 text-white">
+        <tr>
+          <th className="p-5 text-xs font-bold uppercase tracking-widest">Product</th>
+          <th className="p-5 text-xs font-bold uppercase tracking-widest">Category</th>
+          <th className="p-5 text-xs font-bold uppercase tracking-widest text-center">Features</th>
+          <th className="p-5 text-xs font-bold uppercase tracking-widest text-center">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody className="divide-y divide-gray-300">
+        {categoryFilteredProducts.length === 0 && (
+          <tr>
+            <td colSpan={4} className="p-10 text-center text-gray-400 italic text-sm">
+              No products found for the selected filters.
+            </td>
+          </tr>
+        )}
+        {categoryFilteredProducts.map((p) => (
+          <tr key={p?._id} className="hover:bg-green-50/40 transition group">
+
+            <td className="p-5 border-r border-gray-200">
+              <div className="flex items-center gap-4">
+                <img
+                  src={p?.image}
+                  alt={p?.name}
+                  className="h-14 w-14 object-contain rounded-xl border p-1 bg-white shadow-sm"
+                />
+                <div>
+                  <div className="font-bold text-green-900 group-hover:text-green-600">
+                    {p?.name}
+                  </div>
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                    {p?.type}
+                  </div>
+                </div>
               </div>
-            </div>
+            </td>
+
+            <td className="p-5 border-r border-gray-200">
+              <div className="text-sm font-semibold text-gray-700">
+                {p?.category}
+              </div>
+              <div className="text-xs text-gray-400 italic">
+                {p?.subCategory}
+              </div>
+            </td>
+
+            <td className="p-5 text-center border-r border-gray-200">
+              <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[11px] font-bold border border-blue-100">
+                {p?.features?.length || 0} Bullets
+              </span>
+            </td>
+
+            <td className="p-5 text-center">
+              <div className="flex justify-center gap-3 relative">
+
+                <button
+                  onClick={() => edit(p)}
+                  className="p-2.5 bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white rounded-xl transition shadow-sm">
+                  <Edit size={18} />
+                </button>
+
+                <button
+                  onClick={() => del(p?._id)}
+                  className="p-2.5 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition shadow-sm">
+                  <Trash2 size={18} />
+                </button>
+
+                {/* Duplicate Button */}
+                <div className="relative group/dup">
+                  <button
+                    onClick={() => duplicateProduct(p)}
+                    className="p-2.5 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-xl transition shadow-sm">
+                    📄
+                  </button>
+
+                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-[11px] px-3 py-1 rounded-lg opacity-0 invisible group-hover/dup:opacity-100 group-hover/dup:visible transition duration-200 whitespace-nowrap">
+                    Edit & Duplicate
+                  </div>
+                </div>
+
+              </div>
+            </td>
+
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+</div>
           </>
         </div>
       </div>
+      <Footer/>
     </>
   );
 }
