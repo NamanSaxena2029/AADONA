@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import CheckCircle from "../assets/checkcircle.png";
@@ -56,42 +56,81 @@ const ProductCard = ({ product }) => {
 
 /* -------------------- RELATED PRODUCTS SECTION -------------------- */
 const RelatedProducts = ({ relatedProducts }) => {
+  const trackRef = useRef(null);
+  const animationRef = useRef(null);
+  const positionRef = useRef(0);
+
+  useEffect(() => {
+    if (!relatedProducts || relatedProducts.length === 0) return;
+
+    const timeout = setTimeout(() => {
+      const track = trackRef.current;
+      if (!track) return;
+
+      const totalWidth = track.scrollWidth / 2;
+      const speed = 0.6;
+
+      const step = () => {
+        positionRef.current += speed;
+        if (positionRef.current >= totalWidth) {
+          positionRef.current = 0;
+        }
+        track.style.transform = `translateX(-${positionRef.current}px)`;
+        animationRef.current = requestAnimationFrame(step);
+      };
+
+      animationRef.current = requestAnimationFrame(step);
+    }, 300);
+
+    return () => {
+      clearTimeout(timeout);
+      cancelAnimationFrame(animationRef.current);
+    };
+  }, [relatedProducts]);
+
   if (!relatedProducts || relatedProducts.length === 0) return null;
 
+  const doubled = [...relatedProducts, ...relatedProducts];
+
   return (
-    <div className="mt-24 bg-gray-100 py-16">
+    <div className="mt-24 bg-gray-100 py-16 overflow-hidden">
       <div className="max-w-7xl mx-auto">
         <h2 className="text-3xl font-bold text-center text-green-700 mb-10">
           Related Products
         </h2>
 
-        <div className="flex gap-12 overflow-x-auto px-6 scrollbar-hide">
-          {relatedProducts.map((product) => (
-            <div
-              key={product._id}
-              onClick={() =>
-                window.open(
-                  `/productDetails/${product.slug}`,
-                  "_blank",
-                  "noopener,noreferrer"
-                )
-              }
-              className="min-w-[200px] flex-shrink-0 cursor-pointer group"
-            >
-              <div className="flex flex-col items-center">
-                <div className="h-40 w-40 flex items-center justify-center mb-4">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="object-contain max-h-full group-hover:scale-105 transition duration-300"
-                  />
+        <div style={{ overflow: "hidden" }}>
+          <div
+            ref={trackRef}
+            style={{ display: "flex", gap: "3rem", width: "max-content", willChange: "transform" }}
+          >
+            {doubled.map((product, i) => (
+              <div
+                key={`${product._id}-${i}`}
+                onClick={() =>
+                  window.open(
+                    `/productDetails/${product.slug}`,
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+                style={{ minWidth: "200px", flexShrink: 0, cursor: "pointer" }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ height: "160px", width: "160px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1rem" }}>
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      style={{ objectFit: "contain", maxHeight: "100%" }}
+                    />
+                  </div>
+                  <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#374151", textAlign: "center" }}>
+                    {product.name}
+                  </h3>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-700 text-center">
-                  {product.name}
-                </h3>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>
