@@ -7,6 +7,35 @@ import CheckCircle from "../assets/checkcircle.png";
 const API = `${import.meta.env.VITE_API_URL}/products`;
 const RELATED_API = `${import.meta.env.VITE_API_URL}/related-products`;
 
+/* -------------------- SKELETON COMPONENTS -------------------- */
+const ProductCardSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-xl overflow-hidden flex flex-col border border-transparent animate-pulse">
+    <div className="h-48 bg-gray-200 border-b border-gray-100" />
+    <div className="p-4 sm:p-6 flex-grow flex flex-col justify-between">
+      <div>
+        <div className="h-6 bg-gray-200 rounded w-3/4 mb-3" />
+        <div className="h-4 bg-gray-200 rounded w-full mb-2" />
+        <div className="h-4 bg-gray-200 rounded w-5/6 mb-4" />
+      </div>
+      <div className="space-y-2 mb-6">
+        <div className="h-4 bg-gray-200 rounded w-2/3" />
+        <div className="h-4 bg-gray-200 rounded w-1/2" />
+        <div className="h-4 bg-gray-200 rounded w-3/5" />
+      </div>
+      <div className="h-11 bg-gray-200 rounded-md w-full mt-auto" />
+    </div>
+  </div>
+);
+
+const SubCategorySkeleton = () => (
+  <div className="flex flex-wrap justify-center gap-3">
+    {[1, 2, 3].map((i) => (
+      <div key={i} className="h-10 w-32 bg-gray-200 rounded-lg animate-pulse" />
+    ))}
+  </div>
+);
+/* -------------------- END SKELETON -------------------- */
+
 const ProductCard = ({ product }) => {
   const handleCardClick = () => {
     window.open(`/productDetails/${product.slug}`, "_blank", "noopener,noreferrer");
@@ -20,7 +49,12 @@ const ProductCard = ({ product }) => {
                     hover:shadow-2xl hover:scale-[1.02] hover:border-green-500 border border-transparent"
     >
       <div className="h-48 flex items-center justify-center p-4 bg-gray-50 border-b border-gray-100">
-        <img className="max-h-full object-contain" src={product.image} alt={product.name} />
+        <img
+          className="max-h-full object-contain"
+          src={product.image}
+          alt={product.name}
+          loading="lazy"
+        />
       </div>
 
       <div className="p-4 sm:p-6 flex-grow flex flex-col justify-between text-left">
@@ -35,7 +69,7 @@ const ProductCard = ({ product }) => {
           <ul className="text-gray-700 text-base mb-6 space-y-2">
             {product.features.map((feature, index) => (
               <li key={index} className="flex items-center">
-                <img src={CheckCircle} alt="Check" className="h-5 w-5 mr-2 flex-shrink-0" />
+                <img src={CheckCircle} alt="Check" className="h-5 w-5 mr-2 flex-shrink-0" loading="lazy" />
                 <span>{feature}</span>
               </li>
             ))}
@@ -122,6 +156,7 @@ const RelatedProducts = ({ relatedProducts }) => {
                       src={product.image}
                       alt={product.name}
                       style={{ objectFit: "contain", maxHeight: "100%" }}
+                      loading="lazy"
                     />
                   </div>
                   <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#374151", textAlign: "center" }}>
@@ -143,9 +178,10 @@ export default function CategoryProductsPage() {
   const decodedCategory = decodeURIComponent(categoryName);
 
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeSubCategory, setActiveSubCategory] = useState("");
   const [activeDetail, setActiveDetail] = useState("");
-  const [relatedProducts, setRelatedProducts] = useState([]); // ✅ NEW
+  const [relatedProducts, setRelatedProducts] = useState([]);
 
   const detailContent = {
     "Business": {
@@ -166,6 +202,7 @@ export default function CategoryProductsPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    setLoading(true);
     fetch(API)
       .then((res) => res.json())
       .then((data) => {
@@ -177,7 +214,8 @@ export default function CategoryProductsPage() {
           setActiveSubCategory(subCats[0]);
         }
       })
-      .catch(err => console.error("API Error:", err));
+      .catch(err => console.error("API Error:", err))
+      .finally(() => setLoading(false));
   }, [decodedCategory]);
 
   useEffect(() => {
@@ -192,7 +230,6 @@ export default function CategoryProductsPage() {
     }
   }, [activeSubCategory, products]);
 
-  // ✅ FETCH RELATED PRODUCTS FROM BACKEND whenever subcategory or extraCategory changes
   useEffect(() => {
     if (!decodedCategory || !activeSubCategory) return;
 
@@ -205,12 +242,9 @@ export default function CategoryProductsPage() {
       params.append("extraCategory", activeDetail);
     }
 
-    console.log("🔍 Fetching related products with:", params.toString());
-
     fetch(`${RELATED_API}?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
-        console.log("✅ Related products fetched:", data);
         setRelatedProducts(data.relatedProducts || []);
       })
       .catch((err) => {
@@ -245,23 +279,27 @@ export default function CategoryProductsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 mt-10 space-y-8 flex flex-col items-center">
-        <div className="flex flex-wrap justify-center gap-3">
-          {subCategories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveSubCategory(cat)}
-              className={`px-8 py-2.5 rounded-lg font-semibold transition-all duration-300 ${
-                activeSubCategory === cat
-                  ? 'bg-green-600 text-white shadow-md'
-                  : 'bg-white text-gray-600 border hover:bg-gray-100'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        {loading ? (
+          <SubCategorySkeleton />
+        ) : (
+          <div className="flex flex-wrap justify-center gap-3">
+            {subCategories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveSubCategory(cat)}
+                className={`px-8 py-2.5 rounded-lg font-semibold transition-all duration-300 ${
+                  activeSubCategory === cat
+                    ? 'bg-green-600 text-white shadow-md'
+                    : 'bg-white text-gray-600 border hover:bg-gray-100'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {detailOptions.length > 0 && (
+        {!loading && detailOptions.length > 0 && (
           <div className="flex flex-col items-center space-y-8 w-full">
             <div className="flex items-center gap-2 bg-gray-200/60 p-1.5 rounded-full border border-gray-300">
               {detailOptions.map((opt) => (
@@ -294,7 +332,13 @@ export default function CategoryProductsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto py-12 px-4 flex-grow w-full">
-        {filteredProducts.length > 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
             {filteredProducts.map((product) => (
               <ProductCard key={product._id} product={product} />
@@ -307,7 +351,6 @@ export default function CategoryProductsPage() {
         )}
       </div>
 
-      {/* ✅ AB MONGODB SE FETCHED RELATED PRODUCTS DIKHENGE */}
       <RelatedProducts relatedProducts={relatedProducts} />
 
       <Footer />

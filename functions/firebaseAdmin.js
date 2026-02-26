@@ -1,6 +1,3 @@
 const admin = require("firebase-admin");
-
-// Cloud Functions me credentials automatically milte hain
 admin.initializeApp();
-
 module.exports = admin;
