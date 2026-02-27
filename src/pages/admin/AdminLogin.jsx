@@ -46,7 +46,7 @@ const AdminLogin = () => {
           setError("Invalid email format.");
           break;
         case "auth/invalid-credential":
-          setError("Invalid credentials. Please verify email & password.");
+          setError("Invalid credentials. Please verify email & password");
           break;
         case "auth/too-many-requests":
           setError("Too many failed attempts. Try again later.");
