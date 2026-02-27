@@ -9,7 +9,7 @@ import Navbar from "../../Components/Navbar";
 import ProductDetailPage from "../../Components/ProductDetailPage";
 import Footer from "../../Components/Footer";
 
-const API = "http://localhost:5000/products";
+const API = `${import.meta.env.VITE_API_URL}/products`;
 const categories = {
   "Network Switches": {
     "Unmanaged Switches": [],
@@ -414,7 +414,7 @@ export default function AdminPanel() {
     setAdminBtnLoading(true);
     try {
       const token = await auth.currentUser.getIdToken();
-      const res = await fetch("http://localhost:5000/create-admin", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/create-admin`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ email: adminEmail, password: adminPassword })
@@ -465,7 +465,7 @@ export default function AdminPanel() {
 
       console.log("🚀 Sending payload:", payload);
 
-      const res = await fetch("http://localhost:5000/save-related-products", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/save-related-products`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
