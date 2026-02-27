@@ -31,6 +31,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /var/www/myapp
+            rm -f .env.production
             git stash
             git pull
             npm install
