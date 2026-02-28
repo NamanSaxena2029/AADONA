@@ -1487,7 +1487,7 @@ export default function AdminPanel() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Read Time
+                        Read Time - e.g. "5 min read"
                       </label>
                       <input
                         type="text"
