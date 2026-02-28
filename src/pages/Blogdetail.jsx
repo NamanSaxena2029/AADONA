@@ -61,10 +61,12 @@ const BlogDetail = () => {
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
   const [commentSuccess, setCommentSuccess] = useState(false);
+  const [viewsCount, setViewsCount] = useState(0);
 
   useEffect(() => {
     window.scrollTo(0, 0);
 
+    // ✅ Blog data fetch karo (views increment NAHI hoga yahan ab)
     fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}`)
       .then((res) => res.json())
       .then((data) => {
@@ -74,6 +76,28 @@ const BlogDetail = () => {
           setBlog(data);
           setLikesCount(data.likes || 0);
           setComments(data.comments || []);
+          setViewsCount(data.views || 0);
+
+          // ✅ Views — sirf ek baar per user per blog count karo
+          const viewedBlogs = JSON.parse(localStorage.getItem("viewedBlogs") || "[]");
+
+          if (!viewedBlogs.includes(data._id)) {
+            // Pehli baar dekh raha hai — view increment karo
+            fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}/view`, {
+              method: "POST",
+            })
+              .then((res) => res.json())
+              .then((viewData) => {
+                if (viewData.views !== undefined) {
+                  setViewsCount(viewData.views);
+                }
+              })
+              .catch(() => {});
+
+            // localStorage mein save karo
+            viewedBlogs.push(data._id);
+            localStorage.setItem("viewedBlogs", JSON.stringify(viewedBlogs));
+          }
         }
         setLoading(false);
       })
@@ -193,7 +217,8 @@ const BlogDetail = () => {
               </div>
               <div className="flex items-center gap-2">
                 <EyeIcon className="w-5 h-5" />
-                <span>{blog.views} views</span>
+                {/* ✅ viewsCount state use karo — real-time updated */}
+                <span>{viewsCount} views</span>
               </div>
             </div>
           </div>
@@ -344,45 +369,46 @@ const BlogDetail = () => {
                 Recent Posts
               </h3>
               <div className="space-y-6">
-  {recentPosts
-    .filter((post) => post._id !== blog._id)
-    .slice(0, 4)
-    .map((post) => (
-      <Link
-        key={post._id}
-        to={`/blog/${post.slug}`}
-        className="block group"
-      >
-        <div className="flex gap-4">
-          <img
-            src={post.image}
-            alt={post.title}
-            className="w-20 h-20 rounded-lg object-cover flex-shrink-0 group-hover:scale-105 transition-transform duration-300"
-            onError={(e) => {
-              e.target.src =
-                "https://placehold.co/200x200/A7F3D0/065F46?text=Blog";
-            }}
-          />
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-green-600 transition-colors duration-300">
-              {post.title}
-            </h4>
-            <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-              <CalendarIcon className="w-3 h-3" />
-              <span>{post.date}</span>
+                {recentPosts
+                  .filter((post) => post._id !== blog._id)
+                  .slice(0, 4)
+                  .map((post) => (
+                    <Link
+                      key={post._id}
+                      to={`/blog/${post.slug}`}
+                      className="block group"
+                    >
+                      <div className="flex gap-4">
+                        <img
+                          src={post.image}
+                          alt={post.title}
+                          className="w-20 h-20 rounded-lg object-cover flex-shrink-0 group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.target.src =
+                              "https://placehold.co/200x200/A7F3D0/065F46?text=Blog";
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-green-600 transition-colors duration-300">
+                            {post.title}
+                          </h4>
+                          <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                            <CalendarIcon className="w-3 h-3" />
+                            <span>{post.date}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+              </div>
             </div>
           </div>
-        </div>
-      </Link>
-    ))}
-</div>  {/* space-y-6 */}
-</div>  {/* sticky card */}
-</div>  {/* lg:col-span-1 */}
-</div>  {/* grid */}
-</div>  {/* container */}
 
-<Footer />
-</div>
+        </div>
+      </div>
+
+      <Footer />
+    </div>
   );
 };
 

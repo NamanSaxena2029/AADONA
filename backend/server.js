@@ -167,7 +167,7 @@ const BlogSchema = new mongoose.Schema(
     readTime: { type: String, default: "3 min read" },
     image: { type: String, required: true },
     views: { type: Number, default: 0 },
-    likes: { type: Number, default: 0 },                    // ✅ NEW
+    likes: { type: Number, default: 0 },
     published: { type: Boolean, default: true },
     blocks: [
       {
@@ -177,7 +177,7 @@ const BlogSchema = new mongoose.Schema(
         caption: { type: String },
       },
     ],
-    comments: [                                              // ✅ NEW
+    comments: [
       {
         name: { type: String, required: true },
         text: { type: String, required: true },
@@ -426,14 +426,28 @@ app.get("/blogs", async (req, res) => {
   }
 });
 
-/* -------- GET BLOG BY SLUG (Public) -------- */
+/* -------- GET BLOG BY SLUG (Public) — ✅ Views increment NAHI hoga ab -------- */
 app.get("/blogs/slug/:slug", async (req, res) => {
   try {
     const blog = await Blog.findOne({ slug: req.params.slug, published: true });
     if (!blog) return res.status(404).json({ error: "Blog not found" });
-    blog.views += 1;
-    await blog.save();
+    // ✅ Views increment hataya — ab alag /view route handle karega
     res.json(blog);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- ✅ VIEW BLOG — Sirf frontend se ek baar call hoga (localStorage se controlled) -------- */
+app.post("/blogs/slug/:slug/view", async (req, res) => {
+  try {
+    const blog = await Blog.findOneAndUpdate(
+      { slug: req.params.slug, published: true },
+      { $inc: { views: 1 } },
+      { new: true }
+    );
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
+    res.json({ views: blog.views });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
