@@ -207,7 +207,7 @@ const generateSlug = (name) => {
 ============================= */
 
 app.get("/", (req, res) => {
-  res.send("API Running AUTO DEPLOY TEST 🚀");
+  res.send("API Running 🚀");
 });
 
 /* -------- GET ALL PRODUCTS -------- */
