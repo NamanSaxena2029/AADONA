@@ -159,7 +159,7 @@ export default function App() {
         Board Number: +91-77149-20035
       </p>
       <p className="text-xl font-extrabold text-green-700 mb-4">
-        Phone Number:<span /> +91 99100 50918, +91 98993 36461
+        {/* Phone Number:<span /> +91 99100 50918, +91 98993 36461 */}
       </p>
       <p className="text-xl font-extrabold text-green-700 mb-4">
         Email:<span /> support@aadona.com

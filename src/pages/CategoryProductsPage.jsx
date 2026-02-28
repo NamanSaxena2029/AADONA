@@ -55,42 +55,70 @@ const ProductCard = ({ product }) => {
 };
 
 /* -------------------- RELATED PRODUCTS SECTION -------------------- */
+
+
 const RelatedProducts = ({ relatedProducts }) => {
   const trackRef = useRef(null);
   const animationRef = useRef(null);
   const positionRef = useRef(0);
+  const isPausedRef = useRef(false);
+
+  // Drag refs
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startPositionRef = useRef(0);
 
   useEffect(() => {
     if (!relatedProducts || relatedProducts.length === 0) return;
 
-    const timeout = setTimeout(() => {
-      const track = trackRef.current;
-      if (!track) return;
+    const track = trackRef.current;
+    const totalWidth = track.scrollWidth / 2;
+    const speed = 0.6;
 
-      const totalWidth = track.scrollWidth / 2;
-      const speed = 0.6;
-
-      const step = () => {
+    const step = () => {
+      if (!isPausedRef.current && !isDraggingRef.current) {
         positionRef.current += speed;
+
         if (positionRef.current >= totalWidth) {
           positionRef.current = 0;
         }
+
         track.style.transform = `translateX(-${positionRef.current}px)`;
-        animationRef.current = requestAnimationFrame(step);
-      };
+      }
 
       animationRef.current = requestAnimationFrame(step);
-    }, 300);
-
-    return () => {
-      clearTimeout(timeout);
-      cancelAnimationFrame(animationRef.current);
     };
+
+    animationRef.current = requestAnimationFrame(step);
+
+    return () => cancelAnimationFrame(animationRef.current);
   }, [relatedProducts]);
 
   if (!relatedProducts || relatedProducts.length === 0) return null;
 
   const doubled = [...relatedProducts, ...relatedProducts];
+
+  // 🟢 Drag Start
+  const handleMouseDown = (e) => {
+    isDraggingRef.current = true;
+    startXRef.current = e.clientX;
+    startPositionRef.current = positionRef.current;
+  };
+
+  // 🟢 Drag Move
+  const handleMouseMove = (e) => {
+    if (!isDraggingRef.current) return;
+
+    const dx = e.clientX - startXRef.current;
+    positionRef.current = startPositionRef.current - dx;
+
+    trackRef.current.style.transform = `translateX(-${positionRef.current}px)`;
+  };
+
+  // 🟢 Drag End
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+  };
 
   return (
     <div className="mt-24 bg-gray-100 py-16 overflow-hidden">
@@ -99,14 +127,27 @@ const RelatedProducts = ({ relatedProducts }) => {
           Related Products
         </h2>
 
-        <div style={{ overflow: "hidden" }}>
+        <div
+          style={{ overflow: "hidden", cursor: "grab" }}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
           <div
             ref={trackRef}
-            style={{ display: "flex", gap: "3rem", width: "max-content", willChange: "transform" }}
+            onMouseDown={handleMouseDown}
+            style={{
+              display: "flex",
+              gap: "3rem",
+              width: "max-content",
+              willChange: "transform",
+            }}
           >
             {doubled.map((product, i) => (
               <div
                 key={`${product._id}-${i}`}
+                onMouseEnter={() => (isPausedRef.current = true)}
+                onMouseLeave={() => (isPausedRef.current = false)}
                 onClick={() =>
                   window.open(
                     `/productDetails/${product.slug}`,
@@ -114,17 +155,50 @@ const RelatedProducts = ({ relatedProducts }) => {
                     "noopener,noreferrer"
                   )
                 }
-                style={{ minWidth: "200px", flexShrink: 0, cursor: "pointer" }}
+                style={{
+                  minWidth: "200px",
+                  flexShrink: 0,
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
               >
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <div style={{ height: "160px", width: "160px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "160px",
+                      width: "160px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: "1rem",
+                    }}
+                  >
                     <img
                       src={product.image}
                       alt={product.name}
-                      style={{ objectFit: "contain", maxHeight: "100%" }}
+                      draggable="false"
+                      style={{
+                        objectFit: "contain",
+                        maxHeight: "100%",
+                        pointerEvents: "none",
+                      }}
                     />
                   </div>
-                  <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#374151", textAlign: "center" }}>
+
+                  <h3
+                    style={{
+                      fontSize: "1.125rem",
+                      fontWeight: 600,
+                      color: "#374151",
+                      textAlign: "center",
+                    }}
+                  >
                     {product.name}
                   </h3>
                 </div>
@@ -136,6 +210,9 @@ const RelatedProducts = ({ relatedProducts }) => {
     </div>
   );
 };
+
+// export default RelatedProducts;
+
 /* -------------------- END RELATED PRODUCTS -------------------- */
 
 export default function CategoryProductsPage() {
