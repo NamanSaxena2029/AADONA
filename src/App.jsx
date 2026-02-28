@@ -40,6 +40,9 @@ import AdminPanel from "./pages/admin/AdminPanel";
 import ProtectedRoute from "./pages/admin/ProtectedRoute";
 import ProductDetailPage from "./Components/ProductDetailPage";
 
+/* ✅ Blog Detail Page */
+import BlogDetail from "./pages/Blogdetail";
+
 const App = () => {
   return (
     <>
@@ -65,6 +68,9 @@ const App = () => {
           <Route path="/active" element={<Active />} />
           <Route path="/passive" element={<Passive />} />
           <Route path="/blog" element={<Blog />} />
+          {/* ✅ Blog Detail Route - Slug based */}
+          <Route path="/blog/:slug" element={<BlogDetail />} />
+          
           <Route path="/about" element={<About />} />
           <Route path="/csr" element={<Csr />} />
           <Route path="/careers" element={<Careers />} />

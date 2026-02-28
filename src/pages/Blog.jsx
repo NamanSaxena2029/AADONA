@@ -1,10 +1,8 @@
-import React, { useState,useEffect } from "react";
-import Navbar from '../Components/Navbar'
-import Footer from '../Components/Footer'
-import bg from "../assets/bg.jpg";   // ✅ CSR background
+import React, { useState, useEffect } from "react";
+import Navbar from '../Components/Navbar';
+import Footer from '../Components/Footer';
+import bg from "../assets/bg.jpg";
 
-
-// --- Icon Replacements ---
 const SearchIcon = (props) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8"></circle>
@@ -41,138 +39,83 @@ const ClockIcon = (props) => (
     <polyline points="12 6 12 12 16 14"></polyline>
   </svg>
 );
-// ---------------------------------------------------
-
 
 const BlogPage = () => {
   const [hoveredCard, setHoveredCard] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-
-  const blogPosts = [
-    {
-      id: 1,
-      title: "Why Choose Aadona as Your Tech Partner",
-      excerpt:
-        "In today's fast-paced digital world, selecting the right technology partner is crucial...",
-      author: "Pinakii Chatterje",
-      date: "Oct 12",
-      readTime: "4 min read",
-      views: "2 views",
-      comments: "0 comments",
-      image: "https://images.unsplash.com/photo-1560264280-88b68371db39?w=800",
-    },
-    {
-      id: 2,
-      title: "Understanding Business Working Hours",
-      excerpt: "In today's fast-paced world, understanding working hours is crucial...",
-      author: "Pinakii Chatterje",
-      date: "Oct 10",
-      readTime: "4 min read",
-      views: "2 views",
-      comments: "0 comments",
-      image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800",
-    },
-    {
-      id: 3,
-      title:
-        "Building India's Digital Future",
-      excerpt:
-        "Excellent ✅ — India stands at a decisive moment in its digital journey...",
-      author: "Pinakii Chatterje",
-      date: "Oct 8",
-      readTime: "3 min read",
-      views: "5 views",
-      comments: "0 comments",
-      image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800",
-    },
-    {
-      id: 4,
-      title: "The Future of Network Security",
-      excerpt:
-        "Cybersecurity threats are evolving rapidly...",
-      author: "Pinakii Chatterje",
-      date: "Oct 5",
-      readTime: "5 min read",
-      views: "8 views",
-      comments: "2 comments",
-      image: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800",
-    },
-    {
-      id: 5,
-      title: "Cloud Infrastructure Best Practices",
-      excerpt:
-        "Discover essential strategies for maintaining cloud infrastructure...",
-      author: "Pinakii Chatterje",
-      date: "Oct 3",
-      readTime: "6 min read",
-      views: "12 views",
-      comments: "3 comments",
-      image: "https://images.pexels.com/photos/373543/pexels-photo-373543.jpeg?w=800",
-    },
-    {
-      id: 6,
-      title: "5G Networks and Enterprise Connectivity",
-      excerpt:
-        "Explore how 5G is revolutionizing enterprise connectivity...",
-      author: "Pinakii Chatterje",
-      date: "Sep 28",
-      readTime: "4 min read",
-      views: "15 views",
-      comments: "5 comments",
-      image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800",
-    },
-  ];
-
-  const filteredBlogPosts = blogPosts.filter((post) =>
-    post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.author.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [blogPosts, setBlogPosts] = useState([]);
+  const [blogsLoading, setBlogsLoading] = useState(true);
 
   useEffect(() => {
-        window.scrollTo(0, 0);
-      }, []);
+    fetch(`${import.meta.env.VITE_API_URL}/blogs`)
+      .then((res) => res.json())
+      .then((data) => {
+        setBlogPosts(Array.isArray(data) ? data : []);
+        setBlogsLoading(false);
+      })
+      .catch(() => setBlogsLoading(false));
+    window.scrollTo(0, 0);
+  }, []);
+
+  const filteredBlogPosts = blogPosts.filter(
+    (post) =>
+      post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      post.author.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // ✅ FIXED: Generate slug if missing
+  const generateSlug = (title) => {
+    return title
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  };
+
+  const handleCardClick = (post) => {
+    // ✅ Use slug if available, otherwise generate from title
+    const slug = post.slug || generateSlug(post.title);
+    console.log('🔵 Opening blog with slug:', slug); // Debug log
+    window.open(`/blog/${slug}`, '_blank');
+  };
 
   return (
     <div className="min-h-screen font-sans">
       <Navbar />
 
-      {/* ✅ CLEAN HERO (NO BG IMAGE) */}
-<div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-24">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-    <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">
-      Our Blog
-    </h1>
-
-    <p className="mt-6 text-xl text-green-100 max-w-3xl mx-auto">
-      Insights, stories, and expertise from the world of networking.
-    </p>
-
-    {/* ✅ Search bar moved DOWN */}
-    <div className="max-w-2xl mx-auto mt-12">
-      <div className="relative">
-        <input
-          type="text"
-          placeholder="Search articles..."
-          className="w-full px-6 py-4 rounded-full bg-white border border-green-200 text-gray-700 shadow-md focus:outline-none focus:ring-4 focus:ring-green-300 transition-all duration-300 placeholder-gray-400"
-          aria-label="Search articles"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <SearchIcon className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 text-green-500" />
+      {/* HERO */}
+      <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">
+            Our Blog
+          </h1>
+          <p className="mt-6 text-xl text-green-100 max-w-3xl mx-auto">
+            Insights, stories, and expertise from the world of networking.
+          </p>
+          <div className="max-w-2xl mx-auto mt-12">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search articles..."
+                className="w-full px-6 py-4 rounded-full bg-white border border-green-200 text-gray-700 shadow-md focus:outline-none focus:ring-4 focus:ring-green-300 transition-all duration-300 placeholder-gray-400"
+                aria-label="Search articles"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <SearchIcon className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 text-green-500" />
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
 
-
-      {/* ✅ CSR BACKGROUND SECTION */}
+      {/* BLOG CARDS */}
       <div
         className="bg-cover bg-center py-16"
         style={{ backgroundImage: `url(${bg})` }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
           <div className="flex justify-between items-center mb-12">
             <h2 className="text-3xl font-bold text-gray-800">
               {searchQuery ? `Search Results for "${searchQuery}"` : "Latest Posts"}
@@ -183,80 +126,92 @@ const BlogPage = () => {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredBlogPosts.length > 0 ? (
-              filteredBlogPosts.map((post) => (
-                <div
-                  key={post.id}
-                  onMouseEnter={() => setHoveredCard(post.id)}
-                  onMouseLeave={() => setHoveredCard(null)}
-                  className="bg-white rounded-2xl shadow-lg overflow-hidden transform transition-all duration-500 hover:scale-105 hover:shadow-2xl cursor-pointer"
-                >
-                  <div className="relative overflow-hidden h-56">
-                    <img
-                      src={post.image}
-                      alt={post.title}
-                      className={`w-full h-full object-cover transition-transform duration-700 ${
-                        hoveredCard === post.id ? "scale-110" : "scale-100"
-                      }`}
-                      loading="lazy"
-                      onError={(e) => {
-                        e.target.src = "https://placehold.co/800x500/A7F3D0/065F46?text=Blog";
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                  </div>
+          {/* Loading Spinner */}
+          {blogsLoading && (
+            <div className="flex justify-center py-20">
+              <div className="animate-spin w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full" />
+            </div>
+          )}
 
-                  <div className="p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <UserIcon className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{post.author}</p>
-                        <div className="flex items-center gap-3 text-xs text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <CalendarIcon className="w-3 h-3" />
-                            {post.date}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <ClockIcon className="w-3 h-3" />
-                            {post.readTime}
-                          </span>
+          {!blogsLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredBlogPosts.length > 0 ? (
+                filteredBlogPosts.map((post) => (
+                  <div
+                    key={post._id}
+                    onClick={() => handleCardClick(post)}
+                    onMouseEnter={() => setHoveredCard(post._id)}
+                    onMouseLeave={() => setHoveredCard(null)}
+                    className="bg-white rounded-2xl shadow-lg overflow-hidden transform transition-all duration-500 hover:scale-105 hover:shadow-2xl cursor-pointer"
+                  >
+                    <div className="relative overflow-hidden h-56">
+                      <img
+                        src={post.image}
+                        alt={post.title}
+                        className={`w-full h-full object-cover transition-transform duration-700 ${
+                          hoveredCard === post._id ? "scale-110" : "scale-100"
+                        }`}
+                        loading="lazy"
+                        onError={(e) => {
+                          e.target.src = "https://placehold.co/800x500/A7F3D0/065F46?text=Blog";
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    </div>
+
+                    <div className="p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                          <UserIcon className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{post.author}</p>
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <CalendarIcon className="w-3 h-3" />
+                              {post.date}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <ClockIcon className="w-3 h-3" />
+                              {post.readTime}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <h3 className="text-xl font-bold text-gray-800 mb-3 line-clamp-2 hover:text-green-600 transition-colors duration-300">
-                      {post.title}
-                    </h3>
+                      <h3 className="text-xl font-bold text-gray-800 mb-3 line-clamp-2 hover:text-green-600 transition-colors duration-300">
+                        {post.title}
+                      </h3>
 
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">{post.excerpt}</p>
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">{post.excerpt}</p>
 
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>{post.views}</span>
-                        <span>{post.comments}</span>
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <span>{post.views || 0} views</span>
+                          <span className="flex items-center gap-1 text-red-400">
+                            ❤️ {post.likes || 0}
+                          </span>
+                        </div>
+                        <button className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center gap-1 transition-all duration-300 group">
+                          Read More
+                          <ArrowRightIcon className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" />
+                        </button>
                       </div>
-                      <button className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center gap-1 transition-all duration-300 group">
-                        Read More
-                        <ArrowRightIcon className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" />
-                      </button>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="lg:col-span-3 text-center py-10 bg-white rounded-xl shadow-lg border-2 border-dashed border-gray-200">
+                  <p className="text-xl text-gray-600">
+                    No blog posts found for "{searchQuery}".
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Try a different search term.
+                  </p>
                 </div>
-              ))
-            ) : (
-              <div className="lg:col-span-3 text-center py-10 bg-white rounded-xl shadow-lg border-2 border-dashed border-gray-200">
-                <p className="text-xl text-gray-600">
-                  No blog posts found for "{searchQuery}".
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Try a different search term.
-                </p>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

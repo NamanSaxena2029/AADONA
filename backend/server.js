@@ -154,6 +154,43 @@ const RelatedProductSchema = new mongoose.Schema(
 const RelatedProduct = mongoose.model("RelatedProduct", RelatedProductSchema);
 
 /* =============================
+   BLOG SCHEMA — ✅ likes + comments added
+============================= */
+
+const BlogSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    slug: { type: String, required: true, unique: true },
+    excerpt: { type: String, required: true },
+    author: { type: String, default: "Pinakii Chatterje" },
+    date: { type: String },
+    readTime: { type: String, default: "3 min read" },
+    image: { type: String, required: true },
+    views: { type: Number, default: 0 },
+    likes: { type: Number, default: 0 },                    // ✅ NEW
+    published: { type: Boolean, default: true },
+    blocks: [
+      {
+        type: { type: String, enum: ["text", "image"], required: true },
+        content: { type: String },
+        url: { type: String },
+        caption: { type: String },
+      },
+    ],
+    comments: [                                              // ✅ NEW
+      {
+        name: { type: String, required: true },
+        text: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+  },
+  { timestamps: true }
+);
+
+const Blog = mongoose.model("Blog", BlogSchema);
+
+/* =============================
    SLUG GENERATOR
 ============================= */
 
@@ -371,6 +408,148 @@ app.get("/related-products", async (req, res) => {
     res.json({ relatedProducts: products });
   } catch (err) {
     console.log("❌ Get Related Products Error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* =============================
+   BLOG ROUTES
+============================= */
+
+/* -------- GET ALL BLOGS (Public) -------- */
+app.get("/blogs", async (req, res) => {
+  try {
+    const blogs = await Blog.find({ published: true }).sort({ createdAt: -1 });
+    res.json(blogs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- GET BLOG BY SLUG (Public) -------- */
+app.get("/blogs/slug/:slug", async (req, res) => {
+  try {
+    const blog = await Blog.findOne({ slug: req.params.slug, published: true });
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
+    blog.views += 1;
+    await blog.save();
+    res.json(blog);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- ✅ LIKE BLOG (Public) -------- */
+app.post("/blogs/slug/:slug/like", async (req, res) => {
+  try {
+    const blog = await Blog.findOneAndUpdate(
+      { slug: req.params.slug, published: true },
+      { $inc: { likes: 1 } },
+      { new: true }
+    );
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
+
+    // Email admin
+    transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `❤️ New Like on: "${blog.title}"`,
+      html: `<p>Someone liked your blog <b>"${blog.title}"</b>.</p><p>Total likes now: <b>${blog.likes}</b></p>`,
+    }).catch(() => {});
+
+    res.json({ likes: blog.likes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- ✅ ADD COMMENT (Public) -------- */
+app.post("/blogs/slug/:slug/comment", async (req, res) => {
+  try {
+    const { name, text } = req.body;
+    if (!name || !text) return res.status(400).json({ error: "Name and text required" });
+
+    const blog = await Blog.findOneAndUpdate(
+      { slug: req.params.slug, published: true },
+      { $push: { comments: { name, text, createdAt: new Date() } } },
+      { new: true }
+    );
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
+
+    // Email admin
+    transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.COMPANY_EMAIL,
+      subject: `💬 New Comment on: "${blog.title}"`,
+      html: `
+        <h3>New comment on <b>"${blog.title}"</b></h3>
+        <p><b>From:</b> ${name}</p>
+        <p><b>Comment:</b> ${text}</p>
+        <p><small>Total comments: ${blog.comments.length}</small></p>
+      `,
+    }).catch(() => {});
+
+    res.json({ comments: blog.comments });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- GET BLOG BY ID (Admin) -------- */
+app.get("/blogs/:id", async (req, res) => {
+  try {
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
+    res.json(blog);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- CREATE BLOG (Admin) -------- */
+app.post("/blogs", verifyToken, async (req, res) => {
+  try {
+    let baseSlug = generateSlug(req.body.title);
+    let finalSlug = baseSlug;
+    let counter = 1;
+
+    while (await Blog.findOne({ slug: finalSlug })) {
+      finalSlug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+
+    const blog = await Blog.create({ ...req.body, slug: finalSlug });
+    res.status(201).json(blog);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- UPDATE BLOG (Admin) -------- */
+app.put("/blogs/:id", verifyToken, async (req, res) => {
+  try {
+    const updated = await Blog.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- DELETE BLOG (Admin) -------- */
+app.delete("/blogs/:id", verifyToken, async (req, res) => {
+  try {
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ message: "Blog not found" });
+
+    await deleteFromFirebase(blog.image);
+
+    await Blog.findByIdAndDelete(req.params.id);
+
+    console.log("🗑️ Blog deleted:", blog.title);
+    res.json({ message: "Deleted successfully" });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
