@@ -122,11 +122,7 @@ export default function AdminPanel() {
     title: "",
     excerpt: "",
     author: "Pinakii Chatterje",
-    date: new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
+    date: "",  // ✅ Empty — auto set on publish
     readTime: "3 min read",
     image: "",
     blocks: [],
@@ -638,6 +634,15 @@ export default function AdminPanel() {
 
     const slug = generateSlug(blogForm.title);
 
+    // ✅ Auto date — naya blog publish ho toh aaj ki date, edit ho toh purani date preserve
+    const publishDate = editingBlogId
+      ? blogForm.date
+      : new Date().toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+
     try {
       const token = await auth.currentUser?.getIdToken();
       const method = editingBlogId ? "PUT" : "POST";
@@ -649,7 +654,7 @@ export default function AdminPanel() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ ...blogForm, slug, published: true }),
+        body: JSON.stringify({ ...blogForm, slug, date: publishDate, published: true }),
       });
 
       if (res.ok) {
@@ -670,11 +675,7 @@ export default function AdminPanel() {
       title: "",
       excerpt: "",
       author: "Pinakii Chatterje",
-      date: new Date().toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
+      date: "",  // ✅ Empty — auto set on publish
       readTime: "3 min read",
       image: "",
       blocks: [],
@@ -687,7 +688,7 @@ export default function AdminPanel() {
       title: blog.title,
       excerpt: blog.excerpt,
       author: blog.author,
-      date: blog.date,
+      date: blog.date,  // ✅ Purani date preserve karo
       readTime: blog.readTime,
       image: blog.image,
       blocks: blog.blocks || [],
@@ -1457,8 +1458,8 @@ export default function AdminPanel() {
                     )}
                   </div>
 
-                  {/* Author & Meta */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Author & Meta — Date field hataya, auto set hoga publish par */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Author
@@ -1468,19 +1469,6 @@ export default function AdminPanel() {
                         value={blogForm.author}
                         onChange={(e) =>
                           setBlogForm({ ...blogForm, author: e.target.value })
-                        }
-                        className={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Date
-                      </label>
-                      <input
-                        type="text"
-                        value={blogForm.date}
-                        onChange={(e) =>
-                          setBlogForm({ ...blogForm, date: e.target.value })
                         }
                         className={inputStyle}
                       />
