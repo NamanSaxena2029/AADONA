@@ -1,6 +1,9 @@
 [
   {
-    "origin": ["http://187.77.189.49/api"],
+    "origin": [
+      "https://aadona.online",
+      "https://www.aadona.online"
+    ],
     "method": ["GET", "POST", "PUT", "DELETE"],
     "responseHeader": ["Content-Type", "Authorization"],
     "maxAgeSeconds": 3600
