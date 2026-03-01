@@ -1393,296 +1393,319 @@ export default function AdminPanel() {
              BLOG MANAGEMENT TAB
           ======================================== */}
           {activeTab === "blogs" && (
-            <div className="space-y-8">
-              {/* Blog Form */}
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-bold mb-6">
-                  {editingBlogId ? "Edit Blog" : "Create New Blog"}
-                </h2>
-                <form onSubmit={handleBlogSubmit} className="space-y-6">
-                  {/* Title */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Blog Title
-                    </label>
-                    <input
-                      type="text"
-                      value={blogForm.title}
-                      onChange={(e) =>
-                        setBlogForm({ ...blogForm, title: e.target.value })
-                      }
-                      className={inputStyle}
-                      placeholder="Enter blog title"
-                      required
-                    />
-                    {blogForm.title && (
-                      <p className="mt-2 text-sm text-gray-500">
-                        URL: /blog/{generateSlug(blogForm.title)}
-                      </p>
-                    )}
-                  </div>
+  <div className="space-y-10 max-w-6xl mx-auto">
 
-                  {/* Excerpt */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Excerpt (Short Description)
-                    </label>
-                    <textarea
-                      value={blogForm.excerpt}
-                      onChange={(e) =>
-                        setBlogForm({ ...blogForm, excerpt: e.target.value })
-                      }
-                      className={`${inputStyle} h-24 resize-none`}
-                      placeholder="Brief summary of the blog"
-                      required
-                    />
-                  </div>
+    {/* ================= BLOG FORM ================= */}
+    <div className="bg-white/80 backdrop-blur-xl border border-gray-200 rounded-2xl shadow-xl p-8">
+      <h2 className="text-2xl font-semibold text-gray-800 mb-8 tracking-tight">
+        {editingBlogId ? "Edit Blog" : "Create New Blog"}
+      </h2>
 
-                  {/* Hero Image */}
+      <form onSubmit={handleBlogSubmit} className="space-y-8">
+
+        {/* Title */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Blog Title
+          </label>
+          <input
+            type="text"
+            value={blogForm.title}
+            onChange={(e) =>
+              setBlogForm({ ...blogForm, title: e.target.value })
+            }
+            className={inputStyle}
+            placeholder="Enter blog title"
+            required
+          />
+          {blogForm.title && (
+            <p className="mt-2 text-sm text-gray-500">
+              URL: /blog/{generateSlug(blogForm.title)}
+            </p>
+          )}
+        </div>
+
+        {/* Excerpt */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Excerpt (Short Description)
+          </label>
+          <textarea
+            value={blogForm.excerpt}
+            onChange={(e) =>
+              setBlogForm({ ...blogForm, excerpt: e.target.value })
+            }
+            className={`${inputStyle} h-28 resize-none`}
+            placeholder="Brief summary of the blog"
+            required
+          />
+        </div>
+
+        {/* Hero Image */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Hero Image
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={uploadHeroImage}
+            className="block w-full text-sm text-gray-600 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:bg-gradient-to-r file:from-green-600 file:to-emerald-600 file:text-white hover:file:opacity-90 cursor-pointer"
+          />
+          {blogForm.image && (
+            <img
+              src={blogForm.image}
+              alt="Hero preview"
+              className="mt-6 w-full h-64 object-cover rounded-2xl shadow-md"
+            />
+          )}
+        </div>
+
+        {/* Author & Read Time */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Author
+            </label>
+            <input
+              type="text"
+              value={blogForm.author}
+              onChange={(e) =>
+                setBlogForm({ ...blogForm, author: e.target.value })
+              }
+              className={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Read Time
+            </label>
+            <input
+              type="text"
+              value={blogForm.readTime}
+              onChange={(e) =>
+                setBlogForm({ ...blogForm, readTime: e.target.value })
+              }
+              className={inputStyle}
+            />
+          </div>
+        </div>
+
+        {/* ================= CONTENT BLOCKS ================= */}
+        <div className="border-t pt-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-800">
+              Blog Content (Blocks)
+            </h3>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={addTextBlock}
+                className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm shadow-sm transition"
+              >
+                + Add Text
+              </button>
+
+              <button
+                type="button"
+                onClick={addImageBlock}
+                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 text-sm shadow-sm transition"
+              >
+                + Add Image
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {blogForm.blocks.map((block, index) => (
+              <div
+                key={index}
+                className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm hover:shadow-md transition-all"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm font-semibold text-gray-700">
+                    {block.type === "text"
+                      ? "📝 Text Block"
+                      : "🖼️ Image Block"}
+                  </span>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => moveBlock(index, "up")}
+                      disabled={index === 0}
+                      className="px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-40 text-xs transition"
+                    >
+                      ↑
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => moveBlock(index, "down")}
+                      disabled={index === blogForm.blocks.length - 1}
+                      className="px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-40 text-xs transition"
+                    >
+                      ↓
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => deleteBlock(index)}
+                      className="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-xs transition"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                {block.type === "text" && (
+                  <textarea
+                    value={block.content}
+                    onChange={(e) =>
+                      updateBlock(index, "content", e.target.value)
+                    }
+                    className={`${inputStyle} h-36 resize-none`}
+                    placeholder="Write your content here..."
+                  />
+                )}
+
+                {block.type === "image" && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Hero Image
-                    </label>
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={uploadHeroImage}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                      onChange={(e) => uploadBlockImage(e, index)}
+                      className="block w-full text-sm text-gray-600 mb-4 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:bg-gradient-to-r file:from-purple-500 file:to-indigo-600 file:text-white hover:file:opacity-90 cursor-pointer"
                     />
-                    {blogForm.image && (
+
+                    {block.url && (
                       <img
-                        src={blogForm.image}
-                        alt="Hero preview"
-                        className="mt-4 w-full h-64 object-cover rounded-lg"
+                        src={block.url}
+                        alt="Block preview"
+                        className="w-full h-52 object-cover rounded-2xl mb-4 shadow-sm"
                       />
                     )}
+
+                    <input
+                      type="text"
+                      value={block.caption || ""}
+                      onChange={(e) =>
+                        updateBlock(index, "caption", e.target.value)
+                      }
+                      className={inputStyle}
+                      placeholder="Optional caption..."
+                    />
                   </div>
-
-                  {/* Author & Meta — Date field hataya, auto set hoga publish par */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Author
-                      </label>
-                      <input
-                        type="text"
-                        value={blogForm.author}
-                        onChange={(e) =>
-                          setBlogForm({ ...blogForm, author: e.target.value })
-                        }
-                        className={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Read Time
-                      </label>
-                      <input
-                        type="text"
-                        value={blogForm.readTime}
-                        onChange={(e) =>
-                          setBlogForm({ ...blogForm, readTime: e.target.value })
-                        }
-                        className={inputStyle}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Content Blocks Editor */}
-                  <div className="border-t pt-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-800">
-                        Blog Content (Blocks)
-                      </h3>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={addTextBlock}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                        >
-                          + Add Text
-                        </button>
-                        <button
-                          type="button"
-                          onClick={addImageBlock}
-                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
-                        >
-                          + Add Image
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Render Blocks */}
-                    <div className="space-y-4">
-                      {blogForm.blocks.map((block, index) => (
-                        <div
-                          key={index}
-                          className="border border-gray-200 rounded-lg p-4 bg-gray-50"
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-medium text-gray-600">
-                              {block.type === "text" ? "📝 Text Block" : "🖼️ Image Block"}
-                            </span>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => moveBlock(index, "up")}
-                                disabled={index === 0}
-                                className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50 text-xs"
-                              >
-                                ↑
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => moveBlock(index, "down")}
-                                disabled={index === blogForm.blocks.length - 1}
-                                className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50 text-xs"
-                              >
-                                ↓
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deleteBlock(index)}
-                                className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </div>
-
-                          {block.type === "text" && (
-                            <textarea
-                              value={block.content}
-                              onChange={(e) =>
-                                updateBlock(index, "content", e.target.value)
-                              }
-                              className={`${inputStyle} h-32 resize-none`}
-                              placeholder="Write your content here..."
-                            />
-                          )}
-
-                          {block.type === "image" && (
-                            <div>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => uploadBlockImage(e, index)}
-                                className="block w-full text-sm text-gray-500 mb-3 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
-                              />
-                              {block.url && (
-                                <img
-                                  src={block.url}
-                                  alt="Block preview"
-                                  className="w-full h-48 object-cover rounded-lg mb-3"
-                                />
-                              )}
-                              <input
-                                type="text"
-                                value={block.caption || ""}
-                                onChange={(e) =>
-                                  updateBlock(index, "caption", e.target.value)
-                                }
-                                className={inputStyle}
-                                placeholder="Optional caption..."
-                              />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-
-                      {blogForm.blocks.length === 0 && (
-                        <div className="text-center py-8 text-gray-500">
-                          No content blocks yet. Click "+ Add Text" or "+ Add Image" to
-                          start building your blog.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Submit Buttons */}
-                  <div className="flex gap-4 pt-6 border-t">
-                    <button
-                      type="submit"
-                      className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
-                    >
-                      {editingBlogId ? "Update Blog" : "Publish Blog"}
-                    </button>
-                    {editingBlogId && (
-                      <button
-                        type="button"
-                        onClick={resetBlogForm}
-                        className="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-                      >
-                        Cancel Edit
-                      </button>
-                    )}
-                  </div>
-                </form>
+                )}
               </div>
+            ))}
 
-              {/* Published Blogs List */}
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-bold mb-6">Published Blogs</h2>
-                <div className="space-y-4">
-                  {blogs.length > 0 ? (
-                    blogs.map((blog) => (
-                      <div
-                        key={blog._id}
-                        className="flex items-start gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-                      >
-                        <img
-                          src={blog.image}
-                          alt={blog.title}
-                          className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 mb-1">
-                            {blog.title}
-                          </h3>
-                          <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                            {blog.excerpt}
-                          </p>
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span>{blog.author}</span>
-                            <span>{blog.date}</span>
-                            <span>{blog.views} views</span>
-                            {blog.blocks && blog.blocks.length > 0 && (
-                              <span className="text-green-600 font-medium">
-                                ✓ {blog.blocks.length} blocks
-                              </span>
-                            )}
-                          </div>
-                          {blog.slug && (
-                            <p className="text-xs text-blue-600 mt-2">
-                              URL: /blog/{blog.slug}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => editBlog(blog)}
-                            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => deleteBlog(blog._id)}
-                            className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-center text-gray-500 py-8">
-                      No blogs published yet.
-                    </p>
+            {blogForm.blocks.length === 0 && (
+              <div className="text-center py-12 text-gray-400 border border-dashed border-gray-300 rounded-2xl">
+                No content blocks yet. Click "+ Add Text" or "+ Add Image"
+                to start building your blog.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ================= SUBMIT BUTTONS ================= */}
+        <div className="flex gap-4 pt-8 border-t">
+          <button
+            type="submit"
+            className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:opacity-90 font-semibold shadow-md transition-all"
+          >
+            {editingBlogId ? "Update Blog" : "Publish Blog"}
+          </button>
+
+          {editingBlogId && (
+            <button
+              type="button"
+              onClick={resetBlogForm}
+              className="px-8 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium transition-all"
+            >
+              Cancel Edit
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+
+    {/* ================= PUBLISHED BLOGS ================= */}
+    <div className="bg-white/80 backdrop-blur-xl border border-gray-200 rounded-2xl shadow-xl p-8">
+      <h2 className="text-2xl font-semibold text-gray-800 mb-8">
+        Published Blogs
+      </h2>
+
+      <div className="space-y-6">
+        {blogs.length > 0 ? (
+          blogs.map((blog) => (
+            <div
+              key={blog._id}
+              className="flex items-start gap-6 p-6 border border-gray-200 rounded-2xl hover:shadow-md hover:border-green-300 transition-all bg-white"
+            >
+              <img
+                src={blog.image}
+                alt={blog.title}
+                className="w-24 h-24 object-cover rounded-xl flex-shrink-0 shadow-sm"
+              />
+
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-lg text-gray-800 mb-2">
+                  {blog.title}
+                </h3>
+
+                <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                  {blog.excerpt}
+                </p>
+
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <span>{blog.author}</span>
+                  <span>{blog.date}</span>
+                  <span>{blog.views} views</span>
+
+                  {blog.blocks && blog.blocks.length > 0 && (
+                    <span className="text-green-600 font-medium">
+                      ✓ {blog.blocks.length} blocks
+                    </span>
                   )}
                 </div>
+
+                {blog.slug && (
+                  <p className="text-xs text-blue-600 mt-2">
+                    URL: /blog/{blog.slug}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => editBlog(blog)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm shadow-sm"
+                >
+                  Edit
+                </button>
+
+                <button
+                  onClick={() => deleteBlog(blog._id)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm shadow-sm"
+                >
+                  Delete
+                </button>
               </div>
             </div>
-          )}
+          ))
+        ) : (
+          <p className="text-center text-gray-400 py-12">
+            No blogs published yet.
+          </p>
+        )}
+      </div>
+    </div>
+  </div>
+)}
         </div>
       </div>
       <Footer />

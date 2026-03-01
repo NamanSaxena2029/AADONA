@@ -66,7 +66,6 @@ const BlogDetail = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
 
-    // ✅ Blog data fetch karo (views increment NAHI hoga yahan ab)
     fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}`)
       .then((res) => res.json())
       .then((data) => {
@@ -78,11 +77,9 @@ const BlogDetail = () => {
           setComments(data.comments || []);
           setViewsCount(data.views || 0);
 
-          // ✅ Views — sirf ek baar per user per blog count karo
           const viewedBlogs = JSON.parse(localStorage.getItem("viewedBlogs") || "[]");
 
           if (!viewedBlogs.includes(data._id)) {
-            // Pehli baar dekh raha hai — view increment karo
             fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}/view`, {
               method: "POST",
             })
@@ -94,7 +91,6 @@ const BlogDetail = () => {
               })
               .catch(() => {});
 
-            // localStorage mein save karo
             viewedBlogs.push(data._id);
             localStorage.setItem("viewedBlogs", JSON.stringify(viewedBlogs));
           }
@@ -164,20 +160,25 @@ const BlogDetail = () => {
     }
   };
 
+  /* ── Loading ── */
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin w-12 h-12 border-2 border-emerald-100 border-t-emerald-600 rounded-full" />
+          <span className="text-emerald-500 text-xs tracking-widest uppercase font-mono">Loading</span>
+        </div>
       </div>
     );
   }
 
+  /* ── 404 ── */
   if (!blog) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-800 mb-4">Blog Not Found</h1>
-          <p className="text-gray-600">The blog post you're looking for doesn't exist.</p>
+          <p className="text-gray-500">The blog post you're looking for doesn't exist.</p>
         </div>
       </div>
     );
@@ -187,75 +188,103 @@ const BlogDetail = () => {
     <div className="min-h-screen font-sans bg-gray-50">
       <Navbar />
 
-      <div className="relative h-[500px] overflow-hidden">
+      {/* ══════════════════════════════════════
+          HERO — h-[500px] mt-24 (exact original)
+      ══════════════════════════════════════ */}
+      <div className="relative h-[500px] mt-24 overflow-hidden">
         <img
           src={blog.image}
           alt={blog.title}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-fill"
           onError={(e) => {
             e.target.src = "https://placehold.co/1200x600/A7F3D0/065F46?text=Blog+Image";
           }}
         />
+        {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
+
+        {/* Hero content */}
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-end pb-16">
-          <div className="text-white">
-            <h1 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight">
+          <div className="text-white w-full">
+
+            {/* Category badge */}
+            {blog.category && (
+              <span className="inline-block mb-4 px-3 py-1 bg-emerald-500/80 text-white text-xs font-semibold tracking-widest uppercase rounded-full backdrop-blur-sm">
+                {blog.category}
+              </span>
+            )}
+
+            <h1 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight drop-shadow-lg">
               {blog.title}
             </h1>
-            <div className="flex flex-wrap items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <UserIcon className="w-5 h-5" />
-                <span>{blog.author}</span>
+
+            {/* Meta row */}
+            <div className="flex flex-wrap items-center gap-5 text-sm">
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <UserIcon className="w-4 h-4 text-emerald-300" />
+                <span className="text-white/90">{blog.author}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="w-5 h-5" />
-                <span>{blog.date}</span>
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <CalendarIcon className="w-4 h-4 text-emerald-300" />
+                <span className="text-white/90">{blog.date}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <ClockIcon className="w-5 h-5" />
-                <span>{blog.readTime}</span>
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <ClockIcon className="w-4 h-4 text-emerald-300" />
+                <span className="text-white/90">{blog.readTime}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <EyeIcon className="w-5 h-5" />
-                {/* ✅ viewsCount state use karo — real-time updated */}
-                <span>{viewsCount} views</span>
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <EyeIcon className="w-4 h-4 text-emerald-300" />
+                <span className="text-white/90">{viewsCount} views</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* ══════════════════════════════════════
+          MAIN LAYOUT
+      ══════════════════════════════════════ */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
 
-          <div className="lg:col-span-2 space-y-8">
+          {/* ── LEFT: Article column ── */}
+          <div className="lg:col-span-2 space-y-6">
 
-            <div className="bg-white rounded-2xl shadow-lg p-8 sm:p-12">
-              <div className="text-xl text-gray-700 leading-relaxed mb-8 pb-8 border-b border-gray-200 italic">
+            {/* ① Article card — excerpt + blocks */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sm:p-12">
+
+              {/* Excerpt */}
+              <p className="text-xl text-gray-500 leading-relaxed mb-8 pb-8 border-b border-gray-100 italic font-light">
                 {blog.excerpt}
-              </div>
+              </p>
+
+              {/* Blog blocks */}
               <div className="prose prose-lg max-w-none">
                 {Array.isArray(blog.blocks) && blog.blocks.length > 0 ? (
                   blog.blocks.map((block, index) => (
                     <div key={index} className="mb-8">
                       {block.type === "text" && (
-                        <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                        <div className="text-gray-700 leading-relaxed whitespace-pre-wrap text-base">
                           {block.content}
                         </div>
                       )}
                       {block.type === "image" && (
                         <div className="my-8">
-                          <img
-                            src={block.url}
-                            alt={block.caption || "Blog image"}
-                            className="w-full rounded-xl shadow-md"
-                            onError={(e) => {
-                              e.target.src = "https://placehold.co/800x500/A7F3D0/065F46?text=Image";
-                            }}
-                          />
+                          <div className="overflow-hidden rounded-xl shadow-md">
+                            <img
+                              src={block.url}
+                              alt={block.caption || "Blog image"}
+                              className="w-full hover:scale-105 transition-transform duration-700"
+                              onError={(e) => {
+                                e.target.src = "https://placehold.co/800x500/A7F3D0/065F46?text=Image";
+                              }}
+                            />
+                          </div>
                           {block.caption && (
-                            <p className="text-sm text-gray-500 italic text-center mt-3">
+                            <p className="text-sm text-gray-400 italic text-center mt-3 flex items-center justify-center gap-1.5">
+                              <span className="w-8 h-px bg-gray-200 inline-block" />
                               {block.caption}
+                              <span className="w-8 h-px bg-gray-200 inline-block" />
                             </p>
                           )}
                         </div>
@@ -263,19 +292,20 @@ const BlogDetail = () => {
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-600">No content available.</p>
+                  <p className="text-gray-400 italic">No content available.</p>
                 )}
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-lg p-6 flex items-center gap-6">
+            {/* ② Like button card */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-5">
               <button
                 onClick={handleLike}
                 disabled={liked || likeLoading}
                 className={`flex items-center gap-3 px-6 py-3 rounded-full font-semibold text-base transition-all duration-300 ${
                   liked
-                    ? "bg-red-100 text-red-500 cursor-default"
-                    : "bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-500 hover:scale-105 active:scale-95"
+                    ? "bg-red-50 text-red-500 cursor-default border border-red-100"
+                    : "bg-gray-50 text-gray-500 border border-gray-200 hover:bg-red-50 hover:text-red-500 hover:border-red-100 hover:scale-105 active:scale-95"
                 }`}
               >
                 <HeartIcon
@@ -287,25 +317,36 @@ const BlogDetail = () => {
                 <span>{likesCount} {likesCount === 1 ? "Like" : "Likes"}</span>
               </button>
               {liked && (
-                <p className="text-sm text-gray-500 italic">Thanks for liking this post! ❤️</p>
+                <p className="text-sm text-gray-400 italic">Thanks for liking this post! ❤️</p>
               )}
             </div>
 
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6 pb-4 border-b border-gray-200">
-                Comments ({comments.length})
-              </h3>
+            {/* ③ Comments card */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
 
-              <div className="space-y-6 mb-8">
+              {/* Comments header */}
+              <div className="flex items-center justify-between mb-8 pb-5 border-b border-gray-100">
+                <h3 className="text-xl font-bold text-gray-800">
+                  Comments
+                </h3>
+                <span className="bg-emerald-50 text-emerald-600 text-xs font-semibold px-3 py-1.5 rounded-full border border-emerald-100">
+                  {comments.length} {comments.length === 1 ? "comment" : "comments"}
+                </span>
+              </div>
+
+              {/* Comment list */}
+              <div className="space-y-5 mb-8">
                 {comments.length > 0 ? (
                   comments.map((c, i) => (
-                    <div key={i} className="flex gap-4">
-                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-green-700 font-bold text-sm">
+                    <div key={i} className="flex gap-4 group">
+                      {/* Avatar */}
+                      <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <span className="text-white font-bold text-sm">
                           {c.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <div className="flex-1 bg-gray-50 rounded-xl p-4">
+                      {/* Bubble */}
+                      <div className="flex-1 bg-gray-50 rounded-2xl rounded-tl-none p-4 border border-gray-100 group-hover:border-emerald-100 group-hover:bg-emerald-50/30 transition-colors duration-200">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-semibold text-gray-800 text-sm">{c.name}</span>
                           <span className="text-xs text-gray-400">
@@ -321,38 +362,42 @@ const BlogDetail = () => {
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-400 italic text-center py-6">
-                    No comments yet. Be the first to comment! 💬
-                  </p>
+                  <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                    <p className="text-gray-400 italic text-sm">No comments yet. Be the first to comment! 💬</p>
+                  </div>
                 )}
               </div>
 
-              <div className="border-t border-gray-100 pt-6">
-                <h4 className="text-lg font-semibold text-gray-800 mb-4">Leave a Comment</h4>
+              {/* Comment form */}
+              <div className="border-t border-gray-100 pt-7">
+                <h4 className="text-base font-bold text-gray-800 mb-5">Leave a Comment</h4>
+
                 {commentSuccess && (
-                  <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm">
-                    ✅ Comment posted successfully!
+                  <div className="mb-5 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                    <span className="text-emerald-500">✅</span>
+                    Comment posted successfully!
                   </div>
                 )}
+
                 <div className="space-y-4">
                   <input
                     type="text"
                     placeholder="Your name"
                     value={commentName}
                     onChange={(e) => setCommentName(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400 transition"
+                    className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition"
                   />
                   <textarea
                     placeholder="Write your comment..."
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     rows={4}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400 transition resize-none"
+                    className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition resize-none"
                   />
                   <button
                     onClick={handleCommentSubmit}
                     disabled={commentLoading}
-                    className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-green-700 active:scale-95 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 bg-emerald-600 text-white px-7 py-3 rounded-xl font-semibold text-sm hover:bg-emerald-700 active:scale-95 transition-all disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
                   >
                     <SendIcon />
                     {commentLoading ? "Posting..." : "Post Comment"}
@@ -363,12 +408,15 @@ const BlogDetail = () => {
 
           </div>
 
+          {/* ── RIGHT: Sidebar ── */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-lg p-8 sticky top-24">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6 pb-4 border-b border-gray-200">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sticky top-24">
+
+              <h3 className="text-xl font-bold text-gray-800 mb-6 pb-5 border-b border-gray-100">
                 Recent Posts
               </h3>
-              <div className="space-y-6">
+
+              <div className="space-y-5">
                 {recentPosts
                   .filter((post) => post._id !== blog._id)
                   .slice(0, 4)
@@ -376,31 +424,31 @@ const BlogDetail = () => {
                     <Link
                       key={post._id}
                       to={`/blog/${post.slug}`}
-                      className="block group"
+                      className="group flex gap-4 p-3 rounded-xl hover:bg-emerald-50 border border-transparent hover:border-emerald-100 transition-all duration-200"
                     >
-                      <div className="flex gap-4">
+                      <div className="relative flex-shrink-0 overflow-hidden rounded-lg w-20 h-20">
                         <img
                           src={post.image}
                           alt={post.title}
-                          className="w-20 h-20 rounded-lg object-cover flex-shrink-0 group-hover:scale-105 transition-transform duration-300"
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                           onError={(e) => {
-                            e.target.src =
-                              "https://placehold.co/200x200/A7F3D0/065F46?text=Blog";
+                            e.target.src = "https://placehold.co/200x200/A7F3D0/065F46?text=Blog";
                           }}
                         />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-green-600 transition-colors duration-300">
-                            {post.title}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                            <CalendarIcon className="w-3 h-3" />
-                            <span>{post.date}</span>
-                          </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-emerald-600 transition-colors duration-200 leading-snug mb-2">
+                          {post.title}
+                        </h4>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                          <CalendarIcon className="w-3 h-3 text-emerald-400" />
+                          <span>{post.date}</span>
                         </div>
                       </div>
                     </Link>
                   ))}
               </div>
+
             </div>
           </div>
 

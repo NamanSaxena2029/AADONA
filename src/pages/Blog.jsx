@@ -159,15 +159,15 @@ const BlogPage = () => {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                     </div>
 
-                    <div className="p-6">
-                      <div className="flex items-center gap-3 mb-4">
+                     <div className="p-7 flex flex-col h-full">                     
+                       <div className="flex items-center gap-3 mb-4">
                         <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                           <UserIcon className="w-5 h-5 text-green-600" />
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-800">{post.author}</p>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
+                        <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">                           
+                            <span className="flex items-center gap-1 mr-0.5">
                               <CalendarIcon className="w-3 h-3" />
                               {post.date}
                             </span>
@@ -185,7 +185,7 @@ const BlogPage = () => {
 
                       <p className="text-gray-600 text-sm mb-4 line-clamp-3">{post.excerpt}</p>
 
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <span>{post.views || 0} views</span>
                           <span className="flex items-center gap-1 text-red-400">
@@ -194,7 +194,7 @@ const BlogPage = () => {
                         </div>
                         <button className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center gap-1 transition-all duration-300 group">
                           Read More
-                          <ArrowRightIcon className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" />
+                          <ArrowRightIcon className="w-7 h-6 transform group-hover:translate-x-1 transition-transform duration-300" />
                         </button>
                       </div>
                     </div>
