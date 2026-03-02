@@ -351,7 +351,7 @@ const TechSquad = () => {
                       <button
                         type="submit"
                         disabled={submitting || !!fileError}
-                        className="inline-flex items-center gap-2 rounded-full bg-green-600 text-white px-10 py-4 font-semibold hover:bg-green-700 transition duration-300 ease-out hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-2 rounded-lg bg-green-600 text-white px-10 py-4 font-semibold hover:bg-green-700 transition duration-300 ease-out hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Send className="w-5 h-5" />
                         {submitting ? "Submitting..." : "Submit Application"}
@@ -364,7 +364,7 @@ const TechSquad = () => {
           </main>
 
           <div className="w-full flex justify-center mt-8">
-            <Link to="/warranty" className="inline-flex items-center gap-2 rounded-full bg-green-600 text-white px-8 py-3 font-semibold hover:bg-green-700 transition">
+            <Link to="/warranty" className="inline-flex items-center gap-2 rounded-lg bg-green-600 text-white px-8 py-3 font-semibold hover:bg-green-700 transition">
               Warranty & Support
             </Link>
           </div>

@@ -287,7 +287,7 @@ const Warranty = () => {
           <div className="w-full flex justify-center mt-8">
             <Link
               to="/warrantyCheck"
-              className="inline-flex items-center gap-2 rounded-full bg-green-600 text-white px-8 py-4 font-semibold shadow-xl hover:shadow-2xl hover:shadow-green-300/50 hover:bg-green-700 transition-all duration-500 ease-out hover:-translate-y-0.5"
+              className="inline-flex items-center gap-2 rounded-lg bg-green-600 text-white px-8 py-4 font-semibold shadow-xl hover:shadow-2xl hover:shadow-green-300/50 hover:bg-green-700 transition-all duration-500 ease-out hover:-translate-y-0.5"
             >
               Check Warranty
               <ChevronRight className="w-5 h-5" />

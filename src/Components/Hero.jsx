@@ -57,8 +57,8 @@ const Hero = () => {
           </p>
 
           {/* Optional: Add a subtle button here that also slides in */}
-         <Link to="/active">
-  <button className="mt-6 px-6 py-2 bg-green-600 text-white text-base font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-300">
+         <Link to="/category/Wireless%20Solutions">
+  <button className="mt-6 px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-base font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-300  shadow-green-200 hover:shadow-lg hover:shadow-green-300 hover:-translate-y-0.5 active:translate-y-0">
     Explore Solutions
   </button>
 </Link>

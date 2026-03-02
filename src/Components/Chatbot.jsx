@@ -52,9 +52,8 @@ export default function Chatbot() {
           onClick={() => setIsOpen(true)}
           // Smaller padding, font, and icon size for mobile (default)
           // Larger size applied starting from the 'md' breakpoint
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-emerald-600 text-white rounded-full shadow-xl hover:bg-emerald-700 transition transform hover:scale-105 
-                     md:px-6 md:py-3 md:text-base"
-        >
+           className="ml-5 relative inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-7 py-3 rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 font-bold text-base shadow-md shadow-green-300 hover:shadow-lg hover:shadow-green-300 hover:-translate-y-0.5 active:translate-y-0">
+
           {/* Chat Icon (SVG) - Responsive sizing */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -78,7 +77,7 @@ export default function Chatbot() {
       {isOpen && (
         <div className="w-72 h-[420px] md:w-80 md:h-[480px] bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300">
           {/* Header - Professional Emerald */}
-          <div className="bg-emerald-600 text-white px-4 py-3 font-bold flex justify-between items-center text-lg shadow-md">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-3 font-bold flex justify-between items-center text-lg shadow-md">
             AADONA Support Team
             <button 
               onClick={() => setIsOpen(false)} 
@@ -126,11 +125,11 @@ export default function Chatbot() {
                 if (e.key === 'Enter') handleSend();
               }}
               placeholder="Ask a question..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 transition"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 transition"
             />
             <button
               onClick={handleSend}
-              className="bg-emerald-600 text-white px-4 py-2 rounded-full hover:bg-emerald-700 transition text-sm font-semibold flex items-center justify-center shadow-md flex-shrink-0"
+              className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition text-sm font-semibold flex items-center justify-center shadow-md flex-shrink-0"
               aria-label="Send Message"
             >
               Send

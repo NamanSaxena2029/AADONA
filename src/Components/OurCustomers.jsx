@@ -40,7 +40,7 @@ const OurCustomers = () => {
         <div className="flex justify-center gap-6 mb-12">
           <button
             onClick={() => setActiveTab("government")}
-            className={`px-6 py-3 rounded-full font-medium transition-all ${
+            className={`px-6 py-3 rounded-lg font-medium transition-all ${
               activeTab === "government"
                 ? "bg-green-600 text-white scale-105 shadow-md"
                 : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -50,7 +50,7 @@ const OurCustomers = () => {
           </button>
           <button
             onClick={() => setActiveTab("private")}
-            className={`px-6 py-3 rounded-full font-medium transition-all ${
+            className={`px-6 py-3 rounded-lg font-medium transition-all ${
               activeTab === "private"
                 ? "bg-green-600 text-white scale-105 shadow-md"
                 : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -99,7 +99,7 @@ const OurCustomers = () => {
         <div className="mt-16">
           <button 
             onClick={() => navigate('/customers')} 
-            className="group inline-flex items-center justify-center px-8 py-3 border border-green-600 text-green-600 font-semibold rounded-full hover:bg-green-600 hover:text-white transition-all duration-300 shadow-sm hover:shadow-lg"
+            className="group inline-flex items-center justify-center px-8 py-3 border border-green-600 text-green-600 font-semibold rounded-lg hover:bg-green-600 hover:text-white transition-all duration-300 shadow-sm hover:shadow-lg"
           >
             See More
             <img 

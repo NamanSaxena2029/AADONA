@@ -98,7 +98,7 @@ export default function CustomerPage() {
               <input
                 type="text"
                 placeholder="Search for a company..."
-                className="w-full px-5 py-3 rounded-full border-2 border-green-400 focus:border-green-400 focus:outline-none shadow-lg text-gray-800"
+                className="w-full px-5 py-3 rounded-lg border-2 border-green-400 focus:border-green-400 focus:outline-none shadow-lg text-gray-800"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
