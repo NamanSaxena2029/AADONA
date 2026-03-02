@@ -64,49 +64,105 @@ const BlogDetail = () => {
   const [viewsCount, setViewsCount] = useState(0);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
+  window.scrollTo(0, 0);
 
-    fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) {
-          setBlog(null);
-        } else {
-          setBlog(data);
-          setLikesCount(data.likes || 0);
-          setComments(data.comments || []);
-          setViewsCount(data.views || 0);
+  /* ─────────────────────────────
+     1️⃣  Load Quill CSS (once)
+  ───────────────────────────── */
+  if (!document.querySelector('link[href*="quill"]')) {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css";
+    document.head.appendChild(link);
+  }
 
-          const viewedBlogs = JSON.parse(localStorage.getItem("viewedBlogs") || "[]");
+  /* ─────────────────────────────
+     2️⃣  Inject Custom Render Styles (once)
+  ───────────────────────────── */
+  if (!document.getElementById("ql-render-styles")) {
+    const style = document.createElement("style");
+    style.id = "ql-render-styles";
+    style.innerHTML = `
+      .ql-editor-content h1 { font-size: 2rem; font-weight: 800; color: #1a1a1a; margin: 1.5rem 0 0.75rem; line-height: 1.2; }
+      .ql-editor-content h2 { font-size: 1.5rem; font-weight: 700; color: #1a1a1a; margin: 1.25rem 0 0.6rem; line-height: 1.3; }
+      .ql-editor-content h3 { font-size: 1.2rem; font-weight: 600; color: #1a1a1a; margin: 1rem 0 0.5rem; }
+      .ql-editor-content p { margin: 0 0 1rem; line-height: 1.8; }
+      .ql-editor-content strong { font-weight: 700; color: #111; }
+      .ql-editor-content em { font-style: italic; }
+      .ql-editor-content u { text-decoration: underline; }
+      .ql-editor-content s { text-decoration: line-through; }
+      .ql-editor-content ul { list-style: disc; padding-left: 1.5rem; margin: 0.75rem 0 1rem; }
+      .ql-editor-content ol { list-style: decimal; padding-left: 1.5rem; margin: 0.75rem 0 1rem; }
+      .ql-editor-content li { margin-bottom: 0.4rem; line-height: 1.7; }
+      .ql-editor-content blockquote { 
+        border-left: 4px solid #059669; 
+        padding: 0.75rem 1rem; 
+        background: #f0fdf4; 
+        color: #065f46; 
+        font-style: italic; 
+        margin: 1.25rem 0; 
+        border-radius: 0 0.5rem 0.5rem 0; 
+      }
+      .ql-editor-content .ql-align-center { text-align: center; }
+      .ql-editor-content .ql-align-right { text-align: right; }
+      .ql-editor-content .ql-align-justify { text-align: justify; }
+    `;
+    document.head.appendChild(style);
+  }
 
-          if (!viewedBlogs.includes(data._id)) {
-            fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}/view`, {
-              method: "POST",
+  /* ─────────────────────────────
+     3️⃣  Fetch Blog By Slug
+  ───────────────────────────── */
+  fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}`)
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.error) {
+        setBlog(null);
+      } else {
+        setBlog(data);
+        setLikesCount(data.likes || 0);
+        setComments(data.comments || []);
+        setViewsCount(data.views || 0);
+
+        const viewedBlogs = JSON.parse(localStorage.getItem("viewedBlogs") || "[]");
+
+        if (!viewedBlogs.includes(data._id)) {
+          fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}/view`, {
+            method: "POST",
+          })
+            .then((res) => res.json())
+            .then((viewData) => {
+              if (viewData.views !== undefined) {
+                setViewsCount(viewData.views);
+              }
             })
-              .then((res) => res.json())
-              .then((viewData) => {
-                if (viewData.views !== undefined) {
-                  setViewsCount(viewData.views);
-                }
-              })
-              .catch(() => {});
+            .catch(() => {});
 
-            viewedBlogs.push(data._id);
-            localStorage.setItem("viewedBlogs", JSON.stringify(viewedBlogs));
-          }
+          viewedBlogs.push(data._id);
+          localStorage.setItem("viewedBlogs", JSON.stringify(viewedBlogs));
         }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+      setLoading(false);
+    })
+    .catch(() => setLoading(false));
 
-    const likedBlogs = JSON.parse(localStorage.getItem("likedBlogs") || "[]");
-    if (likedBlogs.includes(slug)) setLiked(true);
+  /* ─────────────────────────────
+     4️⃣  Check Liked Blogs (LocalStorage)
+  ───────────────────────────── */
+  const likedBlogs = JSON.parse(localStorage.getItem("likedBlogs") || "[]");
+  if (likedBlogs.includes(slug)) setLiked(true);
 
-    fetch(`${import.meta.env.VITE_API_URL}/blogs`)
-      .then((res) => res.json())
-      .then((data) => setRecentPosts(Array.isArray(data) ? data.slice(0, 5) : []))
-      .catch(() => {});
-  }, [slug]);
+  /* ─────────────────────────────
+     5️⃣  Fetch Recent Posts
+  ───────────────────────────── */
+  fetch(`${import.meta.env.VITE_API_URL}/blogs`)
+    .then((res) => res.json())
+    .then((data) =>
+      setRecentPosts(Array.isArray(data) ? data.slice(0, 5) : [])
+    )
+    .catch(() => {});
+    
+}, [slug]);
 
   const handleLike = async () => {
     if (liked || likeLoading) return;
@@ -264,9 +320,10 @@ const BlogDetail = () => {
                   blog.blocks.map((block, index) => (
                     <div key={index} className="mb-8">
                       {block.type === "text" && (
-                        <div className="text-gray-700 leading-relaxed whitespace-pre-wrap text-base">
-                          {block.content}
-                        </div>
+                        <div
+                          className="ql-editor-content text-gray-700 leading-relaxed text-base"
+                          dangerouslySetInnerHTML={{ __html: block.content }}
+                        />
                       )}
                       {block.type === "image" && (
                         <div className="my-8">

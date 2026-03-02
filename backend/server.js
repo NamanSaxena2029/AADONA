@@ -322,6 +322,105 @@ app.put("/categories/reorder", verifyToken, async (req, res) => {
   }
 });
 
+/* -------- RENAME CATEGORY (Admin) — cascades name to all products -------- */
+app.put("/categories/:id/rename", verifyToken, async (req, res) => {
+  try {
+    const { newName } = req.body;
+    if (!newName || !newName.trim()) return res.status(400).json({ message: "newName is required" });
+
+    const category = await Category.findById(req.params.id);
+    if (!category) return res.status(404).json({ message: "Category not found" });
+
+    const oldName = category.name;
+    const trimmedNew = newName.trim();
+    if (oldName === trimmedNew) return res.json(category);
+
+    category.name = trimmedNew;
+    await category.save();
+
+    const productResult = await Product.updateMany({ category: oldName }, { $set: { category: trimmedNew } });
+    await RelatedProduct.updateMany({ category: oldName }, { $set: { category: trimmedNew } });
+
+    console.log(`✅ Category renamed: "${oldName}" → "${trimmedNew}", ${productResult.modifiedCount} products updated`);
+    res.json(category);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- RENAME SUBCATEGORY (Admin) — cascades name to all products -------- */
+app.put("/categories/:id/subcategory/:subName/rename", verifyToken, async (req, res) => {
+  try {
+    const { newName } = req.body;
+    if (!newName || !newName.trim()) return res.status(400).json({ message: "newName is required" });
+
+    const category = await Category.findById(req.params.id);
+    if (!category) return res.status(404).json({ message: "Category not found" });
+
+    const oldSubName = decodeURIComponent(req.params.subName);
+    const trimmedNew = newName.trim();
+    const sub = category.subCategories.find(s => s.name === oldSubName);
+    if (!sub) return res.status(404).json({ message: "SubCategory not found" });
+
+    if (oldSubName === trimmedNew) return res.json(category);
+
+    sub.name = trimmedNew;
+    await category.save();
+
+    const productResult = await Product.updateMany(
+      { category: category.name, subCategory: oldSubName },
+      { $set: { subCategory: trimmedNew } }
+    );
+    await RelatedProduct.updateMany(
+      { category: category.name, subCategory: oldSubName },
+      { $set: { subCategory: trimmedNew } }
+    );
+
+    console.log(`✅ SubCategory renamed: "${oldSubName}" → "${trimmedNew}", ${productResult.modifiedCount} products updated`);
+    res.json(category);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- RENAME EXTRA CATEGORY (Admin) — cascades name to all products -------- */
+app.put("/categories/:id/subcategory/:subName/extra/rename", verifyToken, async (req, res) => {
+  try {
+    const { oldExtra, newExtra } = req.body;
+    if (!oldExtra || !newExtra || !newExtra.trim()) return res.status(400).json({ message: "oldExtra and newExtra are required" });
+
+    const category = await Category.findById(req.params.id);
+    if (!category) return res.status(404).json({ message: "Category not found" });
+
+    const subName = decodeURIComponent(req.params.subName);
+    const sub = category.subCategories.find(s => s.name === subName);
+    if (!sub) return res.status(404).json({ message: "SubCategory not found" });
+
+    const trimmedNew = newExtra.trim();
+    const idx = sub.extraCategories.indexOf(oldExtra);
+    if (idx === -1) return res.status(404).json({ message: "Extra category not found" });
+
+    if (oldExtra === trimmedNew) return res.json(category);
+
+    sub.extraCategories[idx] = trimmedNew;
+    await category.save();
+
+    const productResult = await Product.updateMany(
+      { category: category.name, subCategory: subName, extraCategory: oldExtra },
+      { $set: { extraCategory: trimmedNew } }
+    );
+    await RelatedProduct.updateMany(
+      { category: category.name, subCategory: subName, extraCategory: oldExtra },
+      { $set: { extraCategory: trimmedNew } }
+    );
+
+    console.log(`✅ ExtraCategory renamed: "${oldExtra}" → "${trimmedNew}", ${productResult.modifiedCount} products updated`);
+    res.json(category);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /* -------- UPDATE CATEGORY (Admin) -------- */
 app.put("/categories/:id", verifyToken, async (req, res) => {
   try {
@@ -649,6 +748,68 @@ app.get("/related-products", async (req, res) => {
     res.json({ relatedProducts: products });
   } catch (err) {
     console.log("❌ Get Related Products Error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/related-products/raw", verifyToken, async (req, res) => {
+  try {
+    const { category, subCategory, extraCategory, type } = req.query;
+
+    if (!category || !subCategory) {
+      return res.status(400).json({ message: "category and subCategory are required" });
+    }
+
+    const query = {
+      category,
+      subCategory,
+      extraCategory: extraCategory || null,
+      type: type || null,
+    };
+
+    const related = await RelatedProduct.findOne(query);
+    res.json({ relatedProducts: related ? related.relatedProducts : [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- REMOVE ONE PRODUCT from a related-products entry (Admin) --------
+   Does NOT delete the product from the database.
+   Only removes it from that category combo's related list in MongoDB.
+   Body: { category, subCategory, extraCategory, type, productId }
+-------- */
+app.put("/related-products/remove", verifyToken, async (req, res) => {
+  try {
+    const { category, subCategory, extraCategory, type, productId } = req.body;
+
+    if (!category || !subCategory || !productId) {
+      return res.status(400).json({ message: "category, subCategory, and productId are required" });
+    }
+
+    const filter = {
+      category,
+      subCategory,
+      extraCategory: extraCategory || null,
+      type: type || null,
+    };
+
+    const related = await RelatedProduct.findOne(filter);
+    if (!related) return res.status(404).json({ message: "Related products entry not found" });
+
+    const before = related.relatedProducts.length;
+    related.relatedProducts = related.relatedProducts.filter(
+      id => id.toString() !== productId.toString()
+    );
+    await related.save();
+
+    console.log(`✅ Removed product ${productId} from related list. ${before} → ${related.relatedProducts.length}`);
+    res.json({
+      message: "Product removed from related list ✅",
+      relatedProducts: related.relatedProducts,
+    });
+  } catch (err) {
+    console.log("❌ Remove from related error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
