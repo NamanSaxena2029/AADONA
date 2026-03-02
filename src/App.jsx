@@ -5,8 +5,8 @@ import Home from "./pages/Home";
 import Blog from "./pages/Blog";
 import About from "./pages/About/About";
 import Csr from "./pages/About/Csr";
-import Active from "./pages/active/Active";
-import Passive from "./pages/passive/Passive";
+// import Active from "./pages/active/Active";
+// import Passive from "./pages/passive/Passive";
 import ContactUs from "./pages/ContactUs";
 import ProjectLocking from "./pages/Partners/ProjectLocking";
 import RequestDemo from "./pages/Partners/RequestDemo";
@@ -25,11 +25,12 @@ import CustomersPage from "./Components/CustomersPage";
 import Chatbot from "./Components/Chatbot";
 import TechSquad from "./pages/support/Tech_Squad";
 import Warranty from "./pages/support/Warranty";
-import NetworkStorageCalculator from "./pages/support/NetworkStorageCalculator";
+// import NetworkStorageCalculator from "./pages/support/NetworkStorageCalculator";
 import RequestDda from "./pages/support/Request_DOA";
 import WarrantyCheck from "./pages/support/WarrantyCheckButton";
 import WhistleBlowerButton from "./pages/About/WhistleBlowerButton";
 import ApplyNow from "./pages/About/ApplyNow";
+import PrivacyPolicy from "./Components/PrivacyPolicy";
 
 /* ✅ CMS Dynamic Category Page */
 import CategoryProductsPage from "./pages/CategoryProductsPage";
@@ -65,8 +66,8 @@ const App = () => {
           />
 
           {/* Static Pages */}
-          <Route path="/active" element={<Active />} />
-          <Route path="/passive" element={<Passive />} />
+          {/* <Route path="/active" element={<Active />} /> */}
+          {/* <Route path="/passive" element={<Passive />} /> */}
           <Route path="/blog" element={<Blog />} />
           {/* ✅ Blog Detail Route - Slug based */}
           <Route path="/blog/:slug" element={<BlogDetail />} />
@@ -93,12 +94,14 @@ const App = () => {
           <Route path="/productSupport" element={<ProductSupport />} />
           <Route path="/supportTools" element={<SupportTools />} />
           <Route path="/warrantyRegistration" element={<WarrantyRegistration />} />
-          <Route path="/networkstorageCalculator" element={<NetworkStorageCalculator />} />
+          {/* <Route path="/networkstorageCalculator" element={<NetworkStorageCalculator />} /> */}
           <Route path="/requestDda" element={<RequestDda />} />
           <Route path="/techSquad" element={<TechSquad />} />
           <Route path="/warranty" element={<Warranty />} />
           <Route path="/warrantyCheck" element={<WarrantyCheck />} />
           <Route path="/customers" element={<CustomersPage />} />
+
+          <Route path="/privacy-policy" element={<PrivacyPolicy/>}/>
 
           {/* 🔥 CMS CATEGORY ROUTE */}
           <Route path="/category/:categoryName" element={<CategoryProductsPage />} />

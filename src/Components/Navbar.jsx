@@ -191,7 +191,7 @@ const Navbar = () => {
                   { to: "/supportTools", label: "Support Tools" },
                   { to: "/productSupport", label: "Product Support" },
                   { to: "/warrantyRegistration", label: "Warranty Registration" },
-                  { to: "/networkstorageCalculator", label: "Network Storage Calculator" },
+                  // { to: "/networkstorageCalculator", label: "Network Storage Calculator" },
                 ].map((item) => (
                   <li key={item.to}>
                     <Link to={item.to} className="flex items-center gap-2.5 px-5 py-3 text-[15px] hover:bg-green-50 hover:text-green-700 transition-colors duration-150 font-medium">
@@ -399,7 +399,7 @@ const Navbar = () => {
                 { to: "/supportTools", label: "Support Tools" },
                 { to: "/productSupport", label: "Product Support" },
                 { to: "/warrantyRegistration", label: "Warranty Registration" },
-                { to: "/networkstorageCalculator", label: "Network Storage Calculator" },
+                // { to: "/networkstorageCalculator", label: "Network Storage Calculator" },
               ].map((item) => (
                 <li key={item.to}>
                   <Link to={item.to} onClick={handleMobileLinkClick}
