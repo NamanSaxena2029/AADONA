@@ -16,7 +16,7 @@ const app = express();
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
+  limits: { fileSize: 15 * 1024 * 1024 },
 });
 
 /* =============================
@@ -24,29 +24,51 @@ const upload = multer({
 ============================= */
 
 const getFirebasePath = (url) => {
+  if (!url || typeof url !== "string") return null;
   try {
-    const decoded = decodeURIComponent(url);
-    const match = decoded.match(/\/o\/(.+?)\?/);
-    return match ? match[1] : null;
-  } catch {
+    // Firebase URL: https://firebasestorage.googleapis.com/v0/b/BUCKET/o/PATH%2FFILE.jpg?alt=media&token=xxx
+    const match = url.match(/\/o\/(.+?)(\?|$)/);
+    if (!match) {
+      console.log("⚠️ Could not extract path from URL:", url);
+      return null;
+    }
+    const path = decodeURIComponent(match[1]);
+    return path;
+  } catch (e) {
+    console.log("⚠️ getFirebasePath error:", e.message);
     return null;
   }
 };
 
 const deleteFromFirebase = async (url) => {
-  if (!url) return;
+  if (!url || typeof url !== "string") return;
+  if (!url.includes("firebasestorage.googleapis.com") && !url.includes("firebasestorage.app")) return;
+
   const path = getFirebasePath(url);
   if (!path) return;
+
   try {
-    await admin.storage().bucket().file(path).delete();
-    console.log("🗑️ Firebase file deleted:", path);
+    // ✅ Use FIREBASE_STORAGE_BUCKET from .env directly
+    // e.g. "aadona-cms.firebasestorage.app"
+    const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
+    if (!bucketName) {
+      console.log("⚠️ FIREBASE_STORAGE_BUCKET not set in .env");
+      return;
+    }
+
+    await admin.storage().bucket(bucketName).file(path).delete();
+    console.log("✅ Firebase deleted:", path);
   } catch (e) {
-    console.log("⚠️ Firebase delete failed:", e.message);
+    if (e.code === 404) {
+      console.log("ℹ️ File already gone:", path);
+    } else {
+      console.log("⚠️ Firebase delete failed:", e.code, "-", e.message);
+    }
   }
 };
 
 /* =============================
-   VERIFY TOKEN MIDDLEWARE (with admin check inside)
+   VERIFY TOKEN MIDDLEWARE
 ============================= */
 
 const verifyToken = async (req, res, next) => {
@@ -154,7 +176,28 @@ const RelatedProductSchema = new mongoose.Schema(
 const RelatedProduct = mongoose.model("RelatedProduct", RelatedProductSchema);
 
 /* =============================
-   BLOG SCHEMA — ✅ likes + comments added
+   CATEGORY SCHEMA — Dynamic CMS Categories
+============================= */
+
+const CategorySchema = new mongoose.Schema(
+  {
+    type: { type: String, required: true, enum: ["active", "passive"] },
+    name: { type: String, required: true },
+    subCategories: [
+      {
+        name: { type: String, required: true },
+        extraCategories: { type: [String], default: [] },
+      },
+    ],
+    order: { type: Number, default: 0 },
+  },
+  { timestamps: true }
+);
+
+const Category = mongoose.model("Category", CategorySchema);
+
+/* =============================
+   BLOG SCHEMA
 ============================= */
 
 const BlogSchema = new mongoose.Schema(
@@ -198,8 +241,8 @@ const generateSlug = (name) => {
   return name
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^\w-]+/g, "");
+    .replace(/\s+/g, "")
+    .replace(/[^\w]+/g, "");
 };
 
 /* =============================
@@ -210,7 +253,207 @@ app.get("/", (req, res) => {
   res.send("API Running 🚀");
 });
 
-/* -------- GET ALL PRODUCTS -------- */
+/* =============================
+   CATEGORY ROUTES
+   ⚠️ ORDER MATTERS: specific routes MUST come before /:id param routes
+============================= */
+
+/* -------- GET ALL CATEGORIES (Public) -------- */
+app.get("/categories", async (req, res) => {
+  try {
+    const { type } = req.query;
+    const query = type ? { type } : {};
+    // Sort by order field (set by admin drag-reorder), then by creation date as tiebreaker
+    const categories = await Category.find(query).sort({ order: 1, createdAt: 1 });
+    res.json(categories);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- CREATE CATEGORY (Admin) -------- */
+app.post("/categories", verifyToken, async (req, res) => {
+  try {
+    const { type, name, subCategories, order } = req.body;
+    if (!type || !name) return res.status(400).json({ message: "type and name are required" });
+
+    const existing = await Category.findOne({ type, name });
+    if (existing) return res.status(400).json({ message: "Category already exists" });
+
+    // New categories get order = current max + 1 so they go to the end
+    const maxOrderDoc = await Category.findOne({ type }).sort({ order: -1 });
+    const newOrder = maxOrderDoc ? maxOrderDoc.order + 1 : 0;
+
+    const category = await Category.create({
+      type,
+      name,
+      subCategories: subCategories || [],
+      order: order !== undefined ? order : newOrder,
+    });
+
+    console.log("✅ Category created:", category.name);
+    res.status(201).json(category);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- REORDER CATEGORIES (Admin) --------
+   ⚠️ CRITICAL: This MUST be before PUT /categories/:id
+   Otherwise Express matches "reorder" as the :id param
+   and tries to update a category with id="reorder" → fails silently
+-------- */
+app.put("/categories/reorder", verifyToken, async (req, res) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items)) return res.status(400).json({ message: "items array required" });
+
+    await Promise.all(
+      items.map(({ id, order }) =>
+        Category.findByIdAndUpdate(id, { $set: { order } })
+      )
+    );
+
+    console.log("✅ Categories reordered:", items.length, "items");
+    res.json({ message: "Reordered successfully" });
+  } catch (err) {
+    console.log("❌ Reorder error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- UPDATE CATEGORY (Admin) -------- */
+app.put("/categories/:id", verifyToken, async (req, res) => {
+  try {
+    const updated = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: "Category not found" });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- HELPER: Delete all products under a category/subcategory -------- */
+const deleteProductsCascade = async (query) => {
+  const products = await Product.find(query);
+  for (const product of products) {
+    await deleteFromFirebase(product.image);
+    await deleteFromFirebase(product.datasheet);
+    await Product.findByIdAndDelete(product._id);
+    console.log("🗑️ Cascade deleted product:", product.name);
+  }
+  await RelatedProduct.deleteMany(query);
+};
+
+/* -------- DELETE CATEGORY (Admin) — CASCADE deletes all products -------- */
+app.delete("/categories/:id", verifyToken, async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id);
+    if (!category) return res.status(404).json({ message: "Category not found" });
+
+    await deleteProductsCascade({ category: category.name });
+    await Category.findByIdAndDelete(req.params.id);
+
+    console.log("🗑️ Category + all products deleted:", category.name);
+    res.json({ message: "Category and all its products deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- ADD SUBCATEGORY (Admin) -------- */
+app.post("/categories/:id/subcategory", verifyToken, async (req, res) => {
+  try {
+    const { name, extraCategories } = req.body;
+    if (!name) return res.status(400).json({ message: "SubCategory name required" });
+
+    const category = await Category.findById(req.params.id);
+    if (!category) return res.status(404).json({ message: "Category not found" });
+
+    const exists = category.subCategories.find(s => s.name === name);
+    if (exists) return res.status(400).json({ message: "SubCategory already exists" });
+
+    category.subCategories.push({ name, extraCategories: extraCategories || [] });
+    await category.save();
+
+    res.json(category);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- REORDER SUBCATEGORIES (Admin) --------
+   ⚠️ CRITICAL: This MUST be before PUT /categories/:id/subcategory/:subName
+   Otherwise Express matches "reorder" as the :subName param
+-------- */
+app.put("/categories/:id/subcategory/reorder", verifyToken, async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id);
+    if (!category) return res.status(404).json({ message: "Category not found" });
+
+    const { orderedNames } = req.body;
+    if (!Array.isArray(orderedNames)) return res.status(400).json({ message: "orderedNames array required" });
+
+    // Rebuild subCategories array in the new order, preserving all data
+    const reordered = orderedNames
+      .map(name => category.subCategories.find(s => s.name === name))
+      .filter(Boolean);
+
+    // Append any subcategories NOT in orderedNames (safety net)
+    const missing = category.subCategories.filter(s => !orderedNames.includes(s.name));
+    category.subCategories = [...reordered, ...missing];
+
+    await category.save();
+    console.log("✅ SubCategories reordered for category:", category.name);
+    res.json(category);
+  } catch (err) {
+    console.log("❌ SubCategory reorder error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- UPDATE SUBCATEGORY (Admin) -------- */
+app.put("/categories/:id/subcategory/:subName", verifyToken, async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id);
+    if (!category) return res.status(404).json({ message: "Category not found" });
+
+    const sub = category.subCategories.find(s => s.name === req.params.subName);
+    if (!sub) return res.status(404).json({ message: "SubCategory not found" });
+
+    if (req.body.name) sub.name = req.body.name;
+    if (req.body.extraCategories !== undefined) sub.extraCategories = req.body.extraCategories;
+
+    await category.save();
+    res.json(category);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- DELETE SUBCATEGORY (Admin) — CASCADE deletes all products -------- */
+app.delete("/categories/:id/subcategory/:subName", verifyToken, async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id);
+    if (!category) return res.status(404).json({ message: "Category not found" });
+
+    const subName = decodeURIComponent(req.params.subName);
+
+    await deleteProductsCascade({ category: category.name, subCategory: subName });
+
+    category.subCategories = category.subCategories.filter(s => s.name !== subName);
+    await category.save();
+
+    console.log("🗑️ SubCategory + all products deleted:", subName);
+    res.json(category);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* =============================
+   PRODUCT ROUTES
+============================= */
 
 app.get("/products", async (req, res) => {
   try {
@@ -221,8 +464,6 @@ app.get("/products", async (req, res) => {
   }
 });
 
-/* -------- GET SINGLE PRODUCT -------- */
-
 app.get("/products/:slug", async (req, res) => {
   try {
     const product = await Product.findOne({ slug: req.params.slug });
@@ -232,8 +473,6 @@ app.get("/products/:slug", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-/* -------- GENERATE DATASHEET PDF -------- */
 
 app.get("/products/:slug/datasheet", async (req, res) => {
   try {
@@ -283,8 +522,6 @@ app.get("/products/:slug/datasheet", async (req, res) => {
   }
 });
 
-/* -------- CREATE PRODUCT -------- */
-
 app.post("/products", verifyToken, async (req, res) => {
   try {
     let baseSlug = generateSlug(req.body.name);
@@ -303,18 +540,29 @@ app.post("/products", verifyToken, async (req, res) => {
   }
 });
 
-/* -------- UPDATE PRODUCT -------- */
-
 app.put("/products/:id", verifyToken, async (req, res) => {
   try {
+    const existing = await Product.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: "Product not found" });
+
+    // ✅ If image changed → delete old image from Firebase
+    if (req.body.image && req.body.image !== existing.image) {
+      await deleteFromFirebase(existing.image);
+      console.log("🗑️ Old product image deleted from Firebase");
+    }
+
+    // ✅ If datasheet changed → delete old datasheet from Firebase
+    if (req.body.datasheet && req.body.datasheet !== existing.datasheet) {
+      await deleteFromFirebase(existing.datasheet);
+      console.log("🗑️ Old product datasheet deleted from Firebase");
+    }
+
     const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
-
-/* -------- DELETE PRODUCT -------- */
 
 app.delete("/products/:id", verifyToken, async (req, res) => {
   try {
@@ -323,7 +571,6 @@ app.delete("/products/:id", verifyToken, async (req, res) => {
 
     await deleteFromFirebase(product.image);
     await deleteFromFirebase(product.datasheet);
-
     await Product.findByIdAndDelete(req.params.id);
 
     console.log("🗑️ Product deleted:", product.name);
@@ -332,8 +579,6 @@ app.delete("/products/:id", verifyToken, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-/* -------- CREATE ADMIN -------- */
 
 app.post("/create-admin", verifyToken, async (req, res) => {
   try {
@@ -345,8 +590,6 @@ app.post("/create-admin", verifyToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-/* -------- SAVE RELATED PRODUCTS -------- */
 
 app.post("/save-related-products", verifyToken, async (req, res) => {
   console.log("📦 /save-related-products HIT");
@@ -391,8 +634,6 @@ app.post("/save-related-products", verifyToken, async (req, res) => {
   }
 });
 
-/* -------- GET RELATED PRODUCTS -------- */
-
 app.get("/related-products", async (req, res) => {
   try {
     const { category, subCategory, extraCategory, type } = req.query;
@@ -416,7 +657,6 @@ app.get("/related-products", async (req, res) => {
    BLOG ROUTES
 ============================= */
 
-/* -------- GET ALL BLOGS (Public) -------- */
 app.get("/blogs", async (req, res) => {
   try {
     const blogs = await Blog.find({ published: true }).sort({ createdAt: -1 });
@@ -426,19 +666,16 @@ app.get("/blogs", async (req, res) => {
   }
 });
 
-/* -------- GET BLOG BY SLUG (Public) — ✅ Views increment NAHI hoga ab -------- */
 app.get("/blogs/slug/:slug", async (req, res) => {
   try {
     const blog = await Blog.findOne({ slug: req.params.slug, published: true });
     if (!blog) return res.status(404).json({ error: "Blog not found" });
-    // ✅ Views increment hataya — ab alag /view route handle karega
     res.json(blog);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-/* -------- ✅ VIEW BLOG — Sirf frontend se ek baar call hoga (localStorage se controlled) -------- */
 app.post("/blogs/slug/:slug/view", async (req, res) => {
   try {
     const blog = await Blog.findOneAndUpdate(
@@ -453,7 +690,6 @@ app.post("/blogs/slug/:slug/view", async (req, res) => {
   }
 });
 
-/* -------- ✅ LIKE BLOG (Public) -------- */
 app.post("/blogs/slug/:slug/like", async (req, res) => {
   try {
     const blog = await Blog.findOneAndUpdate(
@@ -463,7 +699,6 @@ app.post("/blogs/slug/:slug/like", async (req, res) => {
     );
     if (!blog) return res.status(404).json({ error: "Blog not found" });
 
-    // Email admin
     transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.COMPANY_EMAIL,
@@ -477,7 +712,6 @@ app.post("/blogs/slug/:slug/like", async (req, res) => {
   }
 });
 
-/* -------- ✅ ADD COMMENT (Public) -------- */
 app.post("/blogs/slug/:slug/comment", async (req, res) => {
   try {
     const { name, text } = req.body;
@@ -490,7 +724,6 @@ app.post("/blogs/slug/:slug/comment", async (req, res) => {
     );
     if (!blog) return res.status(404).json({ error: "Blog not found" });
 
-    // Email admin
     transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.COMPANY_EMAIL,
@@ -509,7 +742,6 @@ app.post("/blogs/slug/:slug/comment", async (req, res) => {
   }
 });
 
-/* -------- GET BLOG BY ID (Admin) -------- */
 app.get("/blogs/:id", async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
@@ -520,7 +752,6 @@ app.get("/blogs/:id", async (req, res) => {
   }
 });
 
-/* -------- CREATE BLOG (Admin) -------- */
 app.post("/blogs", verifyToken, async (req, res) => {
   try {
     let baseSlug = generateSlug(req.body.title);
@@ -539,25 +770,54 @@ app.post("/blogs", verifyToken, async (req, res) => {
   }
 });
 
-/* -------- UPDATE BLOG (Admin) -------- */
 app.put("/blogs/:id", verifyToken, async (req, res) => {
   try {
-    const updated = await Blog.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
+    const existing = await Blog.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: "Blog not found" });
+
+    // ✅ If hero image changed → delete old one from Firebase
+    if (req.body.image && req.body.image !== existing.image) {
+      await deleteFromFirebase(existing.image);
+      console.log("🗑️ Old blog hero image deleted from Firebase");
+    }
+
+    // ✅ If blocks changed → delete any old block images that are no longer present
+    if (req.body.blocks) {
+      const newBlockUrls = new Set(
+        req.body.blocks
+          .filter(b => b.type === "image" && b.url)
+          .map(b => b.url)
+      );
+      const oldBlockImages = (existing.blocks || [])
+        .filter(b => b.type === "image" && b.url && !newBlockUrls.has(b.url));
+
+      for (const block of oldBlockImages) {
+        await deleteFromFirebase(block.url);
+        console.log("🗑️ Old blog block image deleted from Firebase:", block.url);
+      }
+    }
+
+    const updated = await Blog.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-/* -------- DELETE BLOG (Admin) -------- */
 app.delete("/blogs/:id", verifyToken, async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
     if (!blog) return res.status(404).json({ message: "Blog not found" });
 
+    // ✅ Delete hero image from Firebase
     await deleteFromFirebase(blog.image);
+
+    // ✅ Delete all image blocks from Firebase too
+    const blockImages = (blog.blocks || []).filter(b => b.type === "image" && b.url);
+    for (const block of blockImages) {
+      await deleteFromFirebase(block.url);
+      console.log("🗑️ Blog block image deleted from Firebase");
+    }
 
     await Blog.findByIdAndDelete(req.params.id);
 
@@ -568,7 +828,9 @@ app.delete("/blogs/:id", verifyToken, async (req, res) => {
   }
 });
 
-/* -------- SUBMIT PARTNER FORM -------- */
+/* =============================
+   FORM SUBMISSION ROUTES
+============================= */
 
 app.post("/submit-partner", async (req, res) => {
   const form = req.body;
@@ -609,8 +871,6 @@ app.post("/submit-partner", async (req, res) => {
   }
 });
 
-/* -------- SUBMIT PROJECT LOCKING FORM -------- */
-
 app.post("/submit-project-locking", async (req, res) => {
   const form = req.body;
   console.log("📧 Project Locking form received:", form.email);
@@ -650,8 +910,6 @@ app.post("/submit-project-locking", async (req, res) => {
   }
 });
 
-/* -------- SUBMIT DEMO REQUEST -------- */
-
 app.post("/submit-demo", async (req, res) => {
   const form = req.body;
   console.log("📧 Demo request received:", form.email);
@@ -683,8 +941,6 @@ app.post("/submit-demo", async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
-
-/* -------- SUBMIT TRAINING REQUEST -------- */
 
 app.post("/submit-training", async (req, res) => {
   const form = req.body;
@@ -719,8 +975,6 @@ app.post("/submit-training", async (req, res) => {
   }
 });
 
-/* -------- SUBMIT WARRANTY CHECK (WITH FILE UPLOAD) -------- */
-
 app.post("/submit-warranty", upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
   console.log("📧 Warranty check received:", form.email);
@@ -744,7 +998,6 @@ app.post("/submit-warranty", upload.single("invoiceFile"), async (req, res) => {
 
     if (req.file) {
       mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-      console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);
@@ -755,8 +1008,6 @@ app.post("/submit-warranty", upload.single("invoiceFile"), async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
-
-/* -------- SUBMIT TECH SQUAD REQUEST (WITH FILE UPLOAD) -------- */
 
 app.post("/submit-techsquad", upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
@@ -783,7 +1034,6 @@ app.post("/submit-techsquad", upload.single("invoiceFile"), async (req, res) => 
 
     if (req.file) {
       mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-      console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);
@@ -794,8 +1044,6 @@ app.post("/submit-techsquad", upload.single("invoiceFile"), async (req, res) => 
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
-
-/* -------- SUBMIT DOA REQUEST (WITH FILE UPLOAD) -------- */
 
 app.post("/submit-doa", upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
@@ -825,7 +1073,6 @@ app.post("/submit-doa", upload.single("invoiceFile"), async (req, res) => {
 
     if (req.file) {
       mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-      console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);
@@ -836,8 +1083,6 @@ app.post("/submit-doa", upload.single("invoiceFile"), async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
-
-/* -------- SUBMIT PRODUCT SUPPORT -------- */
 
 app.post("/submit-product-support", async (req, res) => {
   const form = req.body;
@@ -866,8 +1111,6 @@ app.post("/submit-product-support", async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
-
-/* -------- SUBMIT PRODUCT REGISTRATION (WITH FILE UPLOAD) -------- */
 
 app.post("/submit-product-registration", upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
@@ -898,7 +1141,6 @@ app.post("/submit-product-registration", upload.single("invoiceFile"), async (re
 
     if (req.file) {
       mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-      console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);
@@ -909,8 +1151,6 @@ app.post("/submit-product-registration", upload.single("invoiceFile"), async (re
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
-
-/* -------- SUBMIT CONTACT FORM -------- */
 
 app.post("/submit-contact", async (req, res) => {
   const form = req.body;
@@ -942,8 +1182,6 @@ app.post("/submit-contact", async (req, res) => {
   }
 });
 
-/* -------- SUBMIT APPLY NOW FORM (WITH FILE UPLOAD) -------- */
-
 app.post("/submit-apply", upload.single("resumeFile"), async (req, res) => {
   const form = req.body;
   console.log("📧 Job application received:", form.email);
@@ -967,7 +1205,6 @@ app.post("/submit-apply", upload.single("resumeFile"), async (req, res) => {
 
     if (req.file) {
       mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-      console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);
@@ -978,8 +1215,6 @@ app.post("/submit-apply", upload.single("resumeFile"), async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
-
-/* -------- SUBMIT WHISTLE BLOWER FORM (WITH FILE UPLOAD) -------- */
 
 app.post("/submit-whistleblower", upload.single("attachmentFile"), async (req, res) => {
   const form = req.body;
@@ -1002,7 +1237,6 @@ app.post("/submit-whistleblower", upload.single("attachmentFile"), async (req, r
 
     if (req.file) {
       mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-      console.log("📎 Attachment added:", req.file.originalname);
     }
 
     await transporter.sendMail(mailOptions);

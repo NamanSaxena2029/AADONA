@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
@@ -6,6 +6,11 @@ import CheckCircle from "../assets/checkcircle.png";
 
 const API = `${import.meta.env.VITE_API_URL}/products`;
 const RELATED_API = `${import.meta.env.VITE_API_URL}/related-products`;
+const CATEGORY_API = `${import.meta.env.VITE_API_URL}/categories`;
+
+// Convert any name to slug for comparison
+const nameToSlug = (name) =>
+  name.trim().toLowerCase().replace(/\s+/g, "").replace(/[^\w]+/g, "");
 
 /* -------------------- SKELETON COMPONENTS -------------------- */
 const ProductCardSkeleton = () => (
@@ -34,66 +39,45 @@ const SubCategorySkeleton = () => (
     ))}
   </div>
 );
-/* -------------------- END SKELETON -------------------- */
 
-const ProductCard = ({ product }) => {
-  const handleCardClick = () => {
-    window.open(`/productDetails/${product.slug}`, "_blank", "noopener,noreferrer");
-  };
-
-  return (
-    <div
-      onClick={handleCardClick}
-      className="bg-white rounded-lg shadow-xl overflow-hidden cursor-pointer flex flex-col group 
-                    transform transition duration-300 ease-in-out 
-                    hover:shadow-2xl hover:scale-[1.02] hover:border-green-500 border border-transparent"
-    >
-      <div className="h-48 flex items-center justify-center p-4 bg-gray-50 border-b border-gray-100">
-        <img
-          className="max-h-full object-contain"
-          src={product.image}
-          alt={product.name}
-          loading="lazy"
-        />
+/* -------------------- PRODUCT CARD -------------------- */
+const ProductCard = ({ product }) => (
+  <div
+    onClick={() => window.open(`/productDetails/${product.slug}`, "_blank", "noopener,noreferrer")}
+    className="bg-white rounded-lg shadow-xl overflow-hidden cursor-pointer flex flex-col group transform transition duration-300 ease-in-out hover:shadow-2xl hover:scale-[1.02] hover:border-green-500 border border-transparent"
+  >
+    <div className="h-48 flex items-center justify-center p-4 bg-gray-50 border-b border-gray-100">
+      <img className="max-h-full object-contain" src={product.image} alt={product.name} loading="lazy" />
+    </div>
+    <div className="p-4 sm:p-6 flex-grow flex flex-col justify-between text-left">
+      <div>
+        <h3 className="text-2xl font-bold text-gray-800 mb-2">{product.name}</h3>
+        {product.description && <p className="text-gray-600 text-base mb-4">{product.description}</p>}
       </div>
-
-      <div className="p-4 sm:p-6 flex-grow flex flex-col justify-between text-left">
-        <div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-2">{product.name}</h3>
-          {product.description && (
-            <p className="text-gray-600 text-base mb-4">{product.description}</p>
-          )}
-        </div>
-
-        {product.features && product.features.length > 0 && (
-          <ul className="text-gray-700 text-base mb-6 space-y-2">
-            {product.features.map((feature, index) => (
-              <li key={index} className="flex items-center">
-                <img src={CheckCircle} alt="Check" className="h-5 w-5 mr-2 flex-shrink-0" loading="lazy" />
-                <span>{feature}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div className="mt-auto">
-          <div className="inline-flex items-center justify-center px-6 py-3 border border-transparent 
-                        text-base font-medium rounded-md shadow-sm text-white bg-green-600 
-                        hover:bg-green-700 hover:shadow-lg transition duration-200 ease-in-out w-full">
-            View Product
-          </div>
+      {product.features && product.features.length > 0 && (
+        <ul className="text-gray-700 text-base mb-6 space-y-2">
+          {product.features.map((feature, index) => (
+            <li key={index} className="flex items-center">
+              <img src={CheckCircle} alt="Check" className="h-5 w-5 mr-2 flex-shrink-0" loading="lazy" />
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-auto">
+        <div className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 hover:shadow-lg transition duration-200 ease-in-out w-full">
+          View Product
         </div>
       </div>
     </div>
-  );
-};
+  </div>
+);
 
-/* -------------------- RELATED PRODUCTS SECTION -------------------- */
+/* -------------------- RELATED PRODUCTS -------------------- */
 const RelatedProducts = ({ relatedProducts }) => {
   const trackRef = useRef(null);
   const animationRef = useRef(null);
   const positionRef = useRef(0);
-
   const isDragging = useRef(false);
   const isPaused = useRef(false);
   const startX = useRef(0);
@@ -101,32 +85,21 @@ const RelatedProducts = ({ relatedProducts }) => {
 
   useEffect(() => {
     if (!relatedProducts || relatedProducts.length === 0) return;
-
-    // Delay so DOM is ready before starting animation
     const timeout = setTimeout(() => {
       const track = trackRef.current;
       if (!track) return;
-
       const speed = 0.6;
-
       const animate = () => {
         if (!isPaused.current && !isDragging.current) {
           positionRef.current += speed;
-
           const totalWidth = track.scrollWidth / 2;
-          if (positionRef.current >= totalWidth) {
-            positionRef.current = 0;
-          }
-
+          if (positionRef.current >= totalWidth) positionRef.current = 0;
           track.style.transform = `translateX(-${positionRef.current}px)`;
         }
-
         animationRef.current = requestAnimationFrame(animate);
       };
-
       animationRef.current = requestAnimationFrame(animate);
     }, 300);
-
     return () => {
       clearTimeout(timeout);
       cancelAnimationFrame(animationRef.current);
@@ -137,33 +110,10 @@ const RelatedProducts = ({ relatedProducts }) => {
 
   const doubled = [...relatedProducts, ...relatedProducts];
 
-  const handlePointerDown = (e) => {
-    isDragging.current = true;
-    startX.current = e.clientX;
-    startPos.current = positionRef.current;
-  };
-
-  const handlePointerMove = (e) => {
-    if (!isDragging.current) return;
-
-    const dx = e.clientX - startX.current;
-    positionRef.current = startPos.current - dx;
-
-    trackRef.current.style.transform = `translateX(-${positionRef.current}px)`;
-  };
-
-  const handlePointerUp = () => {
-    isDragging.current = false;
-  };
-
   return (
     <div className="mt-24 bg-gray-100 py-16 overflow-hidden">
       <div className="max-w-7xl mx-auto">
-        <h2 className="text-3xl font-bold text-center text-green-700 mb-10">
-          Related Products
-        </h2>
-
-        {/* Hover Pause Wrapper */}
+        <h2 className="text-3xl font-bold text-center text-green-700 mb-10">Related Products</h2>
         <div
           style={{ overflow: "hidden" }}
           onPointerEnter={() => (isPaused.current = true)}
@@ -171,74 +121,37 @@ const RelatedProducts = ({ relatedProducts }) => {
         >
           <div
             ref={trackRef}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
+            onPointerDown={(e) => {
+              isDragging.current = true;
+              startX.current = e.clientX;
+              startPos.current = positionRef.current;
+            }}
+            onPointerMove={(e) => {
+              if (!isDragging.current) return;
+              positionRef.current = startPos.current - (e.clientX - startX.current);
+              trackRef.current.style.transform = `translateX(-${positionRef.current}px)`;
+            }}
+            onPointerUp={() => { isDragging.current = false; }}
+            onPointerCancel={() => { isDragging.current = false; }}
             style={{
-              display: "flex",
-              gap: "3rem",
-              width: "max-content",
-              cursor: "grab",
-              userSelect: "none",
-              touchAction: "none",
-              willChange: "transform",
+              display: "flex", gap: "3rem", width: "max-content",
+              cursor: "grab", userSelect: "none", touchAction: "none", willChange: "transform",
             }}
           >
             {doubled.map((product, i) => (
               <div
                 key={`${product._id}-${i}`}
-                onClick={() =>
-                  window.open(
-                    `/productDetails/${product.slug}`,
-                    "_blank",
-                    "noopener,noreferrer"
-                  )
-                }
-                style={{
-                  minWidth: "200px",
-                  flexShrink: 0,
-                  cursor: "pointer",
-                }}
+                onClick={() => window.open(`/productDetails/${product.slug}`, "_blank", "noopener,noreferrer")}
+                style={{ minWidth: "200px", flexShrink: 0, cursor: "pointer" }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      height: "160px",
-                      width: "160px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginBottom: "1rem",
-                    }}
-                  >
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ height: "160px", width: "160px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1rem" }}>
                     <img
-                      src={product.image}
-                      alt={product.name}
-                      draggable="false"
-                      loading="lazy"
-                      style={{
-                        objectFit: "contain",
-                        maxHeight: "100%",
-                        pointerEvents: "none",
-                      }}
+                      src={product.image} alt={product.name} draggable="false" loading="lazy"
+                      style={{ objectFit: "contain", maxHeight: "100%", pointerEvents: "none" }}
                     />
                   </div>
-
-                  <h3
-                    style={{
-                      fontSize: "1.125rem",
-                      fontWeight: 600,
-                      color: "#374151",
-                      textAlign: "center",
-                    }}
-                  >
+                  <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#374151", textAlign: "center" }}>
                     {product.name}
                   </h3>
                 </div>
@@ -250,17 +163,21 @@ const RelatedProducts = ({ relatedProducts }) => {
     </div>
   );
 };
-/* -------------------- END RELATED PRODUCTS -------------------- */
 
+/* -------------------- MAIN PAGE -------------------- */
 export default function CategoryProductsPage() {
-  const { categoryName } = useParams();
-  const decodedCategory = decodeURIComponent(categoryName);
+  const { categoryName: categorySlug } = useParams();
 
   const [products, setProducts] = useState([]);
+  const [actualCategoryName, setActualCategoryName] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeSubCategory, setActiveSubCategory] = useState("");
   const [activeDetail, setActiveDetail] = useState("");
   const [relatedProducts, setRelatedProducts] = useState([]);
+
+  // ✅ NEW: ordered subcategories and extra categories from the category document
+  const [orderedSubCategories, setOrderedSubCategories] = useState([]);
+  const [orderedExtraCategories, setOrderedExtraCategories] = useState([]);
 
   const detailContent = {
     "Business": {
@@ -282,70 +199,102 @@ export default function CategoryProductsPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
     setLoading(true);
-    fetch(API)
-      .then((res) => res.json())
-      .then((data) => {
-        const filtered = data.filter(p => p.category === decodedCategory);
+
+    // Fetch products AND category document in parallel
+    Promise.all([
+      fetch(API).then(r => r.json()),
+      fetch(CATEGORY_API).then(r => r.json()),
+    ])
+      .then(([productsData, categoriesData]) => {
+        // Filter products for this category
+        const filtered = productsData.filter(p => nameToSlug(p.category) === categorySlug);
         setProducts(filtered);
 
         if (filtered.length > 0) {
-          const subCats = [...new Set(filtered.map(p => p.subCategory))];
-          setActiveSubCategory(subCats[0]);
+          const catName = filtered[0].category;
+          setActualCategoryName(catName);
+
+          // ✅ Find the matching category document to get DB-ordered subcategories
+          const categoryDoc = categoriesData.find(
+            c => nameToSlug(c.name) === categorySlug
+          );
+
+          if (categoryDoc && categoryDoc.subCategories?.length > 0) {
+            // Use DB order — only include subs that actually have products
+            const subsWithProducts = categoryDoc.subCategories
+              .map(s => s.name)
+              .filter(subName => filtered.some(p => p.subCategory === subName));
+
+            setOrderedSubCategories(subsWithProducts);
+            setActiveSubCategory(subsWithProducts[0] || "");
+
+            // Store the full subCategory docs so we can look up extra categories later
+            // (also in DB order)
+            setOrderedExtraCategories(categoryDoc.subCategories);
+          } else {
+            // Fallback: derive from products (original behaviour)
+            const subCats = [...new Set(filtered.map(p => p.subCategory))];
+            setOrderedSubCategories(subCats);
+            setActiveSubCategory(subCats[0] || "");
+            setOrderedExtraCategories([]);
+          }
         }
       })
       .catch(err => console.error("API Error:", err))
       .finally(() => setLoading(false));
-  }, [decodedCategory]);
+  }, [categorySlug]);
 
+  // ✅ When activeSubCategory changes, get extra categories in DB order
   useEffect(() => {
-    const availableDetails = [...new Set(products
-      .filter(p => p.subCategory === activeSubCategory && p.extraCategory)
-      .map(p => p.extraCategory))];
+    if (!activeSubCategory) return;
 
-    if (availableDetails.length > 0) {
-      setActiveDetail(availableDetails[0]);
+    // Try to get ordered extras from the category doc
+    const subDoc = orderedExtraCategories.find(s => s.name === activeSubCategory);
+    if (subDoc && subDoc.extraCategories?.length > 0) {
+      // Filter to only extras that actually have products
+      const extrasWithProducts = subDoc.extraCategories.filter(ex =>
+        products.some(p => p.subCategory === activeSubCategory && p.extraCategory === ex)
+      );
+      setActiveDetail(extrasWithProducts.length > 0 ? extrasWithProducts[0] : "");
     } else {
-      setActiveDetail("");
+      // Fallback: derive from products
+      const available = [...new Set(
+        products
+          .filter(p => p.subCategory === activeSubCategory && p.extraCategory)
+          .map(p => p.extraCategory)
+      )];
+      setActiveDetail(available.length > 0 ? available[0] : "");
     }
-  }, [activeSubCategory, products]);
+  }, [activeSubCategory, products, orderedExtraCategories]);
 
-  // Fetch related products from backend whenever subcategory or extraCategory changes
   useEffect(() => {
-    if (!decodedCategory || !activeSubCategory) return;
-
-    const params = new URLSearchParams({
-      category: decodedCategory,
-      subCategory: activeSubCategory,
-    });
-
-    if (activeDetail) {
-      params.append("extraCategory", activeDetail);
-    }
-
-    console.log("🔍 Fetching related products with:", params.toString());
+    if (!actualCategoryName || !activeSubCategory) return;
+    const params = new URLSearchParams({ category: actualCategoryName, subCategory: activeSubCategory });
+    if (activeDetail) params.append("extraCategory", activeDetail);
 
     fetch(`${RELATED_API}?${params.toString()}`)
       .then((res) => res.json())
-      .then((data) => {
-        console.log("✅ Related products fetched:", data);
-        setRelatedProducts(data.relatedProducts || []);
-      })
-      .catch((err) => {
-        console.error("❌ Related products fetch error:", err);
-        setRelatedProducts([]);
-      });
-  }, [decodedCategory, activeSubCategory, activeDetail]);
+      .then((data) => setRelatedProducts(data.relatedProducts || []))
+      .catch(() => setRelatedProducts([]));
+  }, [actualCategoryName, activeSubCategory, activeDetail]);
 
-  const subCategories = [...new Set(products.map(p => p.subCategory))];
-  const detailOptions = [...new Set(products
-    .filter(p => p.subCategory === activeSubCategory && p.extraCategory)
-    .map(p => p.extraCategory))];
+  // ✅ Detail options: DB-ordered, filtered to only those with products
+  const detailOptions = (() => {
+    const subDoc = orderedExtraCategories.find(s => s.name === activeSubCategory);
+    if (subDoc && subDoc.extraCategories?.length > 0) {
+      return subDoc.extraCategories.filter(ex =>
+        products.some(p => p.subCategory === activeSubCategory && p.extraCategory === ex)
+      );
+    }
+    // Fallback
+    return [...new Set(
+      products.filter(p => p.subCategory === activeSubCategory && p.extraCategory).map(p => p.extraCategory)
+    )];
+  })();
 
   const filteredProducts = products.filter((p) => {
     const matchesSub = p.subCategory === activeSubCategory;
-    if (detailOptions.length > 0) {
-      return matchesSub && p.extraCategory === activeDetail;
-    }
+    if (detailOptions.length > 0) return matchesSub && p.extraCategory === activeDetail;
     return matchesSub;
   });
 
@@ -356,7 +305,7 @@ export default function CategoryProductsPage() {
       <div className="bg-white py-12 shadow-md mt-20">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight mb-4 border-b-4 border-green-500 inline-block pb-1 uppercase">
-            {decodedCategory}
+            {actualCategoryName}
           </h1>
         </div>
       </div>
@@ -365,15 +314,16 @@ export default function CategoryProductsPage() {
         {loading ? (
           <SubCategorySkeleton />
         ) : (
+          // ✅ Use orderedSubCategories (DB order) instead of Set-derived array
           <div className="flex flex-wrap justify-center gap-3">
-            {subCategories.map((cat) => (
+            {orderedSubCategories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveSubCategory(cat)}
                 className={`px-8 py-2.5 rounded-lg font-semibold transition-all duration-300 ${
                   activeSubCategory === cat
-                    ? 'bg-green-600 text-white shadow-md'
-                    : 'bg-white text-gray-600 border hover:bg-gray-100'
+                    ? "bg-green-600 text-white shadow-md"
+                    : "bg-white text-gray-600 border hover:bg-gray-100"
                 }`}
               >
                 {cat}
@@ -384,6 +334,7 @@ export default function CategoryProductsPage() {
 
         {!loading && detailOptions.length > 0 && (
           <div className="flex flex-col items-center space-y-8 w-full">
+            {/* ✅ detailOptions is now DB-ordered */}
             <div className="flex items-center gap-2 bg-gray-200/60 p-1.5 rounded-full border border-gray-300">
               {detailOptions.map((opt) => (
                 <button
@@ -391,8 +342,8 @@ export default function CategoryProductsPage() {
                   onClick={() => setActiveDetail(opt)}
                   className={`px-10 py-2 rounded-full text-sm font-bold transition-all duration-300 ${
                     activeDetail === opt
-                      ? 'bg-white text-green-700 shadow-md'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? "bg-white text-green-700 shadow-md"
+                      : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
                   {opt}
@@ -402,12 +353,8 @@ export default function CategoryProductsPage() {
 
             {activeDetail && detailContent[activeDetail] && (
               <div className="max-w-4xl w-full p-8 bg-white border-l-8 border-green-500 shadow-xl rounded-r-xl text-left">
-                <h2 className="text-2xl font-bold text-gray-900 mb-3">
-                  {detailContent[activeDetail].title}
-                </h2>
-                <p className="text-gray-600 italic leading-relaxed">
-                  {detailContent[activeDetail].para}
-                </p>
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">{detailContent[activeDetail].title}</h2>
+                <p className="text-gray-600 italic leading-relaxed">{detailContent[activeDetail].para}</p>
               </div>
             )}
           </div>
@@ -417,15 +364,11 @@ export default function CategoryProductsPage() {
       <div className="max-w-7xl mx-auto py-12 px-4 flex-grow w-full">
         {loading ? (
           <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <ProductCardSkeleton key={i} />
-            ))}
+            {[1, 2, 3, 4, 5, 6].map((i) => <ProductCardSkeleton key={i} />)}
           </div>
         ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product._id} product={product} />
-            ))}
+            {filteredProducts.map((product) => <ProductCard key={product._id} product={product} />)}
           </div>
         ) : (
           <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-gray-300 w-full">
@@ -434,9 +377,7 @@ export default function CategoryProductsPage() {
         )}
       </div>
 
-      {/* MongoDB se fetched related products with drag + hover pause + delay animation */}
       <RelatedProducts relatedProducts={relatedProducts} />
-
       <Footer />
     </div>
   );

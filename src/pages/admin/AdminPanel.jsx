@@ -4,73 +4,19 @@ import { storage, auth } from "../../firebase";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Trash2, Edit, LogOut, Plus, X, Upload, CheckCircle2, UserPlus, Save, PackagePlus, ArrowLeft } from "lucide-react";
+import {
+  Trash2, Edit, LogOut, Plus, X, Upload, CheckCircle2,
+  UserPlus, ChevronDown, ChevronRight, ChevronUp
+} from "lucide-react";
 import Navbar from "../../Components/Navbar";
-import ProductDetailPage from "../../Components/ProductDetailPage";
 import Footer from "../../Components/Footer";
 
 const API = `${import.meta.env.VITE_API_URL}/products`;
-const BLOG_API = `${import.meta.env.VITE_API_URL}/blogs`;  // ✅ BLOG API
+const BLOG_API = `${import.meta.env.VITE_API_URL}/blogs`;
+const CATEGORY_API = `${import.meta.env.VITE_API_URL}/categories`;
 
-// ===== Utility: Generate URL-friendly slug =====
 const generateSlug = (title) => {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-};
-
-const categories = {
-  "Network Switches": {
-    "Unmanaged Switches": [],
-    "Web Smart Switches": ["Web Smart POE", "Web Smart Non POE"],
-    "Fully Managed Switches": ["Managed POE", "Managed Non POE"],
-    "Layer 3 Switches": ["POE Switches", "Non POE Switches"],
-    "Core Switches": ["POE Switches", "Non POE Switches"],
-    "Accessories": ["Essential", "Media Convertors", "Power Supply"]
-  },
-  "Industrial Switches": {
-    "Un-Managed PoE": [],
-    "Un-Managed Non PoE": [],
-    "Managed PoE": [],
-    "Managed Non PoE": []
-  },
-  "Wireless Solutions": {
-    "Indoor": ["Business", "Enterprise"],
-    "Outdoor": ["Business", "Enterprise"],
-    "Controller": ["Business", "Enterprise"]
-  },
-  "Server and Workstations": {
-    "Servers": [],
-    "Workstations": []
-  },
-  "Network Attached Storage": {
-    "Desktop NAS": [],
-    "Rackmount NAS": []
-  },
-  "Surveillance": {
-    "Indoor": [],
-    "Outdoor": [],
-    "NVR": [],
-    "Surveillance": []
-  },
-
-  // 🔹 Passive Categories
-  "Cables": {
-    "Copper Cables": [],
-    "Fiber Cables": []
-  },
-  "Racks": {
-    "Wall Mount Racks": [],
-    "Floor Standing Racks": []
-  },
-  "Network Accessories": {
-    "Patch Panels": [],
-    "Face Plates": [],
-    "Keystone Jacks": []
-  }
+  return title.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
 };
 
 const safeJson = async (res) => {
@@ -79,20 +25,20 @@ const safeJson = async (res) => {
     return JSON.parse(text);
   } catch {
     console.error("Non-JSON response from server:", text);
-    throw new Error(
-      `Server returned an unexpected response (HTTP ${res.status}). ` +
-      `Make sure your backend is running on port 5000.`
-    );
+    throw new Error(`Server returned an unexpected response (HTTP ${res.status}).`);
   }
 };
 
 export default function AdminPanel() {
   const navigate = useNavigate();
-  
-  // ===== TAB STATE =====
+
   const [activeTab, setActiveTab] = useState("products");
-  
-  // ===== PRODUCT STATE =====
+
+  const [allCategories, setAllCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  const [reorderLoading, setReorderLoading] = useState(false);
+
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({
     name: "", type: "", category: "", subCategory: "",
@@ -105,7 +51,6 @@ export default function AdminPanel() {
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [btnLoading, setBtnLoading] = useState(false);
-  const [showProductForm, setShowProductForm] = useState(false);
   const [showAdminForm, setShowAdminForm] = useState(false);
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
@@ -117,18 +62,47 @@ export default function AdminPanel() {
   const [filterSubCategory, setFilterSubCategory] = useState("");
   const [filterExtraCategory, setFilterExtraCategory] = useState("");
 
-  // ===== BLOG STATE =====
+  const [catForm, setCatForm] = useState({ type: "active", name: "" });
+  const [catBtnLoading, setCatBtnLoading] = useState(false);
+  const [expandedCat, setExpandedCat] = useState(null);
+  const [newSubName, setNewSubName] = useState("");
+  const [newSubExtra, setNewSubExtra] = useState("");
+  const [addingSubFor, setAddingSubFor] = useState(null);
+  const [editingSubFor, setEditingSubFor] = useState(null);
+  const [editingExtraInput, setEditingExtraInput] = useState("");
+
   const [blogForm, setBlogForm] = useState({
-    title: "",
-    excerpt: "",
-    author: "Pinakii Chatterje",
-    date: "",  // ✅ Empty — auto set on publish
-    readTime: "3 min read",
-    image: "",
-    blocks: [],
+    title: "", excerpt: "", author: "Pinakii Chatterje",
+    date: "", readTime: "3 min read", image: "", blocks: [],
   });
   const [blogs, setBlogs] = useState([]);
   const [editingBlogId, setEditingBlogId] = useState(null);
+
+  const getCategoriesByType = (type) => allCategories.filter(c => c.type === type);
+
+  const getSubCategories = (type, categoryName) => {
+    const cat = allCategories.find(c => c.type === type && c.name === categoryName);
+    return cat ? cat.subCategories : [];
+  };
+
+  const getExtraCategories = (type, categoryName, subCategoryName) => {
+    const subs = getSubCategories(type, categoryName);
+    const sub = subs.find(s => s.name === subCategoryName);
+    return sub ? sub.extraCategories : [];
+  };
+
+  const loadCategories = async () => {
+    try {
+      setCategoriesLoading(true);
+      const res = await fetch(CATEGORY_API);
+      const data = await safeJson(res);
+      setAllCategories(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Categories load error:", err);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
 
   const load = async () => {
     try {
@@ -143,7 +117,6 @@ export default function AdminPanel() {
     }
   };
 
-  // ===== LOAD BLOGS =====
   const loadBlogs = async () => {
     try {
       const token = await auth.currentUser?.getIdToken();
@@ -157,12 +130,12 @@ export default function AdminPanel() {
     }
   };
 
-  // Auth check
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         load();
-        loadBlogs();  // ✅ LOAD BLOGS
+        loadBlogs();
+        loadCategories();
       } else {
         navigate("/admin-login");
       }
@@ -170,28 +143,195 @@ export default function AdminPanel() {
     return () => unsubscribe();
   }, [navigate]);
 
-  // ✅ 5 Min Inactivity Logout
   useEffect(() => {
     let timer;
-
     const resetTimer = () => {
       clearTimeout(timer);
       timer = setTimeout(async () => {
         await signOut(auth);
         navigate("/admin-login");
-      }, 5 * 60 * 1000); // 5 minutes
+      }, 5 * 60 * 1000);
     };
-
     const events = ["mousemove", "mousedown", "keypress", "scroll", "touchstart", "click"];
     events.forEach(event => window.addEventListener(event, resetTimer));
     resetTimer();
-
     return () => {
       clearTimeout(timer);
       events.forEach(event => window.removeEventListener(event, resetTimer));
     };
   }, [navigate]);
 
+  // ===== CATEGORY CRUD =====
+  const createCategory = async () => {
+    if (!catForm.type || !catForm.name.trim()) {
+      alert("Type and category name are required");
+      return;
+    }
+    setCatBtnLoading(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(CATEGORY_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ type: catForm.type, name: catForm.name.trim(), subCategories: [] }),
+      });
+      const data = await safeJson(res);
+      if (res.ok) {
+        setCatForm({ type: "active", name: "" });
+        loadCategories();
+        alert("Category created ✅");
+      } else {
+        alert(data.message || "Failed to create category");
+      }
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCatBtnLoading(false);
+    }
+  };
+
+  const deleteCategory = async (id, name) => {
+    if (!window.confirm(`Delete category "${name}"? All related products will also be permanently deleted.`)) return;
+    try {
+      const token = await auth.currentUser.getIdToken();
+      await fetch(`${CATEGORY_API}/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      loadCategories();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const addSubCategory = async (catId) => {
+    if (!newSubName.trim()) { alert("SubCategory name is required"); return; }
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const extras = newSubExtra.trim()
+        ? newSubExtra.split(",").map(e => e.trim()).filter(Boolean)
+        : [];
+      const res = await fetch(`${CATEGORY_API}/${catId}/subcategory`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: newSubName.trim(), extraCategories: extras }),
+      });
+      if (res.ok) {
+        setNewSubName("");
+        setNewSubExtra("");
+        setAddingSubFor(null);
+        loadCategories();
+      } else {
+        const data = await safeJson(res);
+        alert(data.message || "Failed");
+      }
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const deleteSubCategory = async (catId, subName) => {
+    if (!window.confirm(`Delete subcategory "${subName}"? All related products will also be permanently deleted.`)) return;
+    try {
+      const token = await auth.currentUser.getIdToken();
+      await fetch(`${CATEGORY_API}/${catId}/subcategory/${encodeURIComponent(subName)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      loadCategories();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const updateSubCategoryExtras = async (catId, subName, extras) => {
+    try {
+      const token = await auth.currentUser.getIdToken();
+      await fetch(`${CATEGORY_API}/${catId}/subcategory/${encodeURIComponent(subName)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ extraCategories: extras }),
+      });
+      setEditingSubFor(null);
+      setEditingExtraInput("");
+      loadCategories();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  // ===== CATEGORY MOVE UP/DOWN (works on mobile + desktop) =====
+  const moveCat = async (typeGroup, idx, dir) => {
+    const groupCats = getCategoriesByType(typeGroup);
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= groupCats.length) return;
+    const reordered = [...groupCats];
+    [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+    const otherCats = allCategories.filter(c => c.type !== typeGroup);
+    setAllCategories([...otherCats, ...reordered]);
+    setReorderLoading(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      await fetch(`${CATEGORY_API}/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ items: reordered.map((c, i) => ({ id: c._id, order: i })) }),
+      });
+    } catch (err) {
+      console.error("Reorder failed:", err);
+      loadCategories();
+    } finally {
+      setReorderLoading(false);
+    }
+  };
+
+  // ===== SUBCATEGORY MOVE UP/DOWN =====
+  const moveSub = async (cat, idx, dir) => {
+    const subs = [...cat.subCategories];
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= subs.length) return;
+    [subs[idx], subs[newIdx]] = [subs[newIdx], subs[idx]];
+    setAllCategories(allCategories.map(c => c._id === cat._id ? { ...c, subCategories: subs } : c));
+    setReorderLoading(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      await fetch(`${CATEGORY_API}/${cat._id}/subcategory/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ orderedNames: subs.map(s => s.name) }),
+      });
+    } catch (err) {
+      console.error("Sub reorder failed:", err);
+      loadCategories();
+    } finally {
+      setReorderLoading(false);
+    }
+  };
+
+  // ===== EXTRA CATEGORY MOVE UP/DOWN =====
+  const moveExtra = async (cat, sub, idx, dir) => {
+    const extras = [...(sub.extraCategories || [])];
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= extras.length) return;
+    [extras[idx], extras[newIdx]] = [extras[newIdx], extras[idx]];
+    setAllCategories(allCategories.map(c => {
+      if (c._id !== cat._id) return c;
+      return { ...c, subCategories: c.subCategories.map(s => s.name === sub.name ? { ...s, extraCategories: extras } : s) };
+    }));
+    try {
+      const token = await auth.currentUser.getIdToken();
+      await fetch(`${CATEGORY_API}/${cat._id}/subcategory/${encodeURIComponent(sub.name)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ extraCategories: extras }),
+      });
+    } catch (err) {
+      console.error("Extra reorder failed:", err);
+      loadCategories();
+    }
+  };
+
+  // ===== PRODUCT HELPERS =====
   const uploadImage = async (file) => {
     const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
     await uploadBytes(storageRef, file);
@@ -209,21 +349,16 @@ export default function AdminPanel() {
     setForm({ ...form, features: form.features.filter((_, i) => i !== index) });
   };
 
-  const extraOptions =
-    form.category && form.subCategory
-      ? (categories[form.category] || {})[form.subCategory] || []
-      : [];
+  const extraOptions = form.category && form.subCategory
+    ? getExtraCategories(form.type, form.category, form.subCategory)
+    : [];
 
-  const basicCompleted =
-    form.name && form.type && form.category &&
-    form.subCategory && form.description &&
-    (form.imageFile || form.image);
+  const basicCompleted = form.name && form.type && form.category &&
+    form.subCategory && form.description && (form.imageFile || form.image);
 
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(relatedSearch.toLowerCase())
   );
-
-  const safeCategories = categories || {};
 
   const categoryFilteredProducts = products.filter((p) => {
     if (filterType && p.type !== filterType) return false;
@@ -357,7 +492,6 @@ export default function AdminPanel() {
     try {
       let imageUrl = form.image;
       if (form.imageFile) imageUrl = await uploadImage(form.imageFile);
-
       if (!imageUrl) { alert("Please upload an image"); return; }
 
       let datasheetUrl = form.datasheet || "";
@@ -383,15 +517,11 @@ export default function AdminPanel() {
       };
 
       const token = await auth.currentUser.getIdToken();
-
-      const res = await fetch(
-        editingId ? `${API}/${editingId}` : API,
-        {
-          method: editingId ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(payload)
-        }
-      );
+      const res = await fetch(editingId ? `${API}/${editingId}` : API, {
+        method: editingId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
 
       const result = await safeJson(res);
 
@@ -431,7 +561,6 @@ export default function AdminPanel() {
         alert("Delete failed: " + (result.message || result.error || "Unknown error"));
       }
     } catch (err) {
-      console.error(err);
       alert(err.message || "Error deleting product");
     }
   };
@@ -449,6 +578,7 @@ export default function AdminPanel() {
       relatedExtraCategory: "", relatedProducts: []
     });
     setEditingId(p._id);
+    setActiveTab("products");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -470,7 +600,6 @@ export default function AdminPanel() {
         alert(data.message || data.error || "Failed to create admin");
       }
     } catch (err) {
-      console.error(err);
       alert(err.message || "Error creating admin");
     } finally {
       setAdminBtnLoading(false);
@@ -478,26 +607,18 @@ export default function AdminPanel() {
   };
 
   const saveRelatedProducts = async () => {
-    console.log("🔵 saveRelatedProducts clicked");
-    console.log("📋 relatedCategory:", form.relatedCategory);
-    console.log("📋 relatedSubCategory:", form.relatedSubCategory);
-    console.log("📋 relatedProducts:", form.relatedProducts);
-
     if (!form.relatedCategory || !form.relatedSubCategory) {
       alert("Please select category and subcategory");
       return;
     }
-
     if (!form.relatedProducts || form.relatedProducts.length === 0) {
       alert("Please select at least one related product");
       return;
     }
 
     setRelatedBtnLoading(true);
-
     try {
       const token = await auth.currentUser.getIdToken();
-
       const payload = {
         type: form.relatedType || null,
         category: form.relatedCategory,
@@ -506,22 +627,13 @@ export default function AdminPanel() {
         relatedProducts: form.relatedProducts
       };
 
-      console.log("🚀 Sending payload:", payload);
-
       const res = await fetch(`${import.meta.env.VITE_API_URL}/save-related-products`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload)
       });
 
-      console.log("📡 Response status:", res.status);
-
       const data = await safeJson(res);
-      console.log("📡 Response data:", data);
-
       if (res.ok) {
         alert("Related products saved successfully ✅");
         setForm({
@@ -533,52 +645,39 @@ export default function AdminPanel() {
         alert(data.message || "Failed to save related products");
       }
     } catch (err) {
-      console.error("❌ Error:", err);
       alert(err.message || "Error saving related products");
     } finally {
       setRelatedBtnLoading(false);
     }
   };
 
-  // Duplicate Product Logic
-  const duplicateProduct = async (product) => {
-    const { _id, ...rest } = product;
-    const duplicatedProduct = {
-      ...rest,
-      name: rest.name + " Copy",
-    };
-    edit(duplicatedProduct);
+  const removeRelatedProduct = (productId) => {
+    setForm({ ...form, relatedProducts: (form.relatedProducts || []).filter(id => id !== productId) });
   };
 
-  // ===== BLOG BLOCK MANAGEMENT =====
+  const duplicateProduct = (product) => {
+    const { _id, ...rest } = product;
+    edit({ ...rest, name: rest.name + " Copy" });
+  };
+
+  // ===== BLOG FUNCTIONS =====
   const addTextBlock = () => {
-    setBlogForm((prev) => ({
-      ...prev,
-      blocks: [...prev.blocks, { type: "text", content: "" }],
-    }));
+    setBlogForm(prev => ({ ...prev, blocks: [...prev.blocks, { type: "text", content: "" }] }));
   };
 
   const addImageBlock = () => {
-    setBlogForm((prev) => ({
-      ...prev,
-      blocks: [...prev.blocks, { type: "image", url: "", caption: "" }],
-    }));
+    setBlogForm(prev => ({ ...prev, blocks: [...prev.blocks, { type: "image", url: "", caption: "" }] }));
   };
 
   const updateBlock = (index, field, value) => {
-    setBlogForm((prev) => ({
+    setBlogForm(prev => ({
       ...prev,
-      blocks: prev.blocks.map((block, i) =>
-        i === index ? { ...block, [field]: value } : block
-      ),
+      blocks: prev.blocks.map((block, i) => i === index ? { ...block, [field]: value } : block),
     }));
   };
 
   const deleteBlock = (index) => {
-    setBlogForm((prev) => ({
-      ...prev,
-      blocks: prev.blocks.filter((_, i) => i !== index),
-    }));
+    setBlogForm(prev => ({ ...prev, blocks: prev.blocks.filter((_, i) => i !== index) }));
   };
 
   const moveBlock = (index, direction) => {
@@ -586,7 +685,7 @@ export default function AdminPanel() {
     const newIndex = direction === "up" ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= newBlocks.length) return;
     [newBlocks[index], newBlocks[newIndex]] = [newBlocks[newIndex], newBlocks[index]];
-    setBlogForm((prev) => ({ ...prev, blocks: newBlocks }));
+    setBlogForm(prev => ({ ...prev, blocks: newBlocks }));
   };
 
   const uploadBlockImage = async (e, blockIndex) => {
@@ -598,7 +697,6 @@ export default function AdminPanel() {
       const url = await getDownloadURL(storageRef);
       updateBlock(blockIndex, "url", url);
     } catch (error) {
-      console.error("Error uploading image:", error);
       alert("Failed to upload image");
     }
   };
@@ -610,38 +708,22 @@ export default function AdminPanel() {
       const storageRef = ref(storage, `blog-heroes/${Date.now()}_${file.name}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
-      setBlogForm((prev) => ({ ...prev, image: url }));
+      setBlogForm(prev => ({ ...prev, image: url }));
     } catch (error) {
-      console.error("Error uploading hero image:", error);
       alert("Failed to upload hero image");
     }
   };
 
   const handleBlogSubmit = async (e) => {
     e.preventDefault();
-    if (!blogForm.title.trim()) {
-      alert("Title is required");
-      return;
-    }
-    if (!blogForm.image) {
-      alert("Hero image is required");
-      return;
-    }
-    if (blogForm.blocks.length === 0) {
-      alert("Add at least one content block");
-      return;
-    }
+    if (!blogForm.title.trim()) { alert("Title is required"); return; }
+    if (!blogForm.image) { alert("Hero image is required"); return; }
+    if (blogForm.blocks.length === 0) { alert("Add at least one content block"); return; }
 
     const slug = generateSlug(blogForm.title);
-
-    // ✅ Auto date — naya blog publish ho toh aaj ki date, edit ho toh purani date preserve
     const publishDate = editingBlogId
       ? blogForm.date
-      : new Date().toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
+      : new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
     try {
       const token = await auth.currentUser?.getIdToken();
@@ -650,10 +732,7 @@ export default function AdminPanel() {
 
       const res = await fetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...blogForm, slug, date: publishDate, published: true }),
       });
 
@@ -665,33 +744,19 @@ export default function AdminPanel() {
         alert("Failed to save blog");
       }
     } catch (err) {
-      console.error("Blog submit error:", err);
       alert("Error saving blog");
     }
   };
 
   const resetBlogForm = () => {
-    setBlogForm({
-      title: "",
-      excerpt: "",
-      author: "Pinakii Chatterje",
-      date: "",  // ✅ Empty — auto set on publish
-      readTime: "3 min read",
-      image: "",
-      blocks: [],
-    });
+    setBlogForm({ title: "", excerpt: "", author: "Pinakii Chatterje", date: "", readTime: "3 min read", image: "", blocks: [] });
     setEditingBlogId(null);
   };
 
   const editBlog = (blog) => {
     setBlogForm({
-      title: blog.title,
-      excerpt: blog.excerpt,
-      author: blog.author,
-      date: blog.date,  // ✅ Purani date preserve karo
-      readTime: blog.readTime,
-      image: blog.image,
-      blocks: blog.blocks || [],
+      title: blog.title, excerpt: blog.excerpt, author: blog.author,
+      date: blog.date, readTime: blog.readTime, image: blog.image, blocks: blog.blocks || [],
     });
     setEditingBlogId(blog._id);
     setActiveTab("blogs");
@@ -702,10 +767,7 @@ export default function AdminPanel() {
     if (!window.confirm("Delete this blog?")) return;
     try {
       const token = await auth.currentUser?.getIdToken();
-      await fetch(`${BLOG_API}/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await fetch(`${BLOG_API}/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       loadBlogs();
     } catch (err) {
       console.error("Delete error:", err);
@@ -726,49 +788,40 @@ export default function AdminPanel() {
       <div className="min-h-screen bg-green-50 pt-28 px-4 md:px-10 pb-10">
         <div className="max-w-6xl mx-auto">
 
+          {/* Header */}
           <div className="flex justify-between items-center mb-10 flex-wrap gap-4">
             <h1 className="text-3xl font-extrabold text-green-800 tracking-tight">Admin Dashboard</h1>
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowAdminForm(!showAdminForm)}
-                className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-full hover:bg-green-700 transition shadow-md font-semibold"
-              >
+              <button onClick={() => setShowAdminForm(!showAdminForm)}
+                className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-full hover:bg-green-700 transition shadow-md font-semibold">
                 <UserPlus size={18} /> {showAdminForm ? "Cancel" : "Create Admin"}
               </button>
-              <button
-                onClick={() => signOut(auth)}
-                className="flex items-center gap-2 bg-red-500 text-white px-6 py-2.5 rounded-full hover:bg-red-600 transition shadow-md font-semibold"
-              >
+              <button onClick={() => signOut(auth)}
+                className="flex items-center gap-2 bg-red-500 text-white px-6 py-2.5 rounded-full hover:bg-red-600 transition shadow-md font-semibold">
                 <LogOut size={18} /> Logout
               </button>
             </div>
           </div>
 
-          {/* ===== TABS ===== */}
-          <div className="flex gap-4 border-b mb-8">
-            <button
-              onClick={() => setActiveTab("products")}
-              className={`px-6 py-3 font-medium transition ${
-                activeTab === "products"
-                  ? "border-b-2 border-green-600 text-green-600"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Product Management
-            </button>
-            <button
-              onClick={() => setActiveTab("blogs")}
-              className={`px-6 py-3 font-medium transition ${
-                activeTab === "blogs"
-                  ? "border-b-2 border-green-600 text-green-600"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Blog Management
-            </button>
+          {/* Tabs */}
+          <div className="flex gap-1 border-b mb-8 overflow-x-auto">
+            {[
+              { id: "products", label: "📦 Products" },
+              { id: "categories", label: "🗂️ Categories" },
+              { id: "blogs", label: "✍️ Blogs" },
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                className={`px-6 py-3 font-medium transition whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? "border-b-2 border-green-600 text-green-600"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}>
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          {/* ===== ADMIN FORM ===== */}
+          {/* Admin Create Form */}
           {showAdminForm && (
             <div className="bg-white p-6 rounded-3xl shadow-xl border border-green-100 mb-8">
               <h2 className="text-lg font-bold text-green-800 mb-4">Create New Admin</h2>
@@ -787,16 +840,295 @@ export default function AdminPanel() {
             </div>
           )}
 
-          {/* ========================================
-             PRODUCT MANAGEMENT TAB
-          ======================================== */}
+          {/* ===================================================
+              CATEGORIES TAB
+          =================================================== */}
+          {activeTab === "categories" && (
+            <div className="space-y-8">
+
+              {/* Add New Category */}
+              <div className="bg-white p-8 rounded-3xl shadow-xl border border-green-100">
+                <h2 className="text-xl font-bold text-green-800 mb-6">Add New Category</h2>
+                <div className="flex flex-wrap gap-4 items-end">
+                  <div className="flex-1 min-w-[160px]">
+                    <label className="block text-sm font-semibold text-green-700 mb-2">Type</label>
+                    <select className={inputStyle} value={catForm.type}
+                      onChange={e => setCatForm({ ...catForm, type: e.target.value })}>
+                      <option value="active">Active</option>
+                      <option value="passive">Passive</option>
+                    </select>
+                  </div>
+                  <div className="flex-[3] min-w-[200px]">
+                    <label className="block text-sm font-semibold text-green-700 mb-2">Category Name</label>
+                    <input className={inputStyle} placeholder="e.g. Wireless Solutions"
+                      value={catForm.name}
+                      onChange={e => setCatForm({ ...catForm, name: e.target.value })}
+                      onKeyDown={e => e.key === "Enter" && createCategory()} />
+                  </div>
+                  <button onClick={createCategory} disabled={catBtnLoading}
+                    className="bg-green-600 text-white px-8 py-3 rounded-xl hover:bg-green-700 transition font-semibold disabled:bg-gray-300 flex items-center gap-2">
+                    <Plus size={18} /> {catBtnLoading ? "Adding..." : "Add Category"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Reorder indicator */}
+              {reorderLoading && (
+                <div className="text-center text-sm text-green-600 font-medium animate-pulse py-2">
+                  ⏳ Saving order...
+                </div>
+              )}
+
+              {/* Categories List */}
+              <div className="bg-white rounded-3xl shadow-xl border border-green-100 overflow-hidden">
+                <div className="p-6 border-b border-green-100 bg-green-700">
+                  <h2 className="text-xl font-bold text-white">All Categories</h2>
+                  <p className="text-green-200 text-sm mt-1">
+                    Use ↑ ↓ buttons to reorder — works on mobile too
+                  </p>
+                </div>
+
+                {categoriesLoading ? (
+                  <div className="p-10 text-center text-gray-400 italic">Loading categories...</div>
+                ) : allCategories.length === 0 ? (
+                  <div className="p-10 text-center text-gray-400 italic">
+                    No categories yet. Add one above.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {["active", "passive"].map(typeGroup => {
+                      const groupCats = getCategoriesByType(typeGroup);
+                      if (groupCats.length === 0) return null;
+                      return (
+                        <div key={typeGroup}>
+                          <div className={`px-6 py-3 text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${
+                            typeGroup === "active" ? "bg-green-50 text-green-700" : "bg-teal-50 text-teal-700"
+                          }`}>
+                            {typeGroup === "active" ? "🟢 Active Categories" : "🔵 Passive Categories"}
+                          </div>
+
+                          {/* Category list with up/down buttons */}
+                          <div>
+                            {groupCats.map((cat, catIdx) => (
+                              <div
+                                key={cat._id}
+                                className="border-b border-gray-100 last:border-0"
+                              >
+                                {/* Category Row */}
+                                <div
+                                  className="flex items-center justify-between px-4 py-4 hover:bg-gray-50 cursor-pointer transition"
+                                  onClick={() => setExpandedCat(expandedCat === cat._id ? null : cat._id)}
+                                >
+                                  <div className="flex items-center gap-2 flex-1">
+                                    {/* Up/Down move buttons */}
+                                    <div className="flex flex-col gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                                      <button
+                                        onClick={() => moveCat(typeGroup, catIdx, -1)}
+                                        disabled={catIdx === 0 || reorderLoading}
+                                        className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-700"
+                                        title="Move up">
+                                        <ChevronUp size={14} />
+                                      </button>
+                                      <button
+                                        onClick={() => moveCat(typeGroup, catIdx, 1)}
+                                        disabled={catIdx === groupCats.length - 1 || reorderLoading}
+                                        className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-700"
+                                        title="Move down">
+                                        <ChevronDown size={14} />
+                                      </button>
+                                    </div>
+                                    {expandedCat === cat._id
+                                      ? <ChevronDown size={16} className="text-green-600 flex-shrink-0" />
+                                      : <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
+                                    }
+                                    <span className="font-bold text-gray-800 text-base">{cat.name}</span>
+                                    <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                                      {cat.subCategories?.length || 0} sub
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                    <button
+                                      onClick={() => { setAddingSubFor(cat._id); setExpandedCat(cat._id); }}
+                                      className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 transition font-semibold">
+                                      <Plus size={12} /> Add Sub
+                                    </button>
+                                    <button
+                                      onClick={() => deleteCategory(cat._id, cat.name)}
+                                      className="p-2 bg-red-50 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition"
+                                      title="Delete category and all its products">
+                                      <Trash2 size={15} />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Expanded: SubCategories */}
+                                {expandedCat === cat._id && (
+                                  <div className="bg-gray-50 border-t border-gray-100 px-6 py-4">
+
+                                    {/* Add SubCategory Form */}
+                                    {addingSubFor === cat._id && (
+                                      <div className="bg-white border border-green-200 rounded-xl p-4 mb-4 shadow-sm">
+                                        <p className="text-sm font-bold text-green-800 mb-3">Add New SubCategory</p>
+                                        <div className="flex flex-wrap gap-3">
+                                          <input
+                                            className="flex-1 min-w-[160px] border border-green-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-300"
+                                            placeholder="SubCategory name (e.g. Indoor)"
+                                            value={newSubName}
+                                            onChange={e => setNewSubName(e.target.value)}
+                                          />
+                                          <input
+                                            className="flex-[2] min-w-[200px] border border-green-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-300"
+                                            placeholder="Extra categories (comma separated, e.g. Business,Enterprise) — optional"
+                                            value={newSubExtra}
+                                            onChange={e => setNewSubExtra(e.target.value)}
+                                          />
+                                          <button
+                                            onClick={() => addSubCategory(cat._id)}
+                                            className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition">
+                                            Add
+                                          </button>
+                                          <button
+                                            onClick={() => { setAddingSubFor(null); setNewSubName(""); setNewSubExtra(""); }}
+                                            className="bg-gray-100 text-gray-500 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition">
+                                            Cancel
+                                          </button>
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-2">
+                                          Extra categories are optional — add them only when products need further filtering (e.g. Business/Enterprise).
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* SubCategory List — with up/down buttons */}
+                                    {cat.subCategories?.length === 0 ? (
+                                      <p className="text-sm text-gray-400 italic py-2">
+                                        No subcategories yet. Use "Add Sub" to create one.
+                                      </p>
+                                    ) : (
+                                      <div className="space-y-2">
+                                        {cat.subCategories.map((sub, subIdx) => (
+                                          <div
+                                            key={sub.name}
+                                            className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap items-start gap-3 justify-between"
+                                          >
+                                            <div className="flex items-start gap-2 flex-1">
+                                              {/* Sub up/down buttons */}
+                                              <div className="flex flex-col gap-0.5 flex-shrink-0 mt-0.5">
+                                                <button
+                                                  onClick={() => moveSub(cat, subIdx, -1)}
+                                                  disabled={subIdx === 0 || reorderLoading}
+                                                  className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-600"
+                                                  title="Move up">
+                                                  <ChevronUp size={13} />
+                                                </button>
+                                                <button
+                                                  onClick={() => moveSub(cat, subIdx, 1)}
+                                                  disabled={subIdx === cat.subCategories.length - 1 || reorderLoading}
+                                                  className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-600"
+                                                  title="Move down">
+                                                  <ChevronDown size={13} />
+                                                </button>
+                                              </div>
+                                              <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1.5">
+                                                  <span className="w-2 h-2 rounded-full bg-green-400 inline-block flex-shrink-0"></span>
+                                                  <span className="font-semibold text-gray-800">{sub.name}</span>
+                                                </div>
+
+                                                {/* Extra Categories */}
+                                                {editingSubFor === `${cat._id}-${sub.name}` ? (
+                                                  <div className="flex gap-2 mt-2">
+                                                    <input
+                                                      className="flex-1 border border-green-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-green-300"
+                                                      placeholder="Comma separated extras"
+                                                      value={editingExtraInput}
+                                                      onChange={e => setEditingExtraInput(e.target.value)}
+                                                    />
+                                                    <button
+                                                      onClick={() => {
+                                                        const extras = editingExtraInput.split(",").map(e => e.trim()).filter(Boolean);
+                                                        updateSubCategoryExtras(cat._id, sub.name, extras);
+                                                      }}
+                                                      className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-700 transition">
+                                                      Save
+                                                    </button>
+                                                    <button
+                                                      onClick={() => { setEditingSubFor(null); setEditingExtraInput(""); }}
+                                                      className="bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 transition">
+                                                      Cancel
+                                                    </button>
+                                                  </div>
+                                                ) : (
+                                                  <div className="flex flex-wrap gap-1.5 mt-1 items-center">
+                                                    {sub.extraCategories?.length > 0
+                                                      ? sub.extraCategories.map((ex, exIdx) => (
+                                                        <span
+                                                          key={ex}
+                                                          className="text-xs px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-100 flex items-center gap-1">
+                                                          <button
+                                                            onClick={() => moveExtra(cat, sub, exIdx, -1)}
+                                                            disabled={exIdx === 0}
+                                                            className="disabled:opacity-20 hover:text-blue-900 transition leading-none">
+                                                            ‹
+                                                          </button>
+                                                          {ex}
+                                                          <button
+                                                            onClick={() => moveExtra(cat, sub, exIdx, 1)}
+                                                            disabled={exIdx === sub.extraCategories.length - 1}
+                                                            className="disabled:opacity-20 hover:text-blue-900 transition leading-none">
+                                                            ›
+                                                          </button>
+                                                        </span>
+                                                      ))
+                                                      : <span className="text-xs text-gray-400 italic">No extra categories</span>
+                                                    }
+                                                    <button
+                                                      onClick={() => {
+                                                        setEditingSubFor(`${cat._id}-${sub.name}`);
+                                                        setEditingExtraInput((sub.extraCategories || []).join(", "));
+                                                      }}
+                                                      className="text-xs text-green-600 hover:text-green-800 font-semibold ml-1">
+                                                      ✏️ Edit
+                                                    </button>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <button
+                                              onClick={() => deleteSubCategory(cat._id, sub.name)}
+                                              className="p-1.5 bg-red-50 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition flex-shrink-0"
+                                              title="Delete subcategory and all its products">
+                                              <Trash2 size={14} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================
+              PRODUCTS TAB
+          =================================================== */}
           {activeTab === "products" && (
             <>
-              {/* ===== BASIC PRODUCT FORM ===== */}
+              {/* Product Form */}
               <div className="bg-white p-8 rounded-3xl shadow-xl border border-green-100 mb-12">
                 <div className="grid md:grid-cols-2 gap-6">
+
                   <select className={inputStyle} value={form.type || ""}
-                    onChange={e => setForm({ ...form, type: e.target.value })}>
+                    onChange={e => setForm({ ...form, type: e.target.value, category: "", subCategory: "", extraCategory: "" })}>
                     <option value="">Select Type</option>
                     <option value="active">Active</option>
                     <option value="passive">Passive</option>
@@ -805,31 +1137,17 @@ export default function AdminPanel() {
                   <select className={inputStyle} value={form.category || ""} disabled={!form.type}
                     onChange={e => setForm({ ...form, category: e.target.value, subCategory: "", extraCategory: "" })}>
                     <option value="">Category</option>
-                    {Object.keys(categories)
-                      .filter((c) => {
-                        const passiveCategories = ["Cables", "Racks", "Network Accessories"];
-                        if (form.type === "passive") {
-                          return passiveCategories.includes(c);
-                        }
-                        if (form.type === "active") {
-                          return !passiveCategories.includes(c);
-                        }
-                        return false;
-                      })
-                      .map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
+                    {getCategoriesByType(form.type).map(c => (
+                      <option key={c._id} value={c.name}>{c.name}</option>
+                    ))}
                   </select>
 
                   <select className={inputStyle} value={form.subCategory || ""} disabled={!form.category}
                     onChange={e => setForm({ ...form, subCategory: e.target.value, extraCategory: "" })}>
                     <option value="">Sub Category</option>
-                    {form.category &&
-                      Object.keys(categories[form.category] || {}).map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
+                    {getSubCategories(form.type, form.category).map(s => (
+                      <option key={s.name} value={s.name}>{s.name}</option>
+                    ))}
                   </select>
 
                   {extraOptions.length > 0 && (
@@ -848,8 +1166,9 @@ export default function AdminPanel() {
                     value={form.description || ""}
                     onChange={e => setForm({ ...form, description: e.target.value })} />
 
+                  {/* Features */}
                   <div className="md:col-span-2 bg-green-50/50 p-6 rounded-2xl border border-green-200">
-                    <label className="block text-sm font-bold text-green-800 mb-3">Key Features (Bullet Points)</label>
+                    <label className="block text-sm font-bold text-green-800 mb-3">Key Features</label>
                     <div className="flex gap-2 mb-4">
                       <input className={inputStyle} placeholder="Type a feature and press Enter"
                         value={featureInput} onChange={(e) => setFeatureInput(e.target.value)}
@@ -870,6 +1189,7 @@ export default function AdminPanel() {
                     </div>
                   </div>
 
+                  {/* Image Upload */}
                   <div className="md:col-span-2">
                     <label className="block text-sm font-bold text-green-800 mb-2">Product Image</label>
                     <input type="file" id="product-img" className="hidden"
@@ -887,7 +1207,7 @@ export default function AdminPanel() {
                   </div>
                 </div>
 
-                {/* ===== DETAILED PRODUCT SECTION ===== */}
+                {/* Detailed Section */}
                 {basicCompleted && (
                   <div className="mt-12 bg-white p-8 rounded-2xl border border-green-200 shadow-md">
                     <h2 className="text-xl font-bold text-green-800 mb-6 flex items-center gap-2">
@@ -895,21 +1215,15 @@ export default function AdminPanel() {
                       Detailed Product Information
                     </h2>
 
-                    {/* Overview */}
                     <div className="mb-6">
-                      <label className="block text-sm font-semibold text-green-700 mb-2">
-                        Product Overview (Full Description)
-                      </label>
+                      <label className="block text-sm font-semibold text-green-700 mb-2">Product Overview</label>
                       <textarea rows="4" className={inputStyle} value={form.overview?.content || ""}
                         onChange={(e) => setForm({ ...form, overview: { title: "Product Overview", content: e.target.value } })}
                         placeholder="Write a detailed product overview..." />
                     </div>
 
-                    {/* Highlights */}
                     <div className="mb-6">
-                      <label className="block text-sm font-semibold text-green-700 mb-2">
-                        Highlights (For Features Tab)
-                      </label>
+                      <label className="block text-sm font-semibold text-green-700 mb-2">Highlights</label>
                       <div className="flex flex-wrap gap-2 mb-3">
                         {(form.highlights || []).map((h, i) => (
                           <div key={i} className="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1.5 rounded-lg border border-green-200 text-sm font-medium shadow-sm">
@@ -929,19 +1243,14 @@ export default function AdminPanel() {
                         }} />
                     </div>
 
-                    {/* Specifications */}
                     <div className="mb-6">
-                      <label className="block text-sm font-semibold text-green-700 mb-4">
-                        Specifications (Category Wise)
-                      </label>
-
+                      <label className="block text-sm font-semibold text-green-700 mb-4">Specifications</label>
                       {Object.entries(form.specifications || {}).map(([category, specs], catIndex) => (
                         <div key={catIndex} className="mb-6 border border-green-200 p-5 rounded-xl bg-green-50/60">
                           <div className="flex items-center gap-3 mb-4">
                             <input
                               className="flex-1 font-bold text-green-800 bg-white border border-green-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-green-300"
-                              value={category}
-                              placeholder="Category Name"
+                              value={category} placeholder="Category Name"
                               onChange={(e) => {
                                 const newSpecs = { ...form.specifications };
                                 const val = newSpecs[category];
@@ -959,12 +1268,10 @@ export default function AdminPanel() {
                               <X size={18} />
                             </button>
                           </div>
-
                           {Object.entries(specs).map(([key, value], rowIndex) => (
                             <div key={rowIndex} className="flex gap-2 mb-2">
-                              <input
-                                className="w-5/12 border border-gray-200 bg-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
-                                placeholder="Key (e.g. CPU)" value={key}
+                              <input className="w-5/12 border border-gray-200 bg-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
+                                placeholder="Key" value={key}
                                 onChange={(e) => {
                                   const newSpecs = { ...form.specifications };
                                   const oldVal = newSpecs[category][key];
@@ -977,9 +1284,8 @@ export default function AdminPanel() {
                                   setForm({ ...form, specifications: newSpecs });
                                 }}
                               />
-                              <input
-                                className="w-6/12 border border-gray-200 bg-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
-                                placeholder="Value (e.g. Intel Xeon)" value={value}
+                              <input className="w-6/12 border border-gray-200 bg-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
+                                placeholder="Value" value={value}
                                 onChange={(e) => {
                                   const newSpecs = { ...form.specifications };
                                   newSpecs[category][key] = e.target.value;
@@ -996,7 +1302,6 @@ export default function AdminPanel() {
                               </button>
                             </div>
                           ))}
-
                           <button type="button"
                             className="mt-3 text-sm text-green-700 font-semibold flex items-center gap-1 hover:text-green-900 transition"
                             onClick={() => {
@@ -1009,15 +1314,11 @@ export default function AdminPanel() {
                           </button>
                         </div>
                       ))}
-
                       <button type="button"
                         className="mt-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center gap-2 transition shadow-sm"
                         onClick={() => {
                           const newCatName = `New Category ${Object.keys(form.specifications || {}).length + 1}`;
-                          setForm({
-                            ...form,
-                            specifications: { ...(form.specifications || {}), [newCatName]: { "": "" } }
-                          });
+                          setForm({ ...form, specifications: { ...(form.specifications || {}), [newCatName]: { "": "" } } });
                         }}>
                         <Plus size={16} /> Add Specification Category
                       </button>
@@ -1027,13 +1328,13 @@ export default function AdminPanel() {
                       <CheckCircle2 className="text-green-600 shrink-0" size={20} />
                       <div>
                         <p className="text-sm font-bold text-green-800">Datasheet PDF — Auto Generated</p>
-                        <p className="text-xs text-gray-500 mt-0.5">When you save this product, a professional PDF datasheet will be automatically created and stored in Firebase.</p>
+                        <p className="text-xs text-gray-500 mt-0.5">PDF is automatically generated when you save the product.</p>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* ===== SAVE BUTTON ===== */}
+                {/* Save Button */}
                 <div className="flex items-center gap-4 mt-10">
                   <button onClick={save} disabled={btnLoading}
                     className="bg-green-600 text-white px-12 py-3.5 rounded-full hover:bg-green-700 transition font-bold shadow-lg disabled:bg-gray-300">
@@ -1054,139 +1355,90 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* ===== RELATED PRODUCTS FORM ===== */}
+              {/* Related Products Form */}
               <div className="bg-white p-8 rounded-3xl shadow-xl border border-green-100 mb-12">
-                <h2 className="text-xl font-bold text-green-800 mb-6">
-                  Related Products Configuration
-                </h2>
+                <h2 className="text-xl font-bold text-green-800 mb-6">Related Products Configuration</h2>
 
                 <div className="grid md:grid-cols-4 gap-6 mb-6">
-                  <select
-                    className={inputStyle}
-                    value={form.relatedType || ""}
-                    onChange={(e) => setForm({ ...form, relatedType: e.target.value })}
-                  >
+                  <select className={inputStyle} value={form.relatedType || ""}
+                    onChange={(e) => setForm({ ...form, relatedType: e.target.value, relatedCategory: "", relatedSubCategory: "", relatedExtraCategory: "" })}>
                     <option value="">Select Type</option>
                     <option value="active">Active</option>
                     <option value="passive">Passive</option>
                   </select>
 
-                  <select
-                    className={inputStyle}
-                    value={form.relatedCategory || ""}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        relatedCategory: e.target.value,
-                        relatedSubCategory: "",
-                        relatedExtraCategory: "",
-                      })
-                    }
-                  >
+                  <select className={inputStyle} value={form.relatedCategory || ""}
+                    onChange={(e) => setForm({ ...form, relatedCategory: e.target.value, relatedSubCategory: "", relatedExtraCategory: "" })}>
                     <option value="">Select Category</option>
-                    {form.relatedType &&
-                      Object.keys(categories)
-                        .filter((c) => {
-                          const passiveCategories = [
-                            "Cables",
-                            "Racks",
-                            "Network Accessories",
-                          ];
-
-                          if (form.relatedType === "passive") {
-                            return passiveCategories.includes(c);
-                          }
-
-                          if (form.relatedType === "active") {
-                            return !passiveCategories.includes(c);
-                          }
-
-                          return false;
-                        })
-                        .map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
+                    {getCategoriesByType(form.relatedType).map(c => (
+                      <option key={c._id} value={c.name}>{c.name}</option>
+                    ))}
                   </select>
 
-                  <select
-                    className={inputStyle}
-                    disabled={!form.relatedCategory}
-                    value={form.relatedSubCategory || ""}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        relatedSubCategory: e.target.value,
-                        relatedExtraCategory: "",
-                      })
-                    }
-                  >
+                  <select className={inputStyle} disabled={!form.relatedCategory} value={form.relatedSubCategory || ""}
+                    onChange={(e) => setForm({ ...form, relatedSubCategory: e.target.value, relatedExtraCategory: "" })}>
                     <option value="">Select Sub Category</option>
-                    {form.relatedCategory &&
-                      Object.keys(categories[form.relatedCategory]).map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
+                    {getSubCategories(form.relatedType, form.relatedCategory).map(s => (
+                      <option key={s.name} value={s.name}>{s.name}</option>
+                    ))}
                   </select>
 
-                  {form.relatedCategory &&
-                    form.relatedSubCategory &&
-                    categories[form.relatedCategory][form.relatedSubCategory]?.length > 0 && (
-                      <select
-                        className={inputStyle}
-                        value={form.relatedExtraCategory || ""}
-                        onChange={(e) =>
-                          setForm({ ...form, relatedExtraCategory: e.target.value })
-                        }
-                      >
-                        <option value="">Select Extra Category</option>
-                        {categories[form.relatedCategory][form.relatedSubCategory].map(
-                          (opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          )
-                        )}
-                      </select>
-                    )}
+                  {getExtraCategories(form.relatedType, form.relatedCategory, form.relatedSubCategory).length > 0 && (
+                    <select className={inputStyle} value={form.relatedExtraCategory || ""}
+                      onChange={(e) => setForm({ ...form, relatedExtraCategory: e.target.value })}>
+                      <option value="">Select Extra Category</option>
+                      {getExtraCategories(form.relatedType, form.relatedCategory, form.relatedSubCategory).map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-green-700 mb-3">
                     Select Related Products ({(form.relatedProducts || []).length} selected)
                   </label>
+                  <input type="text" placeholder="Search products..."
+                    value={relatedSearch} onChange={(e) => setRelatedSearch(e.target.value)}
+                    className="w-full mb-4 px-4 py-2 border border-green-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500" />
 
-                  <input
-                    type="text"
-                    placeholder="Search products..."
-                    value={relatedSearch}
-                    onChange={(e) => setRelatedSearch(e.target.value)}
-                    className="w-full mb-4 px-4 py-2 border border-green-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
+                  {/* Selected products chips with delete */}
+                  {(form.relatedProducts || []).length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4 p-3 bg-green-50 border border-green-200 rounded-xl">
+                      <span className="text-xs font-semibold text-green-700 w-full mb-1">Selected:</span>
+                      {(form.relatedProducts || []).map(productId => {
+                        const product = products.find(p => p._id === productId);
+                        if (!product) return null;
+                        return (
+                          <div key={productId}
+                            className="flex items-center gap-1.5 bg-green-600 text-white px-3 py-1 rounded-lg text-sm font-medium">
+                            <span>{product.name}</span>
+                            <button
+                              onClick={() => removeRelatedProduct(productId)}
+                              className="hover:text-red-200 transition ml-0.5"
+                              title="Remove">
+                              <X size={13} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   <div className="grid md:grid-cols-3 gap-3 max-h-64 overflow-y-auto border border-green-200 rounded-xl p-4 bg-green-50/40">
                     {filteredProducts.map((product) => {
                       const isSelected = (form.relatedProducts || []).includes(product._id);
                       return (
-                        <div
-                          key={product._id}
+                        <div key={product._id}
                           onClick={() => {
                             const current = form.relatedProducts || [];
                             const exists = current.includes(product._id);
-                            const updated = exists
-                              ? current.filter((id) => id !== product._id)
-                              : [...current, product._id];
-                            console.log("🟢 Selected products:", updated);
+                            const updated = exists ? current.filter(id => id !== product._id) : [...current, product._id];
                             setForm({ ...form, relatedProducts: updated });
                           }}
                           className={`cursor-pointer px-3 py-2 rounded-lg text-sm font-medium border transition ${
-                            isSelected
-                              ? "bg-green-600 text-white border-green-600"
-                              : "bg-white hover:bg-green-100 border-green-200"
-                          }`}
-                        >
+                            isSelected ? "bg-green-600 text-white border-green-600" : "bg-white hover:bg-green-100 border-green-200"
+                          }`}>
                           {product.name}
                         </div>
                       );
@@ -1195,107 +1447,51 @@ export default function AdminPanel() {
                 </div>
 
                 <div className="mt-6 flex justify-center">
-                  <button
-                    type="button"
-                    disabled={relatedBtnLoading}
+                  <button type="button" disabled={relatedBtnLoading}
                     className="bg-green-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-green-700 transition shadow-md disabled:bg-gray-300"
-                    onClick={saveRelatedProducts}
-                  >
+                    onClick={saveRelatedProducts}>
                     {relatedBtnLoading ? "Saving..." : "Save Related Products"}
                   </button>
                 </div>
               </div>
 
-              {/* ===== PRODUCTS TABLE ===== */}
+              {/* Products Table */}
               <div className="bg-white rounded-3xl shadow-lg border border-green-100 mb-8 overflow-hidden">
                 <div className="p-6 border-b border-green-100">
-                  <h3 className="text-lg font-bold text-green-800 mb-4">
-                    Filter Listed Products
-                  </h3>
-
+                  <h3 className="text-lg font-bold text-green-800 mb-4">Filter Listed Products</h3>
                   <div className="grid md:grid-cols-4 gap-4">
-                    <select
-                      className={inputStyle}
-                      value={filterType}
-                      onChange={(e) => {
-                        setFilterType(e.target.value);
-                        setFilterCategory("");
-                        setFilterSubCategory("");
-                        setFilterExtraCategory("");
-                      }}
-                    >
+                    <select className={inputStyle} value={filterType}
+                      onChange={(e) => { setFilterType(e.target.value); setFilterCategory(""); setFilterSubCategory(""); setFilterExtraCategory(""); }}>
                       <option value="">Select Type</option>
                       <option value="active">Active</option>
                       <option value="passive">Passive</option>
                     </select>
 
-                    <select
-                      className={inputStyle}
-                      disabled={!filterType}
-                      value={filterCategory}
-                      onChange={(e) => {
-                        setFilterCategory(e.target.value);
-                        setFilterSubCategory("");
-                        setFilterExtraCategory("");
-                      }}
-                    >
+                    <select className={inputStyle} disabled={!filterType} value={filterCategory}
+                      onChange={(e) => { setFilterCategory(e.target.value); setFilterSubCategory(""); setFilterExtraCategory(""); }}>
                       <option value="">Select Category</option>
-                      {filterType &&
-                        Object.keys(safeCategories || {})
-                          .filter((c) => {
-                            const passiveCategories = ["Cables", "Racks", "Network Accessories"];
-                            if (filterType === "passive") {
-                              return passiveCategories.includes(c);
-                            }
-                            if (filterType === "active") {
-                              return !passiveCategories.includes(c);
-                            }
-                            return false;
-                          })
-                          .map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
+                      {getCategoriesByType(filterType).map(c => (
+                        <option key={c._id} value={c.name}>{c.name}</option>
+                      ))}
                     </select>
 
-                    <select
-                      className={inputStyle}
-                      disabled={!filterCategory}
-                      value={filterSubCategory}
-                      onChange={(e) => {
-                        setFilterSubCategory(e.target.value);
-                        setFilterExtraCategory("");
-                      }}
-                    >
+                    <select className={inputStyle} disabled={!filterCategory} value={filterSubCategory}
+                      onChange={(e) => { setFilterSubCategory(e.target.value); setFilterExtraCategory(""); }}>
                       <option value="">Select Sub Category</option>
-                      {filterCategory &&
-                        safeCategories?.[filterCategory] &&
-                        Object.keys(safeCategories[filterCategory] || {}).map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
+                      {getSubCategories(filterType, filterCategory).map(s => (
+                        <option key={s.name} value={s.name}>{s.name}</option>
+                      ))}
                     </select>
 
-                    {filterCategory &&
-                      filterSubCategory &&
-                      safeCategories?.[filterCategory]?.[filterSubCategory]?.length > 0 && (
-                        <select
-                          className={inputStyle}
-                          value={filterExtraCategory}
-                          onChange={(e) => setFilterExtraCategory(e.target.value)}
-                        >
-                          <option value="">Select Extra Category</option>
-                          {(safeCategories?.[filterCategory]?.[filterSubCategory] || []).map(
-                            (opt) => (
-                              <option key={opt} value={opt}>
-                                {opt}
-                              </option>
-                            )
-                          )}
-                        </select>
-                      )}
+                    {getExtraCategories(filterType, filterCategory, filterSubCategory).length > 0 && (
+                      <select className={inputStyle} value={filterExtraCategory}
+                        onChange={(e) => setFilterExtraCategory(e.target.value)}>
+                        <option value="">Select Extra Category</option>
+                        {getExtraCategories(filterType, filterCategory, filterSubCategory).map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 
@@ -1309,7 +1505,6 @@ export default function AdminPanel() {
                         <th className="p-5 text-xs font-bold uppercase tracking-widest text-center">Actions</th>
                       </tr>
                     </thead>
-
                     <tbody className="divide-y divide-gray-300">
                       {categoryFilteredProducts.length === 0 && (
                         <tr>
@@ -1322,58 +1517,37 @@ export default function AdminPanel() {
                         <tr key={p?._id} className="hover:bg-green-50/40 transition group">
                           <td className="p-5 border-r border-gray-200">
                             <div className="flex items-center gap-4">
-                              <img
-                                src={p?.image}
-                                alt={p?.name}
-                                className="h-14 w-14 object-contain rounded-xl border p-1 bg-white shadow-sm"
-                              />
+                              <img src={p?.image} alt={p?.name} className="h-14 w-14 object-contain rounded-xl border p-1 bg-white shadow-sm" />
                               <div>
-                                <div className="font-bold text-green-900 group-hover:text-green-600">
-                                  {p?.name}
-                                </div>
-                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                                  {p?.type}
-                                </div>
+                                <div className="font-bold text-green-900 group-hover:text-green-600">{p?.name}</div>
+                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{p?.type}</div>
                               </div>
                             </div>
                           </td>
-
                           <td className="p-5 border-r border-gray-200">
-                            <div className="text-sm font-semibold text-gray-700">
-                              {p?.category}
-                            </div>
-                            <div className="text-xs text-gray-400 italic">
-                              {p?.subCategory}
-                            </div>
+                            <div className="text-sm font-semibold text-gray-700">{p?.category}</div>
+                            <div className="text-xs text-gray-400 italic">{p?.subCategory}</div>
                           </td>
-
                           <td className="p-5 text-center border-r border-gray-200">
                             <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[11px] font-bold border border-blue-100">
                               {p?.features?.length || 0} Bullets
                             </span>
                           </td>
-
                           <td className="p-5 text-center">
-                            <div className="flex justify-center gap-3 relative">
-                              <button
-                                onClick={() => edit(p)}
+                            <div className="flex justify-center gap-3">
+                              <button onClick={() => edit(p)}
                                 className="p-2.5 bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white rounded-xl transition shadow-sm">
                                 <Edit size={18} />
                               </button>
-
-                              <button
-                                onClick={() => del(p?._id)}
+                              <button onClick={() => del(p?._id)}
                                 className="p-2.5 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition shadow-sm">
                                 <Trash2 size={18} />
                               </button>
-
                               <div className="relative group/dup">
-                                <button
-                                  onClick={() => duplicateProduct(p)}
+                                <button onClick={() => duplicateProduct(p)}
                                   className="p-2.5 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-xl transition shadow-sm">
                                   📄
                                 </button>
-
                                 <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-[11px] px-3 py-1 rounded-lg opacity-0 invisible group-hover/dup:opacity-100 group-hover/dup:visible transition duration-200 whitespace-nowrap">
                                   Edit & Duplicate
                                 </div>
@@ -1389,323 +1563,160 @@ export default function AdminPanel() {
             </>
           )}
 
-          {/* ========================================
-             BLOG MANAGEMENT TAB
-          ======================================== */}
+          {/* ===================================================
+              BLOGS TAB
+          =================================================== */}
           {activeTab === "blogs" && (
-  <div className="space-y-10 max-w-6xl mx-auto">
+            <div className="space-y-10 max-w-6xl mx-auto">
+              <div className="bg-white/80 backdrop-blur-xl border border-gray-200 rounded-2xl shadow-xl p-8">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-8 tracking-tight">
+                  {editingBlogId ? "Edit Blog" : "Create New Blog"}
+                </h2>
 
-    {/* ================= BLOG FORM ================= */}
-    <div className="bg-white/80 backdrop-blur-xl border border-gray-200 rounded-2xl shadow-xl p-8">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-8 tracking-tight">
-        {editingBlogId ? "Edit Blog" : "Create New Blog"}
-      </h2>
-
-      <form onSubmit={handleBlogSubmit} className="space-y-8">
-
-        {/* Title */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Blog Title
-          </label>
-          <input
-            type="text"
-            value={blogForm.title}
-            onChange={(e) =>
-              setBlogForm({ ...blogForm, title: e.target.value })
-            }
-            className={inputStyle}
-            placeholder="Enter blog title"
-            required
-          />
-          {blogForm.title && (
-            <p className="mt-2 text-sm text-gray-500">
-              URL: /blog/{generateSlug(blogForm.title)}
-            </p>
-          )}
-        </div>
-
-        {/* Excerpt */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Excerpt (Short Description)
-          </label>
-          <textarea
-            value={blogForm.excerpt}
-            onChange={(e) =>
-              setBlogForm({ ...blogForm, excerpt: e.target.value })
-            }
-            className={`${inputStyle} h-28 resize-none`}
-            placeholder="Brief summary of the blog"
-            required
-          />
-        </div>
-
-        {/* Hero Image */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Hero Image
-          </label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={uploadHeroImage}
-            className="block w-full text-sm text-gray-600 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:bg-gradient-to-r file:from-green-600 file:to-emerald-600 file:text-white hover:file:opacity-90 cursor-pointer"
-          />
-          {blogForm.image && (
-            <img
-              src={blogForm.image}
-              alt="Hero preview"
-              className="mt-6 w-full h-64 object-cover rounded-2xl shadow-md"
-            />
-          )}
-        </div>
-
-        {/* Author & Read Time */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Author
-            </label>
-            <input
-              type="text"
-              value={blogForm.author}
-              onChange={(e) =>
-                setBlogForm({ ...blogForm, author: e.target.value })
-              }
-              className={inputStyle}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Read Time
-            </label>
-            <input
-              type="text"
-              value={blogForm.readTime}
-              onChange={(e) =>
-                setBlogForm({ ...blogForm, readTime: e.target.value })
-              }
-              className={inputStyle}
-            />
-          </div>
-        </div>
-
-        {/* ================= CONTENT BLOCKS ================= */}
-        <div className="border-t pt-8">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-800">
-              Blog Content (Blocks)
-            </h3>
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={addTextBlock}
-                className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm shadow-sm transition"
-              >
-                + Add Text
-              </button>
-
-              <button
-                type="button"
-                onClick={addImageBlock}
-                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 text-sm shadow-sm transition"
-              >
-                + Add Image
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            {blogForm.blocks.map((block, index) => (
-              <div
-                key={index}
-                className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm hover:shadow-md transition-all"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-semibold text-gray-700">
-                    {block.type === "text"
-                      ? "📝 Text Block"
-                      : "🖼️ Image Block"}
-                  </span>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => moveBlock(index, "up")}
-                      disabled={index === 0}
-                      className="px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-40 text-xs transition"
-                    >
-                      ↑
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => moveBlock(index, "down")}
-                      disabled={index === blogForm.blocks.length - 1}
-                      className="px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-40 text-xs transition"
-                    >
-                      ↓
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => deleteBlock(index)}
-                      className="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-xs transition"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-
-                {block.type === "text" && (
-                  <textarea
-                    value={block.content}
-                    onChange={(e) =>
-                      updateBlock(index, "content", e.target.value)
-                    }
-                    className={`${inputStyle} h-36 resize-none`}
-                    placeholder="Write your content here..."
-                  />
-                )}
-
-                {block.type === "image" && (
+                <form onSubmit={handleBlogSubmit} className="space-y-8">
                   <div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => uploadBlockImage(e, index)}
-                      className="block w-full text-sm text-gray-600 mb-4 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:bg-gradient-to-r file:from-purple-500 file:to-indigo-600 file:text-white hover:file:opacity-90 cursor-pointer"
-                    />
-
-                    {block.url && (
-                      <img
-                        src={block.url}
-                        alt="Block preview"
-                        className="w-full h-52 object-cover rounded-2xl mb-4 shadow-sm"
-                      />
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Blog Title</label>
+                    <input type="text" value={blogForm.title}
+                      onChange={(e) => setBlogForm({ ...blogForm, title: e.target.value })}
+                      className={inputStyle} placeholder="Enter blog title" required />
+                    {blogForm.title && (
+                      <p className="mt-2 text-sm text-gray-500">URL: /blog/{generateSlug(blogForm.title)}</p>
                     )}
-
-                    <input
-                      type="text"
-                      value={block.caption || ""}
-                      onChange={(e) =>
-                        updateBlock(index, "caption", e.target.value)
-                      }
-                      className={inputStyle}
-                      placeholder="Optional caption..."
-                    />
                   </div>
-                )}
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Excerpt</label>
+                    <textarea value={blogForm.excerpt}
+                      onChange={(e) => setBlogForm({ ...blogForm, excerpt: e.target.value })}
+                      className={`${inputStyle} h-28 resize-none`} placeholder="Brief summary" required />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Hero Image</label>
+                    <input type="file" accept="image/*" onChange={uploadHeroImage}
+                      className="block w-full text-sm text-gray-600 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:bg-gradient-to-r file:from-green-600 file:to-emerald-600 file:text-white hover:file:opacity-90 cursor-pointer" />
+                    {blogForm.image && (
+                      <img src={blogForm.image} alt="Hero preview" className="mt-6 w-full h-64 object-cover rounded-2xl shadow-md" />
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Author</label>
+                      <input type="text" value={blogForm.author}
+                        onChange={(e) => setBlogForm({ ...blogForm, author: e.target.value })}
+                        className={inputStyle} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Read Time</label>
+                      <input type="text" value={blogForm.readTime}
+                        onChange={(e) => setBlogForm({ ...blogForm, readTime: e.target.value })}
+                        className={inputStyle} />
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-8">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-semibold text-gray-800">Blog Content (Blocks)</h3>
+                      <div className="flex gap-3">
+                        <button type="button" onClick={addTextBlock}
+                          className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm shadow-sm transition">
+                          + Add Text
+                        </button>
+                        <button type="button" onClick={addImageBlock}
+                          className="px-5 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 text-sm shadow-sm transition">
+                          + Add Image
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      {blogForm.blocks.map((block, index) => (
+                        <div key={index} className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm hover:shadow-md transition-all">
+                          <div className="flex items-center justify-between mb-4">
+                            <span className="text-sm font-semibold text-gray-700">
+                              {block.type === "text" ? "📝 Text Block" : "🖼️ Image Block"}
+                            </span>
+                            <div className="flex gap-2">
+                              <button type="button" onClick={() => moveBlock(index, "up")} disabled={index === 0}
+                                className="px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-40 text-xs transition">↑</button>
+                              <button type="button" onClick={() => moveBlock(index, "down")} disabled={index === blogForm.blocks.length - 1}
+                                className="px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-40 text-xs transition">↓</button>
+                              <button type="button" onClick={() => deleteBlock(index)}
+                                className="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-xs transition">✕</button>
+                            </div>
+                          </div>
+                          {block.type === "text" && (
+                            <textarea value={block.content} onChange={(e) => updateBlock(index, "content", e.target.value)}
+                              className={`${inputStyle} h-36 resize-none`} placeholder="Write your content here..." />
+                          )}
+                          {block.type === "image" && (
+                            <div>
+                              <input type="file" accept="image/*" onChange={(e) => uploadBlockImage(e, index)}
+                                className="block w-full text-sm text-gray-600 mb-4 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:bg-gradient-to-r file:from-purple-500 file:to-indigo-600 file:text-white hover:file:opacity-90 cursor-pointer" />
+                              {block.url && <img src={block.url} alt="Block preview" className="w-full h-52 object-cover rounded-2xl mb-4 shadow-sm" />}
+                              <input type="text" value={block.caption || ""} onChange={(e) => updateBlock(index, "caption", e.target.value)}
+                                className={inputStyle} placeholder="Optional caption..." />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {blogForm.blocks.length === 0 && (
+                        <div className="text-center py-12 text-gray-400 border border-dashed border-gray-300 rounded-2xl">
+                          No content blocks yet. Click "+ Add Text" or "+ Add Image".
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4 pt-8 border-t">
+                    <button type="submit"
+                      className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:opacity-90 font-semibold shadow-md transition-all">
+                      {editingBlogId ? "Update Blog" : "Publish Blog"}
+                    </button>
+                    {editingBlogId && (
+                      <button type="button" onClick={resetBlogForm}
+                        className="px-8 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium transition-all">
+                        Cancel Edit
+                      </button>
+                    )}
+                  </div>
+                </form>
               </div>
-            ))}
 
-            {blogForm.blocks.length === 0 && (
-              <div className="text-center py-12 text-gray-400 border border-dashed border-gray-300 rounded-2xl">
-                No content blocks yet. Click "+ Add Text" or "+ Add Image"
-                to start building your blog.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ================= SUBMIT BUTTONS ================= */}
-        <div className="flex gap-4 pt-8 border-t">
-          <button
-            type="submit"
-            className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:opacity-90 font-semibold shadow-md transition-all"
-          >
-            {editingBlogId ? "Update Blog" : "Publish Blog"}
-          </button>
-
-          {editingBlogId && (
-            <button
-              type="button"
-              onClick={resetBlogForm}
-              className="px-8 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium transition-all"
-            >
-              Cancel Edit
-            </button>
-          )}
-        </div>
-      </form>
-    </div>
-
-    {/* ================= PUBLISHED BLOGS ================= */}
-    <div className="bg-white/80 backdrop-blur-xl border border-gray-200 rounded-2xl shadow-xl p-8">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-8">
-        Published Blogs
-      </h2>
-
-      <div className="space-y-6">
-        {blogs.length > 0 ? (
-          blogs.map((blog) => (
-            <div
-              key={blog._id}
-              className="flex items-start gap-6 p-6 border border-gray-200 rounded-2xl hover:shadow-md hover:border-green-300 transition-all bg-white"
-            >
-              <img
-                src={blog.image}
-                alt={blog.title}
-                className="w-24 h-24 object-cover rounded-xl flex-shrink-0 shadow-sm"
-              />
-
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-lg text-gray-800 mb-2">
-                  {blog.title}
-                </h3>
-
-                <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                  {blog.excerpt}
-                </p>
-
-                <div className="flex items-center gap-4 text-xs text-gray-500">
-                  <span>{blog.author}</span>
-                  <span>{blog.date}</span>
-                  <span>{blog.views} views</span>
-
-                  {blog.blocks && blog.blocks.length > 0 && (
-                    <span className="text-green-600 font-medium">
-                      ✓ {blog.blocks.length} blocks
-                    </span>
+              {/* Published Blogs */}
+              <div className="bg-white/80 backdrop-blur-xl border border-gray-200 rounded-2xl shadow-xl p-8">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-8">Published Blogs</h2>
+                <div className="space-y-6">
+                  {blogs.length > 0 ? blogs.map((blog) => (
+                    <div key={blog._id} className="flex items-start gap-6 p-6 border border-gray-200 rounded-2xl hover:shadow-md hover:border-green-300 transition-all bg-white">
+                      <img src={blog.image} alt={blog.title} className="w-24 h-24 object-cover rounded-xl flex-shrink-0 shadow-sm" />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-lg text-gray-800 mb-2">{blog.title}</h3>
+                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{blog.excerpt}</p>
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <span>{blog.author}</span>
+                          <span>{blog.date}</span>
+                          <span>{blog.views} views</span>
+                          {blog.blocks?.length > 0 && <span className="text-green-600 font-medium">✓ {blog.blocks.length} blocks</span>}
+                        </div>
+                        {blog.slug && <p className="text-xs text-blue-600 mt-2">URL: /blog/{blog.slug}</p>}
+                      </div>
+                      <div className="flex gap-3">
+                        <button onClick={() => editBlog(blog)}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm shadow-sm">Edit</button>
+                        <button onClick={() => deleteBlog(blog._id)}
+                          className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm shadow-sm">Delete</button>
+                      </div>
+                    </div>
+                  )) : (
+                    <p className="text-center text-gray-400 py-12">No blogs published yet.</p>
                   )}
                 </div>
-
-                {blog.slug && (
-                  <p className="text-xs text-blue-600 mt-2">
-                    URL: /blog/{blog.slug}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => editBlog(blog)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm shadow-sm"
-                >
-                  Edit
-                </button>
-
-                <button
-                  onClick={() => deleteBlog(blog._id)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm shadow-sm"
-                >
-                  Delete
-                </button>
               </div>
             </div>
-          ))
-        ) : (
-          <p className="text-center text-gray-400 py-12">
-            No blogs published yet.
-          </p>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+          )}
+
         </div>
       </div>
       <Footer />
