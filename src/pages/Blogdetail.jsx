@@ -1,8 +1,9 @@
 /* eslint-disable */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
+import bg from '../assets/bg.jpg'; 
 
 const UserIcon = (props) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
@@ -48,6 +49,12 @@ const SendIcon = (props) => (
   </svg>
 );
 
+const ChevronUp = (props) => (
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="18 15 12 9 6 15"></polyline>
+  </svg>
+);
+
 const BlogDetail = () => {
   const { slug } = useParams();
   const [blog, setBlog] = useState(null);
@@ -62,107 +69,88 @@ const BlogDetail = () => {
   const [commentLoading, setCommentLoading] = useState(false);
   const [commentSuccess, setCommentSuccess] = useState(false);
   const [viewsCount, setViewsCount] = useState(0);
+  const [showScroll, setShowScroll] = useState(false);
 
   useEffect(() => {
-  window.scrollTo(0, 0);
+    window.scrollTo(0, 0);
 
-  /* ─────────────────────────────
-     1️⃣  Load Quill CSS (once)
-  ───────────────────────────── */
-  if (!document.querySelector('link[href*="quill"]')) {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css";
-    document.head.appendChild(link);
-  }
-
-  /* ─────────────────────────────
-     2️⃣  Inject Custom Render Styles (once)
-  ───────────────────────────── */
-  if (!document.getElementById("ql-render-styles")) {
+    // Add Tailwind scroll animations
     const style = document.createElement("style");
-    style.id = "ql-render-styles";
     style.innerHTML = `
-      .ql-editor-content h1 { font-size: 2rem; font-weight: 800; color: #1a1a1a; margin: 1.5rem 0 0.75rem; line-height: 1.2; }
-      .ql-editor-content h2 { font-size: 1.5rem; font-weight: 700; color: #1a1a1a; margin: 1.25rem 0 0.6rem; line-height: 1.3; }
-      .ql-editor-content h3 { font-size: 1.2rem; font-weight: 600; color: #1a1a1a; margin: 1rem 0 0.5rem; }
-      .ql-editor-content p { margin: 0 0 1rem; line-height: 1.8; }
-      .ql-editor-content strong { font-weight: 700; color: #111; }
-      .ql-editor-content em { font-style: italic; }
-      .ql-editor-content u { text-decoration: underline; }
-      .ql-editor-content s { text-decoration: line-through; }
-      .ql-editor-content ul { list-style: disc; padding-left: 1.5rem; margin: 0.75rem 0 1rem; }
-      .ql-editor-content ol { list-style: decimal; padding-left: 1.5rem; margin: 0.75rem 0 1rem; }
-      .ql-editor-content li { margin-bottom: 0.4rem; line-height: 1.7; }
-      .ql-editor-content blockquote { 
-        border-left: 4px solid #059669; 
-        padding: 0.75rem 1rem; 
-        background: #f0fdf4; 
-        color: #065f46; 
-        font-style: italic; 
-        margin: 1.25rem 0; 
-        border-radius: 0 0.5rem 0.5rem 0; 
-      }
-      .ql-editor-content .ql-align-center { text-align: center; }
-      .ql-editor-content .ql-align-right { text-align: right; }
-      .ql-editor-content .ql-align-justify { text-align: justify; }
-    `;
-    document.head.appendChild(style);
-  }
-
-  /* ─────────────────────────────
-     3️⃣  Fetch Blog By Slug
-  ───────────────────────────── */
-  fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}`)
-    .then((res) => res.json())
-    .then((data) => {
-      if (data.error) {
-        setBlog(null);
-      } else {
-        setBlog(data);
-        setLikesCount(data.likes || 0);
-        setComments(data.comments || []);
-        setViewsCount(data.views || 0);
-
-        const viewedBlogs = JSON.parse(localStorage.getItem("viewedBlogs") || "[]");
-
-        if (!viewedBlogs.includes(data._id)) {
-          fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}/view`, {
-            method: "POST",
-          })
-            .then((res) => res.json())
-            .then((viewData) => {
-              if (viewData.views !== undefined) {
-                setViewsCount(viewData.views);
-              }
-            })
-            .catch(() => {});
-
-          viewedBlogs.push(data._id);
-          localStorage.setItem("viewedBlogs", JSON.stringify(viewedBlogs));
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
       }
-      setLoading(false);
-    })
-    .catch(() => setLoading(false));
 
-  /* ─────────────────────────────
-     4️⃣  Check Liked Blogs (LocalStorage)
-  ───────────────────────────── */
-  const likedBlogs = JSON.parse(localStorage.getItem("likedBlogs") || "[]");
-  if (likedBlogs.includes(slug)) setLiked(true);
+      .animate-fade-in-down {
+        animation: fadeInDown 0.5s ease-out forwards;
+      }
+    `;
+    document.head.appendChild(style);
 
-  /* ─────────────────────────────
-     5️⃣  Fetch Recent Posts
-  ───────────────────────────── */
-  fetch(`${import.meta.env.VITE_API_URL}/blogs`)
-    .then((res) => res.json())
-    .then((data) =>
-      setRecentPosts(Array.isArray(data) ? data.slice(0, 5) : [])
-    )
-    .catch(() => {});
-    
-}, [slug]);
+    if (!document.querySelector('link[href*="quill"]')) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css";
+      document.head.appendChild(link);
+    }
+
+    fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          setBlog(null);
+        } else {
+          setBlog(data);
+          setLikesCount(data.likes || 0);
+          setComments(data.comments || []);
+          setViewsCount(data.views || 0);
+
+          const viewedBlogs = JSON.parse(localStorage.getItem("viewedBlogs") || "[]");
+
+          if (!viewedBlogs.includes(data._id)) {
+            fetch(`${import.meta.env.VITE_API_URL}/blogs/slug/${slug}/view`, {
+              method: "POST",
+            })
+              .then((res) => res.json())
+              .then((viewData) => {
+                if (viewData.views !== undefined) {
+                  setViewsCount(viewData.views);
+                }
+              })
+              .catch(() => {});
+
+            viewedBlogs.push(data._id);
+            localStorage.setItem("viewedBlogs", JSON.stringify(viewedBlogs));
+          }
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+
+    const likedBlogs = JSON.parse(localStorage.getItem("likedBlogs") || "[]");
+    if (likedBlogs.includes(slug)) setLiked(true);
+
+    fetch(`${import.meta.env.VITE_API_URL}/blogs`)
+      .then((res) => res.json())
+      .then((data) =>
+        setRecentPosts(Array.isArray(data) ? data.slice(0, 5) : [])
+      )
+      .catch(() => {});
+
+    const handleScroll = () => {
+      setShowScroll(window.scrollY > 500);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [slug]);
 
   const handleLike = async () => {
     if (liked || likeLoading) return;
@@ -216,301 +204,331 @@ const BlogDetail = () => {
     }
   };
 
-  /* ── Loading ── */
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin w-12 h-12 border-2 border-emerald-100 border-t-emerald-600 rounded-full" />
-          <span className="text-emerald-500 text-xs tracking-widest uppercase font-mono">Loading</span>
-        </div>
-      </div>
-    );
+    return null;
   }
 
-  /* ── 404 ── */
   if (!blog) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center px-4">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">Blog Not Found</h1>
-          <p className="text-gray-500">The blog post you're looking for doesn't exist.</p>
+          <h1 className="text-6xl font-black text-slate-900 mb-4">404</h1>
+          <p className="text-slate-600 text-xl mb-4">Article Not Found</p>
+          <p className="text-slate-500 mb-8">The blog post you're looking for doesn't exist.</p>
+          <Link 
+            to="/blogs"
+            className="inline-block px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-semibold hover:shadow-lg hover:-translate-y-1 transform transition-all"
+          >
+            Back to Articles
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen font-sans bg-gray-50">
+    <div
+      className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-white font-sans overflow-x-hidden"
+    >
       <Navbar />
 
-      {/* ══════════════════════════════════════
-          HERO — h-[500px] mt-24 (exact original)
-      ══════════════════════════════════════ */}
-      <div className="relative h-[500px] mt-24 overflow-hidden">
-        <img
-          src={blog.image}
-          alt={blog.title}
-          className="absolute inset-0 w-full h-full object-fill"
-          onError={(e) => {
-            e.target.src = "https://placehold.co/1200x600/A7F3D0/065F46?text=Blog+Image";
-          }}
-        />
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
+      {/* Scroll to top button */}
+      <button
+        onClick={scrollToTop}
+        className={`fixed bottom-20 right-10 w-12 h-12 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-full flex items-center justify-center cursor-pointer z-40 shadow-lg hover:shadow-xl transition-all duration-250 ${
+          showScroll ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20 pointer-events-none'
+        }`}
+      >
+        <ChevronUp className="w-6 h-6" />
+      </button>
 
-        {/* Hero content */}
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-end pb-16">
-          <div className="text-white w-full">
+      {/* HERO SECTION */}
+      <div className="relative h-screen mt-24 overflow-hidden group">
+        <div className="absolute inset-0">
+          <img
+            src={blog.image}
+            alt={blog.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
+            onError={(e) => {
+              e.target.src = "https://placehold.co/1920x1080/2d2d2d/ffffff?text=Article";
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+        </div>
 
-            {/* Category badge */}
+        <div className="relative z-10 h-full flex items-end pb-20">
+          <div className="w-full px-2 sm:px-3 lg:px-4">
             {blog.category && (
-              <span className="inline-block mb-4 px-3 py-1 bg-emerald-500/80 text-white text-xs font-semibold tracking-widest uppercase rounded-full backdrop-blur-sm">
-                {blog.category}
-              </span>
+              <div className="mb-6 opacity-0 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
+                <span className="inline-block px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-full font-bold text-xs tracking-widest uppercase shadow-lg">
+                  {blog.category}
+                </span>
+              </div>
             )}
-
-            <h1 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight drop-shadow-lg">
+      
+            <h1 className="text-5xl md:text-7xl font-black text-white mb-8 leading-tight drop-shadow-xl opacity-0 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
               {blog.title}
             </h1>
 
-            {/* Meta row */}
-            <div className="flex flex-wrap items-center gap-5 text-sm">
-              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                <UserIcon className="w-4 h-4 text-emerald-300" />
-                <span className="text-white/90">{blog.author}</span>
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6 opacity-0 animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
+              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 sm:px-5 py-2 sm:py-3 rounded-full border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all">
+                <UserIcon className="w-5 h-5 text-green-400" />
+                <span className="text-white/90 font-medium text-sm sm:text-base">{blog.author}</span>
               </div>
-              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                <CalendarIcon className="w-4 h-4 text-emerald-300" />
-                <span className="text-white/90">{blog.date}</span>
+              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 sm:px-5 py-2 sm:py-3 rounded-full border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all">
+                <CalendarIcon className="w-5 h-5 text-green-400" />
+                <span className="text-white/90 font-medium text-sm sm:text-base">{blog.date}</span>
               </div>
-              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                <ClockIcon className="w-4 h-4 text-emerald-300" />
-                <span className="text-white/90">{blog.readTime}</span>
+              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 sm:px-5 py-2 sm:py-3 rounded-full border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all">
+                <ClockIcon className="w-5 h-5 text-green-400" />
+                <span className="text-white/90 font-medium text-sm sm:text-base">{blog.readTime}</span>
               </div>
-              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                <EyeIcon className="w-4 h-4 text-emerald-300" />
-                <span className="text-white/90">{viewsCount} views</span>
+              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 sm:px-5 py-2 sm:py-3 rounded-full border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all">
+                <EyeIcon className="w-5 h-5 text-green-400" />
+                <span className="text-white/90 font-medium text-sm sm:text-base">{viewsCount} views</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ══════════════════════════════════════
-          MAIN LAYOUT
-      ══════════════════════════════════════ */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-
-          {/* ── LEFT: Article column ── */}
-          <div className="lg:col-span-2 space-y-6">
-
-            {/* ① Article card — excerpt + blocks */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sm:p-12">
-
-              {/* Excerpt */}
-              <p className="text-xl text-gray-500 leading-relaxed mb-8 pb-8 border-b border-gray-100 italic font-light">
-                {blog.excerpt}
+      {/* CONTENT SECTION */}
+       <div
+              className="min-h-screen bg-cover bg-center"
+              style={{
+                backgroundImage: `url(${bg})`,
+                backgroundSize: "cover",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+              }}
+            >
+              
+      <div className="relative bg-transparent">
+        <div className="relative w-full px-2 sm:px-3 lg:px-4 py-16 lg:py-24">
+          
+          {/* Excerpt Card */}
+          {blog.excerpt && (
+            <div 
+              id={`excerpt-${blog._id}`}
+              className="mb-8 lg:mb-12 p-5 sm:p-6 lg:p-7 bg-gray-100 border-2 border-green-500 rounded-2xl relative overflow-hidden hover:shadow-lg transition-shadow duration-300"
+            >
+              <div className="absolute -top-20 -right-20 w-40 h-40 bg-green-200 rounded-full opacity-10 blur-2xl pointer-events-none" />
+              <p className="relative text-xl lg:text-2xl text-slate-800 italic font-light leading-relaxed">
+                "{blog.excerpt}"
               </p>
+            </div>
+          )}
 
-              {/* Blog blocks */}
-              <div className="prose prose-lg max-w-none">
-                {Array.isArray(blog.blocks) && blog.blocks.length > 0 ? (
-                  blog.blocks.map((block, index) => (
-                    <div key={index} className="mb-8">
-                      {block.type === "text" && (
-                        <div
-                          className="ql-editor-content text-gray-700 leading-relaxed text-base"
-                          dangerouslySetInnerHTML={{ __html: block.content }}
-                        />
-                      )}
-                      {block.type === "image" && (
-                        <div className="my-8">
-                          <div className="overflow-hidden rounded-xl shadow-md">
-                            <img
-                              src={block.url}
-                              alt={block.caption || "Blog image"}
-                              className="w-full hover:scale-105 transition-transform duration-700"
-                              onError={(e) => {
-                                e.target.src = "https://placehold.co/800x500/A7F3D0/065F46?text=Image";
-                              }}
-                            />
-                          </div>
-                          {block.caption && (
-                            <p className="text-sm text-gray-400 italic text-center mt-3 flex items-center justify-center gap-1.5">
-                              <span className="w-8 h-px bg-gray-200 inline-block" />
-                              {block.caption}
-                              <span className="w-8 h-px bg-gray-200 inline-block" />
-                            </p>
-                          )}
-                        </div>
-                      )}
+          {/* Content Blocks */}
+          {Array.isArray(blog.blocks) && blog.blocks.length > 0 ? (
+            blog.blocks.map((block, index) => (
+              <div 
+                key={index}
+                id={`block-${index}`}
+                className="mb-6 lg:mb-8"
+              >
+                {block.type === "text" && (
+                  <div className="p-4 sm:p-5 lg:p-6 bg-gray-100 border-2 border-slate-200 rounded-2xl hover:border-green-500 hover:shadow-lg transition-all duration-250 group">
+                    <div 
+                      className="prose prose-lg max-w-none 
+                        prose-h1:text-2xl prose-h1:font-black prose-h1:text-slate-900 prose-h1:mb-4 
+                        prose-h2:text-xl prose-h2:font-bold prose-h2:text-slate-800 prose-h2:mt-6 prose-h2:mb-3
+                        prose-h3:text-lg prose-h3:font-bold prose-h3:text-slate-800 
+                        prose-p:text-slate-700 prose-p:leading-relaxed prose-p:text-base
+                        prose-strong:text-green-600 prose-strong:font-bold
+                        prose-em:text-slate-600
+                        prose-a:text-green-600 prose-a:font-semibold hover:prose-a:text-green-700
+                        prose-ul:list-none prose-ul:pl-0
+                        prose-li:text-slate-700 prose-li:leading-relaxed prose-li:pl-6 prose-li:relative
+                        prose-li:before:absolute prose-li:before:left-0 prose-li:before:text-green-600 prose-li:before:content-['→']
+                        prose-ol:list-none prose-ol:pl-0 prose-ol:counter-reset
+                        prose-blockquote:border-l-4 prose-blockquote:border-green-500 prose-blockquote:bg-green-50 prose-blockquote:pl-4 prose-blockquote:italic
+                      "
+                      dangerouslySetInnerHTML={{ __html: block.content }} 
+                    />
+                  </div>
+                )}
+                {block.type === "image" && (
+                  <div className="overflow-hidden rounded-2xl border-2 border-slate-200 hover:border-green-500 hover:shadow-lg transition-all duration-250 group">
+                    <div className="relative h-80 sm:h-96 bg-gray-100 overflow-hidden">
+                      <img
+                        src={block.url}
+                        alt={block.caption || "Article image"}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        onError={(e) => {
+                          e.target.src = "https://placehold.co/800x500/2d2d2d/ffffff?text=Image";
+                        }}
+                      />
                     </div>
-                  ))
-                ) : (
-                  <p className="text-gray-400 italic">No content available.</p>
+                    {block.caption && (
+                      <div className="p-3 sm:p-4 bg-gray-100 border-t border-slate-200">
+                        <p className="text-center text-slate-600 text-sm italic">{block.caption}</p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
+            ))
+          ) : (
+            <div className="p-12 text-center bg-white rounded-2xl border-2 border-slate-200">
+              <p className="text-slate-400 italic">No content available.</p>
             </div>
+          )}
 
-            {/* ② Like button card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-5">
+          {/* Divider */}
+          <div className="my-12 lg:my-16 flex items-center gap-4">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent to-slate-200" />
+            <span className="text-green-600 text-2xl font-light">◆</span>
+            <div className="flex-1 h-px bg-gradient-to-l from-transparent to-slate-200" />
+          </div>
+
+          {/* Like Section */}
+          <div 
+            id={`like-section`}
+            className="mb-12 lg:mb-16 p-5 sm:p-6 lg:p-7 bg-white border-2 border-slate-200 rounded-2xl hover:border-green-500 hover:shadow-lg transition-all duration-250"
+          >
+            <div className="flex items-center gap-4 flex-wrap">
               <button
                 onClick={handleLike}
                 disabled={liked || likeLoading}
-                className={`flex items-center gap-3 px-6 py-3 rounded-full font-semibold text-base transition-all duration-300 ${
+                className={`flex items-center gap-3 px-6 lg:px-8 py-3 lg:py-4 rounded-xl font-bold transition-all duration-250 ${
                   liked
-                    ? "bg-red-50 text-red-500 cursor-default border border-red-100"
-                    : "bg-gray-50 text-gray-500 border border-gray-200 hover:bg-red-50 hover:text-red-500 hover:border-red-100 hover:scale-105 active:scale-95"
+                    ? "bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg hover:shadow-xl"
+                    : "bg-white text-slate-700 border-2 border-slate-200 hover:border-green-500 hover:bg-green-50 hover:text-green-600 hover:shadow-lg"
                 }`}
               >
-                <HeartIcon
-                  filled={liked}
-                  className={`transition-all duration-300 ${
-                    liked ? "text-red-500 scale-125" : "text-gray-400"
-                  }`}
-                />
+                <HeartIcon filled={liked} className={`transition-all duration-300 ${liked ? "scale-125" : ""}`} />
                 <span>{likesCount} {likesCount === 1 ? "Like" : "Likes"}</span>
               </button>
               {liked && (
-                <p className="text-sm text-gray-400 italic">Thanks for liking this post! ❤️</p>
+                <p className="text-green-600 font-semibold text-sm lg:text-base">Thanks for the love! 🎉</p>
+              )}
+            </div>
+          </div>
+
+          {/* Comments Section */}
+          <div 
+            id={`comments-section`}
+            className="mt-12 lg:mt-16"
+          >
+
+            <h2 className="text-3xl lg:text-3xl font-bold text-green-800 mb-5">Comments</h2>
+            {/* Comments List */}
+            <div className="space-y-4 mb-8">
+              {comments.length > 0 ? (
+                comments.map((c, i) => (
+                  <div
+                    key={i}
+                    id={`comment-${i}`}
+                    className="p-5 sm:p-6 lg:p-7 bg-white border-2 border-slate-200 rounded-2xl hover:border-green-500 hover:shadow-lg transition-all duration-250 flex gap-4 items-start"
+                  >
+                    <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center shadow-lg">
+                      <span className="text-white font-bold text-sm sm:text-lg">{c.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2 gap-2">
+                        <span className="font-bold text-slate-900 text-sm sm:text-base">{c.name}</span>
+                        <span className="text-xs text-slate-400 whitespace-nowrap">
+                          {new Date(c.createdAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed text-sm sm:text-base">{c.text}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-8 lg:p-12 text-center bg-white border-2 border-dashed border-slate-300 rounded-2xl">
+                  <p className="text-slate-500 text-base lg:text-lg font-medium">Be the first to share your thoughts! 💭</p>
+                </div>
               )}
             </div>
 
-            {/* ③ Comments card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+            {/* Comment Form */}
+            <div className="p-5 sm:p-6 lg:p-7 bg-white border-2 border-slate-200 rounded-2xl hover:border-green-500 hover:shadow-lg transition-all duration-250">
+              <h3 className="text-2xl font-bold text-green-800 mb-6">Leave Your Thoughts</h3>
 
-              {/* Comments header */}
-              <div className="flex items-center justify-between mb-8 pb-5 border-b border-gray-100">
-                <h3 className="text-xl font-bold text-gray-800">
-                  Comments
-                </h3>
-                <span className="bg-emerald-50 text-emerald-600 text-xs font-semibold px-3 py-1.5 rounded-full border border-emerald-100">
-                  {comments.length} {comments.length === 1 ? "comment" : "comments"}
-                </span>
-              </div>
-
-              {/* Comment list */}
-              <div className="space-y-5 mb-8">
-                {comments.length > 0 ? (
-                  comments.map((c, i) => (
-                    <div key={i} className="flex gap-4 group">
-                      {/* Avatar */}
-                      <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-                        <span className="text-white font-bold text-sm">
-                          {c.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      {/* Bubble */}
-                      <div className="flex-1 bg-gray-50 rounded-2xl rounded-tl-none p-4 border border-gray-100 group-hover:border-emerald-100 group-hover:bg-emerald-50/30 transition-colors duration-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-semibold text-gray-800 text-sm">{c.name}</span>
-                          <span className="text-xs text-gray-400">
-                            {new Date(c.createdAt).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-                        <p className="text-gray-600 text-sm leading-relaxed">{c.text}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                    <p className="text-gray-400 italic text-sm">No comments yet. Be the first to comment! 💬</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Comment form */}
-              <div className="border-t border-gray-100 pt-7">
-                <h4 className="text-base font-bold text-gray-800 mb-5">Leave a Comment</h4>
-
-                {commentSuccess && (
-                  <div className="mb-5 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
-                    <span className="text-emerald-500">✅</span>
-                    Comment posted successfully!
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  <input
-                    type="text"
-                    placeholder="Your name"
-                    value={commentName}
-                    onChange={(e) => setCommentName(e.target.value)}
-                    className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition"
-                  />
-                  <textarea
-                    placeholder="Write your comment..."
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    rows={4}
-                    className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition resize-none"
-                  />
-                  <button
-                    onClick={handleCommentSubmit}
-                    disabled={commentLoading}
-                    className="flex items-center gap-2 bg-emerald-600 text-white px-7 py-3 rounded-xl font-semibold text-sm hover:bg-emerald-700 active:scale-95 transition-all disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-                  >
-                    <SendIcon />
-                    {commentLoading ? "Posting..." : "Post Comment"}
-                  </button>
+              {commentSuccess && (
+                <div className="mb-6 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-4 lg:px-6 py-3 lg:py-4 rounded-xl font-semibold text-sm flex items-center gap-3 shadow-lg">
+                  <span className="text-lg">✓</span>
+                  Comment posted successfully! Thank you.
                 </div>
+              )}
+
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Your name"
+                  value={commentName}
+                  onChange={(e) => setCommentName(e.target.value)}
+                  className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 lg:px-5 py-3 lg:py-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-green-600 focus:ring-4 focus:ring-green-100 transition-all text-sm lg:text-base"
+                />
+                <textarea
+                  placeholder="Share your thoughts..."
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  rows={5}
+                  className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 lg:px-5 py-3 lg:py-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-green-600 focus:ring-4 focus:ring-green-100 resize-none transition-all text-sm lg:text-base"
+                />
+                <button
+                  onClick={handleCommentSubmit}
+                  disabled={commentLoading}
+                  className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-green-600 to-green-700 text-white px-6 lg:px-8 py-3 lg:py-4 rounded-xl font-bold hover:shadow-xl disabled:from-slate-300 disabled:to-slate-300 disabled:cursor-not-allowed transform transition-all duration-250 text-sm lg:text-base"
+                >
+                  {/* <SendIcon /> */}
+                  {commentLoading ? "Publishing..." : "Publish Comment"}
+                </button>
               </div>
             </div>
-
           </div>
-
-          {/* ── RIGHT: Sidebar ── */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sticky top-24">
-
-              <h3 className="text-xl font-bold text-gray-800 mb-6 pb-5 border-b border-gray-100">
-                Recent Posts
-              </h3>
-
-              <div className="space-y-5">
-                {recentPosts
-                  .filter((post) => post._id !== blog._id)
-                  .slice(0, 4)
-                  .map((post) => (
-                    <Link
-                      key={post._id}
-                      to={`/blog/${post.slug}`}
-                      className="group flex gap-4 p-3 rounded-xl hover:bg-emerald-50 border border-transparent hover:border-emerald-100 transition-all duration-200"
-                    >
-                      <div className="relative flex-shrink-0 overflow-hidden rounded-lg w-20 h-20">
-                        <img
-                          src={post.image}
-                          alt={post.title}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          onError={(e) => {
-                            e.target.src = "https://placehold.co/200x200/A7F3D0/065F46?text=Blog";
-                          }}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-emerald-600 transition-colors duration-200 leading-snug mb-2">
-                          {post.title}
-                        </h4>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                          <CalendarIcon className="w-3 h-3 text-emerald-400" />
-                          <span>{post.date}</span>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-              </div>
-
-            </div>
-          </div>
-
         </div>
       </div>
+      {/* RECENT POSTS */}
+      <div className="w-full px-2 sm:px-3 lg:px-4 py-16 lg:py-20">
+        <h3 className="text-3xl lg:text-4xl font-black text-slate-900 mb-10 lg:mb-12">More Articles to Explore</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+          {recentPosts
+            .filter((post) => post._id !== blog._id)
+            .slice(0, 4)
+            .map((post, idx) => (
+              <Link
+                key={post._id}
+                to={`/blog/${post.slug}`}
+                id={`recent-post-${idx}`}
+                className="group overflow-hidden rounded-2xl border-2 border-slate-200 hover:border-green-500 hover:shadow-lg transition-all duration-250"
+              >
+                <div className="relative overflow-hidden h-48 sm:h-56 bg-transparent">
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    onError={(e) => {
+                      e.target.src = "https://placehold.co/400x250/2d2d2d/ffffff?text=Article";
+                    }}
+                  />
+                </div>
+                <div className="p-5 lg:p-6 bg-white">
+                  <h4 className="font-bold text-slate-900 line-clamp-2 group-hover:text-green-600 mb-3 lg:mb-4 transition-colors duration-300 text-base lg:text-lg">
+                    {post.title}
+                  </h4>
+                  <div className="flex items-center gap-2 text-xs lg:text-sm text-slate-500 font-medium group-hover:text-green-600 transition-colors duration-300">
+                    <CalendarIcon className="w-4 h-4 text-green-500" />
+                    <span>{post.date}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+        </div>
+      </div>
+</div>
 
       <Footer />
     </div>
