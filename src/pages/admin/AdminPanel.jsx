@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { jsPDF } from "jspdf";
-import { useRef, useCallback } from "react";
+import { useRef } from "react";
 import { storage, auth } from "../../firebase";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -43,7 +43,6 @@ const RichTextEditor = ({ value, onChange, placeholder = "Write your content her
     const loadQuill = async () => {
       const Quill = (await import("quill")).default;
 
-      // Import Quill CSS dynamically
       if (!document.querySelector('link[href*="quill"]')) {
         const link = document.createElement("link");
         link.rel = "stylesheet";
@@ -69,12 +68,10 @@ const RichTextEditor = ({ value, onChange, placeholder = "Write your content her
         },
       });
 
-      // Set initial value
       if (value) {
         quillRef.current.root.innerHTML = value;
       }
 
-      // On change
       quillRef.current.on("text-change", () => {
         const html = quillRef.current.root.innerHTML;
         onChange(html === "<p><br></p>" ? "" : html);
@@ -84,7 +81,6 @@ const RichTextEditor = ({ value, onChange, placeholder = "Write your content her
     loadQuill();
   }, []);
 
-  // Sync external value changes (e.g. when editing an existing blog)
   useEffect(() => {
     if (quillRef.current && value !== undefined) {
       const currentHtml = quillRef.current.root.innerHTML;
@@ -107,12 +103,9 @@ export default function AdminPanel() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("products");
-
   const [allCategories, setAllCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
-
   const [reorderLoading, setReorderLoading] = useState(false);
-
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({
     name: "", type: "", category: "", subCategory: "",
@@ -145,12 +138,11 @@ export default function AdminPanel() {
   const [editingSubFor, setEditingSubFor] = useState(null);
   const [editingExtraInput, setEditingExtraInput] = useState("");
 
-  // Rename states
   const [renamingCatId, setRenamingCatId] = useState(null);
   const [renameCatInput, setRenameCatInput] = useState("");
-  const [renamingSubFor, setRenamingSubFor] = useState(null); // "catId-subName"
+  const [renamingSubFor, setRenamingSubFor] = useState(null);
   const [renameSubInput, setRenameSubInput] = useState("");
-  const [renamingExtraFor, setRenamingExtraFor] = useState(null); // "catId-subName-exName"
+  const [renamingExtraFor, setRenamingExtraFor] = useState(null);
   const [renameExtraInput, setRenameExtraInput] = useState("");
 
   const [blogForm, setBlogForm] = useState({
@@ -159,6 +151,11 @@ export default function AdminPanel() {
   });
   const [blogs, setBlogs] = useState([]);
   const [editingBlogId, setEditingBlogId] = useState(null);
+
+  const [viewRelatedFor, setViewRelatedFor] = useState(null);
+  const [savedRelatedIds, setSavedRelatedIds] = useState([]);
+  const [savedRelatedLoading, setSavedRelatedLoading] = useState(false);
+  const [removeRelatedLoading, setRemoveRelatedLoading] = useState(null);
 
   const getCategoriesByType = (type) => allCategories.filter(c => c.type === type);
 
@@ -188,7 +185,7 @@ export default function AdminPanel() {
 
   const load = async () => {
     try {
-      const res = await fetch(API);
+      const res = await fetch(`${API}?sort=order`);
       const data = await safeJson(res);
       setProducts(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -243,7 +240,6 @@ export default function AdminPanel() {
     };
   }, [navigate]);
 
-  // ===== CATEGORY CRUD =====
   const createCategory = async () => {
     if (!catForm.type || !catForm.name.trim()) {
       alert("Type and category name are required");
@@ -342,7 +338,6 @@ export default function AdminPanel() {
     }
   };
 
-  // ===== RENAME FUNCTIONS =====
   const renameCategory = async (catId, newName) => {
     if (!newName.trim()) return;
     try {
@@ -356,7 +351,7 @@ export default function AdminPanel() {
         setRenamingCatId(null);
         setRenameCatInput("");
         loadCategories();
-        load(); // reload products too since category name changed
+        load();
       } else {
         const data = await res.json();
         alert(data.message || "Rename failed");
@@ -406,7 +401,6 @@ export default function AdminPanel() {
     } catch (err) { alert(err.message); }
   };
 
-  // ===== CATEGORY MOVE UP/DOWN (works on mobile + desktop) =====
   const moveCat = async (typeGroup, idx, dir) => {
     const groupCats = getCategoriesByType(typeGroup);
     const newIdx = idx + dir;
@@ -431,7 +425,6 @@ export default function AdminPanel() {
     }
   };
 
-  // ===== SUBCATEGORY MOVE UP/DOWN =====
   const moveSub = async (cat, idx, dir) => {
     const subs = [...cat.subCategories];
     const newIdx = idx + dir;
@@ -454,7 +447,6 @@ export default function AdminPanel() {
     }
   };
 
-  // ===== EXTRA CATEGORY MOVE UP/DOWN =====
   const moveExtra = async (cat, sub, idx, dir) => {
     const extras = [...(sub.extraCategories || [])];
     const newIdx = idx + dir;
@@ -477,7 +469,55 @@ export default function AdminPanel() {
     }
   };
 
-  // ===== PRODUCT HELPERS =====
+  const moveProduct = async (index, dir) => {
+    const newIndex = index + dir;
+    if (newIndex < 0 || newIndex >= categoryFilteredProducts.length) return;
+
+    const reordered = [...categoryFilteredProducts];
+    [reordered[index], reordered[newIndex]] = [reordered[newIndex], reordered[index]];
+
+    const filteredIds = new Set(categoryFilteredProducts.map(p => p._id));
+    const nonFiltered = products.filter(p => !filteredIds.has(p._id));
+    const updatedFiltered = reordered.map((p, i) => ({ ...p, order: i }));
+    setProducts([...nonFiltered, ...updatedFiltered].sort((a, b) => a.order - b.order));
+
+    setReorderLoading(true);
+    
+    try {
+      const token = await auth.currentUser.getIdToken();
+      
+      const response = await fetch(`${API}/reorder`, {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json", 
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ 
+          items: reordered.map((p, i) => ({ 
+            id: p._id,
+            order: i 
+          })) 
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("❌ Reorder failed:", errorData);
+        throw new Error(errorData.error || errorData.message || 'Reorder failed');
+      }
+
+      console.log("✅ Products reordered successfully");
+      await load();
+      
+    } catch (err) {
+      console.error("❌ Product reorder failed:", err);
+      alert(`Failed to reorder products: ${err.message}`);
+      load();
+    } finally {
+      setReorderLoading(false);
+    }
+  };
+
   const uploadImage = async (file) => {
     const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
     await uploadBytes(storageRef, file);
@@ -752,118 +792,112 @@ export default function AdminPanel() {
     }
   };
 
-  // Related products "view & manage" panel state
-const [viewRelatedFor, setViewRelatedFor] = useState(null);
-const [savedRelatedIds, setSavedRelatedIds] = useState([]);
-const [savedRelatedLoading, setSavedRelatedLoading] = useState(false);
-const [removeRelatedLoading, setRemoveRelatedLoading] = useState(null);
+  const saveRelatedProducts = async () => {
+    if (!form.relatedCategory || !form.relatedSubCategory) {
+      alert("Please select category and subcategory");
+      return;
+    }
+    if (!form.relatedProducts || form.relatedProducts.length === 0) {
+      alert("Please select at least one related product");
+      return;
+    }
 
-const saveRelatedProducts = async () => {
-  if (!form.relatedCategory || !form.relatedSubCategory) {
-    alert("Please select category and subcategory");
-    return;
-  }
-  if (!form.relatedProducts || form.relatedProducts.length === 0) {
-    alert("Please select at least one related product");
-    return;
-  }
+    setRelatedBtnLoading(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const payload = {
+        type: form.relatedType || null,
+        category: form.relatedCategory,
+        subCategory: form.relatedSubCategory,
+        extraCategory: form.relatedExtraCategory || null,
+        relatedProducts: form.relatedProducts
+      };
 
-  setRelatedBtnLoading(true);
-  try {
-    const token = await auth.currentUser.getIdToken();
-    const payload = {
-      type: form.relatedType || null,
-      category: form.relatedCategory,
-      subCategory: form.relatedSubCategory,
-      extraCategory: form.relatedExtraCategory || null,
-      relatedProducts: form.relatedProducts
-    };
-
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/save-related-products`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await safeJson(res);
-    if (res.ok) {
-      alert("Related products saved successfully ✅");
-      setForm({
-        ...form,
-        relatedType: "", relatedCategory: "", relatedSubCategory: "",
-        relatedExtraCategory: "", relatedProducts: []
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/save-related-products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
       });
-    } else {
-      alert(data.message || "Failed to save related products");
+
+      const data = await safeJson(res);
+      if (res.ok) {
+        alert("Related products saved successfully ✅");
+        setForm({
+          ...form,
+          relatedType: "", relatedCategory: "", relatedSubCategory: "",
+          relatedExtraCategory: "", relatedProducts: []
+        });
+      } else {
+        alert(data.message || "Failed to save related products");
+      }
+    } catch (err) {
+      alert(err.message || "Error saving related products");
+    } finally {
+      setRelatedBtnLoading(false);
     }
-  } catch (err) {
-    alert(err.message || "Error saving related products");
-  } finally {
-    setRelatedBtnLoading(false);
-  }
-};
+  };
 
-const removeRelatedProduct = (productId) => {
-  setForm({ ...form, relatedProducts: (form.relatedProducts || []).filter(id => id !== productId) });
-};
+  const removeRelatedProduct = (productId) => {
+    setForm({ ...form, relatedProducts: (form.relatedProducts || []).filter(id => id !== productId) });
+  };
 
-const loadSavedRelated = async (combo) => {
-  setSavedRelatedLoading(true);
-  setSavedRelatedIds([]);
-  try {
-    const token = await auth.currentUser.getIdToken();
-    const params = new URLSearchParams({
-      category: combo.category,
-      subCategory: combo.subCategory,
-      ...(combo.extraCategory ? { extraCategory: combo.extraCategory } : {}),
-      ...(combo.type ? { type: combo.type } : {}),
-    });
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/related-products/raw?${params}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    setSavedRelatedIds(data.relatedProducts || []);
-  } catch (err) {
-    console.error("Load saved related error:", err);
-  } finally {
-    setSavedRelatedLoading(false);
-  }
-};
-
-const removeFromRelated = async (productId) => {
-  if (!viewRelatedFor) return;
-  setRemoveRelatedLoading(productId);
-  try {
-    const token = await auth.currentUser.getIdToken();
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/related-products/remove`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        category: viewRelatedFor.category,
-        subCategory: viewRelatedFor.subCategory,
-        extraCategory: viewRelatedFor.extraCategory || null,
-        type: viewRelatedFor.type || null,
-        productId,
-      }),
-    });
-    const data = await res.json();
-    if (res.ok) {
+  const loadSavedRelated = async (combo) => {
+    setSavedRelatedLoading(true);
+    setSavedRelatedIds([]);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const params = new URLSearchParams({
+        category: combo.category,
+        subCategory: combo.subCategory,
+        ...(combo.extraCategory ? { extraCategory: combo.extraCategory } : {}),
+        ...(combo.type ? { type: combo.type } : {}),
+      });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/related-products/raw?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
       setSavedRelatedIds(data.relatedProducts || []);
-    } else {
-      alert(data.message || "Failed to remove");
+    } catch (err) {
+      console.error("Load saved related error:", err);
+    } finally {
+      setSavedRelatedLoading(false);
     }
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    setRemoveRelatedLoading(null);
-  }
-};
+  };
+
+  const removeFromRelated = async (productId) => {
+    if (!viewRelatedFor) return;
+    setRemoveRelatedLoading(productId);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/related-products/remove`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          category: viewRelatedFor.category,
+          subCategory: viewRelatedFor.subCategory,
+          extraCategory: viewRelatedFor.extraCategory || null,
+          type: viewRelatedFor.type || null,
+          productId,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSavedRelatedIds(data.relatedProducts || []);
+      } else {
+        alert(data.message || "Failed to remove");
+      }
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setRemoveRelatedLoading(null);
+    }
+  };
+
   const duplicateProduct = (product) => {
     const { _id, ...rest } = product;
     edit({ ...rest, name: rest.name + " Copy" });
   };
 
-  // ===== BLOG FUNCTIONS =====
   const addTextBlock = () => {
     setBlogForm(prev => ({ ...prev, blocks: [...prev.blocks, { type: "text", content: "" }] }));
   };
@@ -991,7 +1025,6 @@ const removeFromRelated = async (productId) => {
       <div className="min-h-screen bg-green-50 pt-28 px-4 md:px-10 pb-10">
         <div className="max-w-6xl mx-auto">
 
-          {/* Header */}
           <div className="flex justify-between items-center mb-10 flex-wrap gap-4">
             <h1 className="text-3xl font-extrabold text-green-800 tracking-tight">Admin Dashboard</h1>
             <div className="flex items-center gap-3">
@@ -1006,7 +1039,6 @@ const removeFromRelated = async (productId) => {
             </div>
           </div>
 
-          {/* Tabs */}
           <div className="flex gap-1 border-b mb-8 overflow-x-auto">
             {[
               { id: "products", label: "📦 Products" },
@@ -1024,7 +1056,6 @@ const removeFromRelated = async (productId) => {
             ))}
           </div>
 
-          {/* Admin Create Form */}
           {showAdminForm && (
             <div className="bg-white p-6 rounded-3xl shadow-xl border border-green-100 mb-8">
               <h2 className="text-lg font-bold text-green-800 mb-4">Create New Admin</h2>
@@ -1043,366 +1074,349 @@ const removeFromRelated = async (productId) => {
             </div>
           )}
 
-          {/* ===================================================
-              CATEGORIES TAB
-          =================================================== */}
-          {activeTab === "categories" && (
-            <div className="space-y-8">
+{activeTab === "categories" && (
+  <div className="space-y-8">
+    <div className="bg-white p-8 rounded-3xl shadow-xl border border-green-100">
+      <h2 className="text-xl font-bold text-green-800 mb-6">Add New Category</h2>
+      <div className="flex flex-wrap gap-4 items-end">
+        <div className="flex-1 min-w-[160px]">
+          <label className="block text-sm font-semibold text-green-700 mb-2">Type</label>
+          <select className={inputStyle} value={catForm.type}
+            onChange={e => setCatForm({ ...catForm, type: e.target.value })}>
+            <option value="active">Active</option>
+            <option value="passive">Passive</option>
+          </select>
+        </div>
+        <div className="flex-[3] min-w-[200px]">
+          <label className="block text-sm font-semibold text-green-700 mb-2">Category Name</label>
+          <input className={inputStyle} placeholder="e.g. Wireless Solutions"
+            value={catForm.name}
+            onChange={e => setCatForm({ ...catForm, name: e.target.value })}
+            onKeyDown={e => e.key === "Enter" && createCategory()} />
+        </div>
+        <button onClick={createCategory} disabled={catBtnLoading}
+          className="bg-green-600 text-white px-8 py-3 rounded-xl hover:bg-green-700 transition font-semibold disabled:bg-gray-300 flex items-center gap-2">
+          <Plus size={18} /> {catBtnLoading ? "Adding..." : "Add Category"}
+        </button>
+      </div>
+    </div>
 
-              {/* Add New Category */}
-              <div className="bg-white p-8 rounded-3xl shadow-xl border border-green-100">
-                <h2 className="text-xl font-bold text-green-800 mb-6">Add New Category</h2>
-                <div className="flex flex-wrap gap-4 items-end">
-                  <div className="flex-1 min-w-[160px]">
-                    <label className="block text-sm font-semibold text-green-700 mb-2">Type</label>
-                    <select className={inputStyle} value={catForm.type}
-                      onChange={e => setCatForm({ ...catForm, type: e.target.value })}>
-                      <option value="active">Active</option>
-                      <option value="passive">Passive</option>
-                    </select>
-                  </div>
-                  <div className="flex-[3] min-w-[200px]">
-                    <label className="block text-sm font-semibold text-green-700 mb-2">Category Name</label>
-                    <input className={inputStyle} placeholder="e.g. Wireless Solutions"
-                      value={catForm.name}
-                      onChange={e => setCatForm({ ...catForm, name: e.target.value })}
-                      onKeyDown={e => e.key === "Enter" && createCategory()} />
-                  </div>
-                  <button onClick={createCategory} disabled={catBtnLoading}
-                    className="bg-green-600 text-white px-8 py-3 rounded-xl hover:bg-green-700 transition font-semibold disabled:bg-gray-300 flex items-center gap-2">
-                    <Plus size={18} /> {catBtnLoading ? "Adding..." : "Add Category"}
-                  </button>
+    {reorderLoading && (
+      <div className="text-center text-sm text-green-600 font-medium animate-pulse py-2">
+        ⏳ Saving order...
+      </div>
+    )}
+
+    <div className="bg-white rounded-3xl shadow-xl border border-green-100 overflow-hidden">
+      <div className="p-6 border-b border-green-100 bg-green-700">
+        <h2 className="text-xl font-bold text-white">All Categories</h2>
+        <p className="text-green-200 text-sm mt-1">
+          Use ↑ ↓ buttons to reorder — works on mobile too
+        </p>
+      </div>
+
+      {categoriesLoading ? (
+        <div className="p-10 text-center text-gray-400 italic">Loading categories...</div>
+      ) : allCategories.length === 0 ? (
+        <div className="p-10 text-center text-gray-400 italic">
+          No categories yet. Add one above.
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {["active", "passive"].map(typeGroup => {
+            const groupCats = getCategoriesByType(typeGroup);
+            if (groupCats.length === 0) return null;
+            return (
+              <div key={typeGroup}>
+                <div className={`px-6 py-3 text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${
+                  typeGroup === "active" ? "bg-green-50 text-green-700" : "bg-teal-50 text-teal-700"
+                }`}>
+                  {typeGroup === "active" ? "🟢 Active Categories" : "🔵 Passive Categories"}
                 </div>
-              </div>
 
-              {/* Reorder indicator */}
-              {reorderLoading && (
-                <div className="text-center text-sm text-green-600 font-medium animate-pulse py-2">
-                  ⏳ Saving order...
-                </div>
-              )}
-
-              {/* Categories List */}
-              <div className="bg-white rounded-3xl shadow-xl border border-green-100 overflow-hidden">
-                <div className="p-6 border-b border-green-100 bg-green-700">
-                  <h2 className="text-xl font-bold text-white">All Categories</h2>
-                  <p className="text-green-200 text-sm mt-1">
-                    Use ↑ ↓ buttons to reorder — works on mobile too
-                  </p>
-                </div>
-
-                {categoriesLoading ? (
-                  <div className="p-10 text-center text-gray-400 italic">Loading categories...</div>
-                ) : allCategories.length === 0 ? (
-                  <div className="p-10 text-center text-gray-400 italic">
-                    No categories yet. Add one above.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-100">
-                    {["active", "passive"].map(typeGroup => {
-                      const groupCats = getCategoriesByType(typeGroup);
-                      if (groupCats.length === 0) return null;
-                      return (
-                        <div key={typeGroup}>
-                          <div className={`px-6 py-3 text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${
-                            typeGroup === "active" ? "bg-green-50 text-green-700" : "bg-teal-50 text-teal-700"
-                          }`}>
-                            {typeGroup === "active" ? "🟢 Active Categories" : "🔵 Passive Categories"}
+                <div>
+                  {groupCats.map((cat, catIdx) => (
+                    <div
+                      key={cat._id}
+                      className="border-b border-gray-100 last:border-0"
+                    >
+                      <div
+                        className="flex items-center justify-between px-4 py-4 hover:bg-gray-50 cursor-pointer transition"
+                        onClick={() => setExpandedCat(expandedCat === cat._id ? null : cat._id)}
+                      >
+                        <div className="flex items-center gap-2 flex-1">
+                          <div className="flex flex-col gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                            <button
+                              onClick={() => moveCat(typeGroup, catIdx, -1)}
+                              disabled={catIdx === 0 || reorderLoading}
+                              className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-700"
+                              title="Move up">
+                              <ChevronUp size={14} />
+                            </button>
+                            <button
+                              onClick={() => moveCat(typeGroup, catIdx, 1)}
+                              disabled={catIdx === groupCats.length - 1 || reorderLoading}
+                              className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-700"
+                              title="Move down">
+                              <ChevronDown size={14} />
+                            </button>
                           </div>
+                          {expandedCat === cat._id
+                            ? <ChevronDown size={16} className="text-green-600 flex-shrink-0" />
+                            : <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
+                          }
+                          {renamingCatId === cat._id ? (
+                            <div className="flex items-center gap-2 flex-1" onClick={e => e.stopPropagation()}>
+                              <input
+                                autoFocus
+                                className="flex-1 border border-green-400 rounded-lg px-3 py-1.5 text-sm font-bold outline-none focus:ring-2 focus:ring-green-300"
+                                value={renameCatInput}
+                                onChange={e => setRenameCatInput(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter") renameCategory(cat._id, renameCatInput);
+                                  if (e.key === "Escape") { setRenamingCatId(null); setRenameCatInput(""); }
+                                }}
+                              />
+                              <button onClick={() => renameCategory(cat._id, renameCatInput)}
+                                className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 font-semibold transition">Save</button>
+                              <button onClick={() => { setRenamingCatId(null); setRenameCatInput(""); }}
+                                className="text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition">✕</button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="font-bold text-gray-800 text-base">{cat.name}</span>
+                              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                                {cat.subCategories?.length || 0} sub
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                          {renamingCatId !== cat._id && (
+                            <button
+                              onClick={() => { setRenamingCatId(cat._id); setRenameCatInput(cat.name); }}
+                              className="p-2 bg-blue-50 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg transition"
+                              title="Rename category">
+                              <Edit size={14} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => { setAddingSubFor(cat._id); setExpandedCat(cat._id); }}
+                            className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 transition font-semibold">
+                            <Plus size={12} /> Add Sub
+                          </button>
+                          <button
+                            onClick={() => deleteCategory(cat._id, cat.name)}
+                            className="p-2 bg-red-50 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition"
+                            title="Delete category and all its products">
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
 
-                          {/* Category list with up/down buttons */}
-                          <div>
-                            {groupCats.map((cat, catIdx) => (
-                              <div
-                                key={cat._id}
-                                className="border-b border-gray-100 last:border-0"
-                              >
-                                {/* Category Row */}
+                      {expandedCat === cat._id && (
+                        <div className="bg-gray-50 border-t border-gray-100 px-6 py-4">
+
+                          {addingSubFor === cat._id && (
+                            <div className="bg-white border border-green-200 rounded-xl p-4 mb-4 shadow-sm">
+                              <p className="text-sm font-bold text-green-800 mb-3">Add New SubCategory</p>
+                              <div className="flex flex-wrap gap-3">
+                                <input
+                                  className="flex-1 min-w-[160px] border border-green-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-300"
+                                  placeholder="SubCategory name (e.g. Indoor)"
+                                  value={newSubName}
+                                  onChange={e => setNewSubName(e.target.value)}
+                                />
+                                <input
+                                  className="flex-[2] min-w-[200px] border border-green-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-300"
+                                  placeholder="Extra categories (comma separated, e.g. Business,Enterprise) — optional"
+                                  value={newSubExtra}
+                                  onChange={e => setNewSubExtra(e.target.value)}
+                                />
+                                <button
+                                  onClick={() => addSubCategory(cat._id)}
+                                  className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition">
+                                  Add
+                                </button>
+                                <button
+                                  onClick={() => { setAddingSubFor(null); setNewSubName(""); setNewSubExtra(""); }}
+                                  className="bg-gray-100 text-gray-500 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition">
+                                  Cancel
+                                </button>
+                              </div>
+                              <p className="text-xs text-gray-400 mt-2">
+                                Extra categories are optional — add them only when products need further filtering (e.g. Business/Enterprise).
+                              </p>
+                            </div>
+                          )}
+
+                          {cat.subCategories?.length === 0 ? (
+                            <p className="text-sm text-gray-400 italic py-2">
+                              No subcategories yet. Use "Add Sub" to create one.
+                            </p>
+                          ) : (
+                            <div className="space-y-2">
+                              {cat.subCategories.map((sub, subIdx) => (
                                 <div
-                                  className="flex items-center justify-between px-4 py-4 hover:bg-gray-50 cursor-pointer transition"
-                                  onClick={() => setExpandedCat(expandedCat === cat._id ? null : cat._id)}
+                                  key={sub.name}
+                                  className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap items-start gap-3 justify-between"
                                 >
-                                  <div className="flex items-center gap-2 flex-1">
-                                    {/* Up/Down move buttons */}
-                                    <div className="flex flex-col gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                                  <div className="flex items-start gap-2 flex-1">
+                                    <div className="flex flex-col gap-0.5 flex-shrink-0 mt-0.5">
                                       <button
-                                        onClick={() => moveCat(typeGroup, catIdx, -1)}
-                                        disabled={catIdx === 0 || reorderLoading}
-                                        className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-700"
+                                        onClick={() => moveSub(cat, subIdx, -1)}
+                                        disabled={subIdx === 0 || reorderLoading}
+                                        className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-600"
                                         title="Move up">
-                                        <ChevronUp size={14} />
+                                        <ChevronUp size={13} />
                                       </button>
                                       <button
-                                        onClick={() => moveCat(typeGroup, catIdx, 1)}
-                                        disabled={catIdx === groupCats.length - 1 || reorderLoading}
-                                        className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-700"
+                                        onClick={() => moveSub(cat, subIdx, 1)}
+                                        disabled={subIdx === cat.subCategories.length - 1 || reorderLoading}
+                                        className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-600"
                                         title="Move down">
-                                        <ChevronDown size={14} />
+                                        <ChevronDown size={13} />
                                       </button>
                                     </div>
-                                    {expandedCat === cat._id
-                                      ? <ChevronDown size={16} className="text-green-600 flex-shrink-0" />
-                                      : <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
-                                    }
-                                    {renamingCatId === cat._id ? (
-                                      <div className="flex items-center gap-2 flex-1" onClick={e => e.stopPropagation()}>
-                                        <input
-                                          autoFocus
-                                          className="flex-1 border border-green-400 rounded-lg px-3 py-1.5 text-sm font-bold outline-none focus:ring-2 focus:ring-green-300"
-                                          value={renameCatInput}
-                                          onChange={e => setRenameCatInput(e.target.value)}
-                                          onKeyDown={e => {
-                                            if (e.key === "Enter") renameCategory(cat._id, renameCatInput);
-                                            if (e.key === "Escape") { setRenamingCatId(null); setRenameCatInput(""); }
-                                          }}
-                                        />
-                                        <button onClick={() => renameCategory(cat._id, renameCatInput)}
-                                          className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 font-semibold transition">Save</button>
-                                        <button onClick={() => { setRenamingCatId(null); setRenameCatInput(""); }}
-                                          className="text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition">✕</button>
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-green-400 inline-block flex-shrink-0"></span>
+                                        {renamingSubFor === `${cat._id}-${sub.name}` ? (
+                                          <div className="flex items-center gap-2 flex-1">
+                                            <input
+                                              autoFocus
+                                              className="flex-1 border border-green-400 rounded-lg px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-green-300"
+                                              value={renameSubInput}
+                                              onChange={e => setRenameSubInput(e.target.value)}
+                                              onKeyDown={e => {
+                                                if (e.key === "Enter") renameSubCategory(cat._id, sub.name, renameSubInput);
+                                                if (e.key === "Escape") { setRenamingSubFor(null); setRenameSubInput(""); }
+                                              }}
+                                            />
+                                            <button onClick={() => renameSubCategory(cat._id, sub.name, renameSubInput)}
+                                              className="text-xs bg-green-600 text-white px-2 py-1 rounded-lg hover:bg-green-700 font-semibold transition">Save</button>
+                                            <button onClick={() => { setRenamingSubFor(null); setRenameSubInput(""); }}
+                                              className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-lg hover:bg-gray-200 transition">✕</button>
+                                          </div>
+                                        ) : (
+                                          <>
+                                            <span className="font-semibold text-gray-800">{sub.name}</span>
+                                            <button
+                                              onClick={() => { setRenamingSubFor(`${cat._id}-${sub.name}`); setRenameSubInput(sub.name); }}
+                                              className="p-1 text-blue-400 hover:text-blue-600 transition"
+                                              title="Rename subcategory">
+                                              <Edit size={12} />
+                                            </button>
+                                          </>
+                                        )}
                                       </div>
-                                    ) : (
-                                      <>
-                                        <span className="font-bold text-gray-800 text-base">{cat.name}</span>
-                                        <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                                          {cat.subCategories?.length || 0} sub
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                    {renamingCatId !== cat._id && (
-                                      <button
-                                        onClick={() => { setRenamingCatId(cat._id); setRenameCatInput(cat.name); }}
-                                        className="p-2 bg-blue-50 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg transition"
-                                        title="Rename category">
-                                        <Edit size={14} />
-                                      </button>
-                                    )}
-                                    <button
-                                      onClick={() => { setAddingSubFor(cat._id); setExpandedCat(cat._id); }}
-                                      className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 transition font-semibold">
-                                      <Plus size={12} /> Add Sub
-                                    </button>
-                                    <button
-                                      onClick={() => deleteCategory(cat._id, cat.name)}
-                                      className="p-2 bg-red-50 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition"
-                                      title="Delete category and all its products">
-                                      <Trash2 size={15} />
-                                    </button>
-                                  </div>
-                                </div>
 
-                                {/* Expanded: SubCategories */}
-                                {expandedCat === cat._id && (
-                                  <div className="bg-gray-50 border-t border-gray-100 px-6 py-4">
-
-                                    {/* Add SubCategory Form */}
-                                    {addingSubFor === cat._id && (
-                                      <div className="bg-white border border-green-200 rounded-xl p-4 mb-4 shadow-sm">
-                                        <p className="text-sm font-bold text-green-800 mb-3">Add New SubCategory</p>
-                                        <div className="flex flex-wrap gap-3">
+                                      {editingSubFor === `${cat._id}-${sub.name}` ? (
+                                        <div className="flex gap-2 mt-2">
                                           <input
-                                            className="flex-1 min-w-[160px] border border-green-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-300"
-                                            placeholder="SubCategory name (e.g. Indoor)"
-                                            value={newSubName}
-                                            onChange={e => setNewSubName(e.target.value)}
-                                          />
-                                          <input
-                                            className="flex-[2] min-w-[200px] border border-green-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-300"
-                                            placeholder="Extra categories (comma separated, e.g. Business,Enterprise) — optional"
-                                            value={newSubExtra}
-                                            onChange={e => setNewSubExtra(e.target.value)}
+                                            className="flex-1 border border-green-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-green-300"
+                                            placeholder="Comma separated extras"
+                                            value={editingExtraInput}
+                                            onChange={e => setEditingExtraInput(e.target.value)}
                                           />
                                           <button
-                                            onClick={() => addSubCategory(cat._id)}
-                                            className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition">
-                                            Add
+                                            onClick={() => {
+                                              const extras = editingExtraInput.split(",").map(e => e.trim()).filter(Boolean);
+                                              updateSubCategoryExtras(cat._id, sub.name, extras);
+                                            }}
+                                            className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-700 transition">
+                                            Save
                                           </button>
                                           <button
-                                            onClick={() => { setAddingSubFor(null); setNewSubName(""); setNewSubExtra(""); }}
-                                            className="bg-gray-100 text-gray-500 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition">
+                                            onClick={() => { setEditingSubFor(null); setEditingExtraInput(""); }}
+                                            className="bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 transition">
                                             Cancel
                                           </button>
                                         </div>
-                                        <p className="text-xs text-gray-400 mt-2">
-                                          Extra categories are optional — add them only when products need further filtering (e.g. Business/Enterprise).
-                                        </p>
-                                      </div>
-                                    )}
-
-                                    {/* SubCategory List — with up/down buttons */}
-                                    {cat.subCategories?.length === 0 ? (
-                                      <p className="text-sm text-gray-400 italic py-2">
-                                        No subcategories yet. Use "Add Sub" to create one.
-                                      </p>
-                                    ) : (
-                                      <div className="space-y-2">
-                                        {cat.subCategories.map((sub, subIdx) => (
-                                          <div
-                                            key={sub.name}
-                                            className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap items-start gap-3 justify-between"
-                                          >
-                                            <div className="flex items-start gap-2 flex-1">
-                                              {/* Sub up/down buttons */}
-                                              <div className="flex flex-col gap-0.5 flex-shrink-0 mt-0.5">
-                                                <button
-                                                  onClick={() => moveSub(cat, subIdx, -1)}
-                                                  disabled={subIdx === 0 || reorderLoading}
-                                                  className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-600"
-                                                  title="Move up">
-                                                  <ChevronUp size={13} />
-                                                </button>
-                                                <button
-                                                  onClick={() => moveSub(cat, subIdx, 1)}
-                                                  disabled={subIdx === cat.subCategories.length - 1 || reorderLoading}
-                                                  className="p-1 rounded hover:bg-green-100 disabled:opacity-20 transition text-green-600"
-                                                  title="Move down">
-                                                  <ChevronDown size={13} />
-                                                </button>
-                                              </div>
-                                              <div className="flex-1">
-                                                {/* SubCategory name — with inline rename */}
-                                                <div className="flex items-center gap-2 mb-1.5">
-                                                  <span className="w-2 h-2 rounded-full bg-green-400 inline-block flex-shrink-0"></span>
-                                                  {renamingSubFor === `${cat._id}-${sub.name}` ? (
-                                                    <div className="flex items-center gap-2 flex-1">
-                                                      <input
-                                                        autoFocus
-                                                        className="flex-1 border border-green-400 rounded-lg px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-green-300"
-                                                        value={renameSubInput}
-                                                        onChange={e => setRenameSubInput(e.target.value)}
-                                                        onKeyDown={e => {
-                                                          if (e.key === "Enter") renameSubCategory(cat._id, sub.name, renameSubInput);
-                                                          if (e.key === "Escape") { setRenamingSubFor(null); setRenameSubInput(""); }
-                                                        }}
-                                                      />
-                                                      <button onClick={() => renameSubCategory(cat._id, sub.name, renameSubInput)}
-                                                        className="text-xs bg-green-600 text-white px-2 py-1 rounded-lg hover:bg-green-700 font-semibold transition">Save</button>
-                                                      <button onClick={() => { setRenamingSubFor(null); setRenameSubInput(""); }}
-                                                        className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-lg hover:bg-gray-200 transition">✕</button>
-                                                    </div>
-                                                  ) : (
-                                                    <>
-                                                      <span className="font-semibold text-gray-800">{sub.name}</span>
-                                                      <button
-                                                        onClick={() => { setRenamingSubFor(`${cat._id}-${sub.name}`); setRenameSubInput(sub.name); }}
-                                                        className="p-1 text-blue-400 hover:text-blue-600 transition"
-                                                        title="Rename subcategory">
-                                                        <Edit size={12} />
-                                                      </button>
-                                                    </>
-                                                  )}
-                                                </div>
-
-                                                {/* Extra Categories */}
-                                                {editingSubFor === `${cat._id}-${sub.name}` ? (
-                                                  <div className="flex gap-2 mt-2">
-                                                    <input
-                                                      className="flex-1 border border-green-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-green-300"
-                                                      placeholder="Comma separated extras"
-                                                      value={editingExtraInput}
-                                                      onChange={e => setEditingExtraInput(e.target.value)}
-                                                    />
-                                                    <button
-                                                      onClick={() => {
-                                                        const extras = editingExtraInput.split(",").map(e => e.trim()).filter(Boolean);
-                                                        updateSubCategoryExtras(cat._id, sub.name, extras);
-                                                      }}
-                                                      className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-700 transition">
-                                                      Save
-                                                    </button>
-                                                    <button
-                                                      onClick={() => { setEditingSubFor(null); setEditingExtraInput(""); }}
-                                                      className="bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 transition">
-                                                      Cancel
-                                                    </button>
-                                                  </div>
-                                                ) : (
-                                                  <div className="flex flex-wrap gap-1.5 mt-1 items-center">
-                                                    {sub.extraCategories?.length > 0
-                                                      ? sub.extraCategories.map((ex, exIdx) => (
-                                                        renamingExtraFor === `${cat._id}-${sub.name}-${ex}` ? (
-                                                          <span key={ex} className="flex items-center gap-1">
-                                                            <input
-                                                              autoFocus
-                                                              className="border border-blue-400 rounded-lg px-2 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-300 w-28"
-                                                              value={renameExtraInput}
-                                                              onChange={e => setRenameExtraInput(e.target.value)}
-                                                              onKeyDown={e => {
-                                                                if (e.key === "Enter") renameExtraCategory(cat._id, sub.name, ex, renameExtraInput);
-                                                                if (e.key === "Escape") { setRenamingExtraFor(null); setRenameExtraInput(""); }
-                                                              }}
-                                                            />
-                                                            <button onClick={() => renameExtraCategory(cat._id, sub.name, ex, renameExtraInput)}
-                                                              className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded hover:bg-blue-700 transition">✓</button>
-                                                            <button onClick={() => { setRenamingExtraFor(null); setRenameExtraInput(""); }}
-                                                              className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded hover:bg-gray-200 transition">✕</button>
-                                                          </span>
-                                                        ) : (
-                                                          <span
-                                                            key={ex}
-                                                            className="text-xs px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-100 flex items-center gap-1">
-                                                            <button
-                                                              onClick={() => moveExtra(cat, sub, exIdx, -1)}
-                                                              disabled={exIdx === 0}
-                                                              className="disabled:opacity-20 hover:text-blue-900 transition leading-none">
-                                                              ‹
-                                                            </button>
-                                                            {ex}
-                                                            <button
-                                                              onClick={() => moveExtra(cat, sub, exIdx, 1)}
-                                                              disabled={exIdx === sub.extraCategories.length - 1}
-                                                              className="disabled:opacity-20 hover:text-blue-900 transition leading-none">
-                                                              ›
-                                                            </button>
-                                                            <button
-                                                              onClick={() => { setRenamingExtraFor(`${cat._id}-${sub.name}-${ex}`); setRenameExtraInput(ex); }}
-                                                              className="hover:text-blue-900 transition leading-none ml-0.5"
-                                                              title="Rename">
-                                                              <Edit size={9} />
-                                                            </button>
-                                                          </span>
-                                                        )
-                                                      ))
-                                                      : <span className="text-xs text-gray-400 italic">No extra categories</span>
-                                                    }
-                                                    <button
-                                                      onClick={() => {
-                                                        setEditingSubFor(`${cat._id}-${sub.name}`);
-                                                        setEditingExtraInput((sub.extraCategories || []).join(", "));
-                                                      }}
-                                                      className="text-xs text-green-600 hover:text-green-800 font-semibold ml-1">
-                                                      ✏️ Edit
-                                                    </button>
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </div>
-                                            <button
-                                              onClick={() => deleteSubCategory(cat._id, sub.name)}
-                                              className="p-1.5 bg-red-50 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition flex-shrink-0"
-                                              title="Delete subcategory and all its products">
-                                              <Trash2 size={14} />
-                                            </button>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
+                                      ) : (
+                                        <div className="flex flex-wrap gap-1.5 mt-1 items-center">
+                                          {sub.extraCategories?.length > 0
+                                            ? sub.extraCategories.map((ex, exIdx) => (
+                                              renamingExtraFor === `${cat._id}-${sub.name}-${ex}` ? (
+                                                <span key={ex} className="flex items-center gap-1">
+                                                  <input
+                                                    autoFocus
+                                                    className="border border-blue-400 rounded-lg px-2 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-300 w-28"
+                                                    value={renameExtraInput}
+                                                    onChange={e => setRenameExtraInput(e.target.value)}
+                                                    onKeyDown={e => {
+                                                      if (e.key === "Enter") renameExtraCategory(cat._id, sub.name, ex, renameExtraInput);
+                                                      if (e.key === "Escape") { setRenamingExtraFor(null); setRenameExtraInput(""); }
+                                                    }}
+                                                  />
+                                                  <button onClick={() => renameExtraCategory(cat._id, sub.name, ex, renameExtraInput)}
+                                                    className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded hover:bg-blue-700 transition">✓</button>
+                                                  <button onClick={() => { setRenamingExtraFor(null); setRenameExtraInput(""); }}
+                                                    className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded hover:bg-gray-200 transition">✕</button>
+                                                </span>
+                                              ) : (
+                                                <span
+                                                  key={ex}
+                                                  className="text-xs px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-100 flex items-center gap-1">
+                                                  <button
+                                                    onClick={() => moveExtra(cat, sub, exIdx, -1)}
+                                                    disabled={exIdx === 0}
+                                                    className="disabled:opacity-20 hover:text-blue-900 transition leading-none">
+                                                    ‹
+                                                  </button>
+                                                  {ex}
+                                                  <button
+                                                    onClick={() => moveExtra(cat, sub, exIdx, 1)}
+                                                    disabled={exIdx === sub.extraCategories.length - 1}
+                                                    className="disabled:opacity-20 hover:text-blue-900 transition leading-none">
+                                                    ›
+                                                  </button>
+                                                  <button
+                                                    onClick={() => { setRenamingExtraFor(`${cat._id}-${sub.name}-${ex}`); setRenameExtraInput(ex); }}
+                                                    className="hover:text-blue-900 transition leading-none ml-0.5"
+                                                    title="Rename">
+                                                    <Edit size={9} />
+                                                  </button>
+                                                </span>
+                                              )
+                                            ))
+                                            : <span className="text-xs text-gray-400 italic">No extra categories</span>
+                                          }
+                                          <button
+                                            onClick={() => {
+                                              setEditingSubFor(`${cat._id}-${sub.name}`);
+                                              setEditingExtraInput((sub.extraCategories || []).join(", "));
+                                            }}
+                                            className="text-xs text-green-600 hover:text-green-800 font-semibold ml-1">
+                                            ✏️ Edit
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
+                                  <button
+                                    onClick={() => deleteSubCategory(cat._id, sub.name)}
+                                    className="p-1.5 bg-red-50 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition flex-shrink-0"
+                                    title="Delete subcategory and all its products">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-
+            );
+          })}
+        </div>
+      )}
+    </div>
+  </div>
+)}
           {/* ===================================================
               PRODUCTS TAB
           =================================================== */}
@@ -1905,10 +1919,30 @@ const removeFromRelated = async (productId) => {
                           </td>
                         </tr>
                       )}
-                      {categoryFilteredProducts.map((p) => (
+                      {categoryFilteredProducts.map((p, index) => (
                         <tr key={p?._id} className="hover:bg-green-50/40 transition group">
                           <td className="p-5 border-r border-gray-200">
                             <div className="flex items-center gap-4">
+                              {filterType && filterCategory && filterSubCategory && (
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    onClick={() => moveProduct(index, -1)}
+                                    disabled={index === 0 || reorderLoading}
+                                    className="text-green-600 hover:text-green-800 disabled:text-gray-300 disabled:cursor-not-allowed"
+                                    title="Move Up"
+                                  >
+                                    <ChevronUp size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => moveProduct(index, 1)}
+                                    disabled={index === categoryFilteredProducts.length - 1 || reorderLoading}
+                                    className="text-green-600 hover:text-green-800 disabled:text-gray-300 disabled:cursor-not-allowed"
+                                    title="Move Down"
+                                  >
+                                    <ChevronDown size={16} />
+                                  </button>
+                                </div>
+                              )}
                               <img src={p?.image} alt={p?.name} className="h-14 w-14 object-contain rounded-xl border p-1 bg-white shadow-sm" />
                               <div>
                                 <div className="font-bold text-green-900 group-hover:text-green-600">{p?.name}</div>

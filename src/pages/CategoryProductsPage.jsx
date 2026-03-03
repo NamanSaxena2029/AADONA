@@ -202,7 +202,7 @@ export default function CategoryProductsPage() {
 
     // Fetch products AND category document in parallel
     Promise.all([
-      fetch(API).then(r => r.json()),
+      fetch(`${API}?sort=order`).then(r => r.json()),
       fetch(CATEGORY_API).then(r => r.json()),
     ])
       .then(([productsData, categoriesData]) => {
