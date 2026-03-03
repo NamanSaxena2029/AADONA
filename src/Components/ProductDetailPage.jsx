@@ -54,24 +54,6 @@ const ProductDetailPage = () => {
       <Navbar />
 
       <div className="max-w-[1240px] mx-auto px-6 pt-32 pb-24">
-
-        {/* --- GO BACK BUTTON --- */}
-<Link
-  to={`/category/${categoryName}`}
-  className="flex items-center gap-3 mb-8 group"
->
-  <span className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 bg-white shadow-sm group-hover:border-[#00A859] group-hover:bg-[#00A859]/5 transition-all duration-200">
-    <ArrowLeft
-      size={16}
-      strokeWidth={2.5}
-      className="text-[#555] group-hover:text-[#00A859] transition-colors duration-200"
-    />
-  </span>
-  <span className="text-[13px] font-bold uppercase tracking-widest text-[#555] group-hover:text-[#00A859] transition-colors duration-200">
-    Go Back
-  </span>
-</Link>
-
         {/* --- HERO SECTION --- */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.04),0_20px_60px_-10px_rgba(0,0,0,0.08)] overflow-hidden">
           <div className="flex flex-col lg:flex-row items-stretch min-h-[520px]">
