@@ -25,11 +25,12 @@ const locations = [
   },
   {
     id: 2,
-    name:'AADONA',
+    name: 'AADONA',
     title: 'Production, Warehousing and Logistics Center:',
     company: 'AADONA Communication Pvt Ltd.',
     address: '7, SBI Colony, Mohaba Bazar, Hirapur Road, Raipur Chhattisgarh 492099',
     phone: 'Phone Number: +91-771 492-0035',
+    tollFree: 'Toll Free: 1800-202-6599', // Add this line
     hours: 'Working hours: Monday to Friday, 10:30 AM to 06:00 PM'
   },
   {
@@ -161,8 +162,8 @@ export default function App() {
       <p className="text-xl font-extrabold text-green-700 mb-4">
         {/* Phone Number:<span /> +91 99100 50918, +91 98993 36461 */}
       </p>
-      <p className="text-xl font-extrabold text-green-700 mb-4">
-        Email:<span /> support@aadona.com
+      <p className="text-xl font-bold text-green-700 mb-4">
+        <span className='font-extrabold'>Email:</span> <br /> Sales: <span/> sales@aadona.com <br /> Support:<span /> support@aadona.com <br /> General Enquries: <span/> contact@aadona.com
       </p>
     </div>
   );
@@ -183,25 +184,31 @@ export default function App() {
             className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 bg-white border rounded-2xl shadow-xl items-center"
           >
             {/* Left Side: Address Details */}
-            <div className="text-base text-gray-600 space-y-2">
-              <h3 className="text-2xl font-bold text-green-700 mb-3">
-                {location.name}
-              </h3>
-              <h3 className="text-xl font-bold text-green-700 mb-3 border-b pb-2">
-                {location.title}
-              </h3>
-              <p className="font-semibold text-gray-700">{location.company}</p>
-              <p>{location.address}</p>
-              {location.addressLine2 && <p>{location.addressLine2}</p>}
-              {location.phone && (
-                <p><span className="font-semibold text-gray-700">{location.phone.split(':')[0]}:</span> {location.phone.split(':').slice(1).join(':')}</p>
-              )}
+           <div className="text-base text-gray-600 space-y-2">
+  <h3 className="text-2xl font-bold text-green-700 mb-3">{location.name}</h3>
+  <h3 className="text-xl font-bold text-green-700 mb-3 border-b pb-2">{location.title}</h3>
+  <p className="font-semibold text-gray-700">{location.company}</p>
+  <p>{location.address}</p>
+  {location.addressLine2 && <p>{location.addressLine2}</p>}
+  
+  {/* Add this block to render the toll-free number */}
+  {location.tollFree && (
+    <p>
+      <span className="font-semibold text-gray-700">{location.tollFree.split(':')[0]}:</span> 
+      {location.tollFree.split(':').slice(1).join(':')}
+    </p>
+  )}
+
+  {location.phone && (
+    <p><span className="font-semibold text-gray-700">{location.phone.split(':')[0]}:</span> {location.phone.split(':').slice(1).join(':')}</p>
+  )}
               {location.email && (
                 <p><span className="font-semibold text-gray-700">{location.email.split(':')[0]}:</span> {location.email.split(':').slice(1).join(':')}</p>
               )}
               {location.hours && (
                 <p><span className="font-semibold text-gray-700">{location.hours.split(':')[0]}:</span> {location.hours.split(':').slice(1).join(':')}</p>
               )}
+              <p className='text-red-500 text-xs mt-3'>*Do not send products to this address without warranty authorization.</p>
             </div>
 
             {/* ✅ Right Side: Embedded Google Map */}

@@ -467,8 +467,8 @@ export default function BecomePartner() {
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="bg-green-700 text-white px-9 py-3.5 rounded-lg text-base cursor-pointer shadow-[0_8px_0_rgba(90,133,105,0.12)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_12px_0_rgba(90,133,105,0.16)] disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
+                     className="bg-emerald-600 text-white font-semibold tracking-wider uppercase px-12 py-4 rounded-lg text-lg transition-all duration-300 shadow-md hover:bg-emerald-700 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-emerald-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                       {submitting ? "Submitting..." : "Submit Application"}
                     </button>
                   </div>
@@ -483,3 +483,4 @@ export default function BecomePartner() {
     </>
   );
 }
+   
