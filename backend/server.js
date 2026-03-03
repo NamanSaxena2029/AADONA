@@ -156,6 +156,7 @@ const ProductSchema = new mongoose.Schema(
       },
     ],
     specifications: { type: mongoose.Schema.Types.Mixed, default: {} },
+    order: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
@@ -552,16 +553,59 @@ app.delete("/categories/:id/subcategory/:subName", verifyToken, async (req, res)
 
 /* =============================
    PRODUCT ROUTES
+   ⚠️ CRITICAL: Specific routes MUST come before parameterized routes
 ============================= */
 
+app.put("/products/reorder", verifyToken, async (req, res) => {
+  console.log("🎯 REORDER ROUTE HIT");
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: "Items must be an array" });
+    }
+
+    const validItems = items.filter(item =>
+      item.id && mongoose.Types.ObjectId.isValid(item.id)
+    );
+
+    if (validItems.length === 0) {
+      return res.status(400).json({ error: "No valid product IDs provided" });
+    }
+
+    const bulkOps = validItems.map(item => ({
+      updateOne: {
+        filter: { _id: new mongoose.Types.ObjectId(item.id) },
+        update: { $set: { order: item.order } }
+      }
+    }));
+
+    await Product.bulkWrite(bulkOps);
+    console.log("✅ Products reordered:", validItems.length, "items");
+    res.json({ message: "Products reordered successfully" });
+  } catch (err) {
+    console.log("❌ Product reorder error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* -------- GET ALL PRODUCTS -------- */
 app.get("/products", async (req, res) => {
   try {
-    const products = await Product.find().sort({ createdAt: -1 });
+    const { sort } = req.query;
+    const sortOption = sort === "order" ? { order: 1 } : { createdAt: -1 };
+    const products = await Product.find().sort(sortOption);
     res.json(products);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+/* -------- REORDER PRODUCTS (Admin) --------
+   ⚠️ CRITICAL: This MUST be before GET /products/:slug
+   Otherwise Express matches "reorder" as the :slug param
+-------- */
+
+/* -------- NOW the parameterized routes can come -------- */
 
 app.get("/products/:slug", async (req, res) => {
   try {
@@ -632,7 +676,11 @@ app.post("/products", verifyToken, async (req, res) => {
       counter++;
     }
 
-    const newProduct = await Product.create({ ...req.body, slug });
+    // ✅ Set order for new product
+    const lastProduct = await Product.findOne().sort({ order: -1 });
+    const nextOrder = lastProduct ? lastProduct.order + 1 : 0;
+
+    const newProduct = await Product.create({ ...req.body, slug, order: nextOrder });
     res.status(201).json(newProduct);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -640,6 +688,7 @@ app.post("/products", verifyToken, async (req, res) => {
 });
 
 app.put("/products/:id", verifyToken, async (req, res) => {
+  console.log("🔍 :id route hit with id:", req.params.id);
   try {
     const existing = await Product.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: "Product not found" });
