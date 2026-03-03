@@ -98,7 +98,7 @@ const Navbar = () => {
                         activeCategories.map((cat) => (
                           <li key={cat._id}>
                             <Link
-                              to={`/category/${nameToSlug(cat.name)}`}
+                              to={`/${nameToSlug(cat.name)}`}
                               className="flex items-center gap-2.5 pl-9 pr-5 py-2.5 text-[15px] hover:bg-green-100 hover:text-green-700 transition-colors duration-150 font-medium"
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0"></span>
@@ -133,7 +133,7 @@ const Navbar = () => {
                         passiveCategories.map((cat) => (
                           <li key={cat._id}>
                             <Link
-                              to={`/category/${nameToSlug(cat.name)}`}
+                              to={`/${nameToSlug(cat.name)}`}
                               className="flex items-center gap-2.5 pl-9 pr-5 py-2.5 text-[15px] hover:bg-green-100 hover:text-green-700 transition-colors duration-150 font-medium"
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0"></span>
@@ -311,7 +311,7 @@ const Navbar = () => {
                   {/* ✅ DB order preserved */}
                   {activeCategories.map((cat) => (
                     <li key={cat._id}>
-                      <Link to={`/category/${nameToSlug(cat.name)}`} onClick={handleMobileLinkClick}
+                      <Link to={`/${nameToSlug(cat.name)}`} onClick={handleMobileLinkClick}
                         className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[14px] text-gray-500 hover:bg-green-50 hover:text-green-700 transition-colors duration-150 font-medium">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0"></span>
                         {cat.name}
@@ -337,7 +337,7 @@ const Navbar = () => {
                   {/* ✅ DB order preserved */}
                   {passiveCategories.map((cat) => (
                     <li key={cat._id}>
-                      <Link to={`/category/${nameToSlug(cat.name)}`} onClick={handleMobileLinkClick}
+                      <Link to={`/${nameToSlug(cat.name)}`} onClick={handleMobileLinkClick}
                         className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[14px] text-gray-500 hover:bg-green-50 hover:text-green-700 transition-colors duration-150 font-medium">
                         <span className="w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0"></span>
                         {cat.name}
