@@ -1249,8 +1249,19 @@ app.post("/inquiries/:id/reply", verifyToken, async (req, res) => {
 });
 
 // Delete inquiry
+// Delete inquiry
 app.delete("/inquiries/:id", verifyToken, async (req, res) => {
   try {
+    const inquiry = await Inquiry.findById(req.params.id);
+    if (!inquiry) return res.status(404).json({ message: "Inquiry not found" });
+
+    // Delete attachment from Firebase if exists
+    const attachmentUrl = inquiry.formData?.attachmentUrl;
+    if (attachmentUrl) {
+      await deleteFromFirebase(attachmentUrl);
+      console.log("🗑️ Inquiry attachment deleted from Firebase");
+    }
+
     await Inquiry.findByIdAndDelete(req.params.id);
     res.json({ message: "Inquiry deleted successfully" });
   } catch (err) {
