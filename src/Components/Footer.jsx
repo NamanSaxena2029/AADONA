@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import linkedin from '../assets/linkedin.png';
 import facebook from '../assets/facebook.png';
 import insta from '../assets/insta.png';
+import whitelogo from '../../public/WhiteLogo.png'
 
 const PRIMARY_GREEN = 'bg-green-800';
 const ACCENT_GREEN = 'text-green-400';
@@ -30,9 +31,14 @@ const Footer = () => {
 
           {/* Column 1 */}
           <div className="space-y-6">
-            <h4 className="text-4xl font-bold tracking-wide">
-              AADONA
-            </h4>
+           {/* Replaced text with the imported whitelogo */}
+          <Link to="/">
+            <img 
+            src={whitelogo} 
+            alt="AADONA Logo" 
+            className="h-12 w-auto object-contain" 
+          />
+          </Link>
 
             <div className="space-y-6 text-sm text-gray-200 leading-relaxed">
 
