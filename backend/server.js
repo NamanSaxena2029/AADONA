@@ -96,7 +96,7 @@ const uploadToFirebase = async (file, folder) => {
     metadata: { contentType: file.mimetype },
   });
   await fileUpload.makePublic();
-  return `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/${fileName}`;
+  return `https://firebasestorage.googleapis.com/v0/b/${process.env.FIREBASE_STORAGE_BUCKET}/o/${encodeURIComponent(fileName)}?alt=media`;
 };
 
 /* =============================
