@@ -81,7 +81,7 @@ const WhistleBlower = () => {
           {/* ✅ BUTTON */}
           <div className="text-center">
             <Link to="/whistleButton">
-              <button className="inline-flex items-center px-8 py-4 text-lg font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-all">
+              <button className="inline-flex items-center px-8 py-4 text-lg font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition-all">
                 Whistle Blower Form
               </button>
             </Link>
