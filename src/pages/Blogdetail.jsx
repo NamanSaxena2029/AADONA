@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
+import bg from '../assets/bg.jpg'
 
 const UserIcon = (props) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
@@ -310,6 +311,10 @@ const BlogDetail = () => {
       {/* ══════════════════════════════════════
           MAIN CONTENT AREA
       ══════════════════════════════════════ */}
+      <div
+              className="min-h-screen bg-cover bg-center"
+              style={{ backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }}
+            >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         
         {/* ① Excerpt card */}
@@ -475,11 +480,11 @@ const BlogDetail = () => {
       {/* ══════════════════════════════════════
           RECENT POSTS - FULL WIDTH AT BOTTOM
       ══════════════════════════════════════ */}
-      <div className="w-full bg-gradient-to-b from-gray-50 to-white border-t border-gray-200">
+      <div className="w-full border-t border-gray-300">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
           
-          <h3 className="text-3xl font-bold text-gray-800 mb-12">
-            More Articles
+          <h3 className="text-3xl font-bold text-green-800 underline decoration-2 mb-12">
+            More Articles-
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-6">
@@ -523,7 +528,7 @@ const BlogDetail = () => {
 
         </div>
       </div>
-
+</div>
       <Footer />
     </div>
   );

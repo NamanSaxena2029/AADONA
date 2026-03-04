@@ -286,7 +286,7 @@ const TechSquad = () => {
                         <label className="block text-slate-700 font-medium mb-1">Purchase Date</label>
                         <div className="relative">
                           <input type="date" name="purchaseDate" value={form.purchaseDate} onChange={handleChange} className={inputBase} />
-                          <Calendar className="w-4 h-4 absolute right-3 top-3.5 text-green-600 pointer-events-none" />
+                          {/* <Calendar className="w-4 h-4 absolute right-3 top-3.5 text-green-600 pointer-events-none" /> */}
                         </div>
                       </div>
                       <div>

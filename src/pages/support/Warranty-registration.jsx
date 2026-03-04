@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '../../Components/Navbar';
 import Footer from '../../Components/Footer';
-import { X, UploadCloud } from 'lucide-react';
+import { X, UploadCloud, Plus } from 'lucide-react';
 import bg from '../../assets/bg.jpg';
 
 const COUNTRIES = [
@@ -32,7 +32,9 @@ const COUNTRIES = [
 
 const emptyForm = {
   firstName: '', lastName: '', email: '', phone: '', companyCity: '',
-  postalZipCode: '', regionStateProvince: '', country: '', serialNumber: '',
+  postalZipCode: '', regionStateProvince: '', country: '', 
+  models: [], 
+  serialNumbers: [], 
   invoiceNumber: '', purchasedFrom: '', purchaseDate: ''
 };
 
@@ -44,12 +46,54 @@ const ProductRegistration = () => {
   const [fileError, setFileError] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [currentModel, setCurrentModel] = useState("");
+  const [currentSerial, setCurrentSerial] = useState("");
+  
   const fileInputRef = useRef(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+
+    // ✅ Phone & Zip Code: Numbers Only
+    if (name === "phone" || name === "postalZipCode") {
+      const onlyNums = value.replace(/[^0-9]/g, "");
+      if (name === "phone" && onlyNums.length > 10) return; 
+      setFormData(prev => ({ ...prev, [name]: onlyNums }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const handleAddItem = (e, field, value, setter) => {
+    if (e.key === 'Enter' || e.type === 'click') {
+      e.preventDefault();
+      const trimmedValue = value.trim();
+      
+      if (!trimmedValue) return;
+      
+      // ✅ Check for duplicate entry
+      if (formData[field].includes(trimmedValue)) {
+        alert(`${trimmedValue} is already added.`);
+        return;
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        [field]: [...prev[field], trimmedValue]
+      }));
+      setter(""); 
+      if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const removeItem = (field, index) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== index)
+    }));
   };
 
   const handleFileChange = (e) => {
@@ -57,7 +101,6 @@ const ProductRegistration = () => {
     setFileError("");
 
     if (file) {
-      // Validate file size (15MB = 15 * 1024 * 1024 bytes)
       const maxSize = 15 * 1024 * 1024;
       if (file.size > maxSize) {
         setFileError("File size must be less than 15MB");
@@ -67,7 +110,6 @@ const ProductRegistration = () => {
         return;
       }
 
-      // Validate file type
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
       if (!allowedTypes.includes(file.type)) {
         setFileError("Only PDF, JPG, and PNG files are allowed");
@@ -97,10 +139,18 @@ const ProductRegistration = () => {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-    if (!formData.serialNumber.trim()) newErrors.serialNumber = 'Serial number is required';
+    
+    // Validate Phone exactly 10 digits
+    if (formData.phone && formData.phone.length !== 10) {
+        newErrors.phone = 'Phone number must be exactly 10 digits';
+    }
+
+    if (formData.models.length === 0) newErrors.models = 'At least one model is required';
+    if (formData.serialNumbers.length === 0) newErrors.serialNumbers = 'At least one serial number is required';
     if (!formData.invoiceNumber.trim()) newErrors.invoiceNumber = 'Invoice number is required';
     if (!formData.purchasedFrom.trim()) newErrors.purchasedFrom = 'Purchased from is required';
     if (!formData.purchaseDate) newErrors.purchaseDate = 'Purchase date is required';
+    
     return newErrors;
   };
 
@@ -115,27 +165,29 @@ const ProductRegistration = () => {
     setIsSubmitting(true);
 
     try {
-      // Create FormData object to handle file upload
       const formDataToSend = new FormData();
       
-      // Append all form fields
       Object.keys(formData).forEach(key => {
-        formDataToSend.append(key, formData[key]);
+        if (Array.isArray(formData[key])) {
+          formDataToSend.append(key, JSON.stringify(formData[key]));
+        } else {
+          formDataToSend.append(key, formData[key]);
+        }
       });
 
-      // Append file if selected
       if (selectedFile) {
         formDataToSend.append('invoiceFile', selectedFile);
       }
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/submit-product-registration`, {
         method: "POST",
-        body: formDataToSend, // Send FormData directly (don't set Content-Type header)
+        body: formDataToSend,
       });
 
       const data = await res.json();
 
       if (res.ok) {
+        alert("Registration Successful!");
         setIsSubmitted(true);
         setFormData(emptyForm);
         setSelectedFile(null);
@@ -179,7 +231,6 @@ const ProductRegistration = () => {
           <main className="grow pt-4 pb-16 px-4 md:px-8 lg:px-16">
             <div className="max-w-4xl mx-auto">
 
-              {/* ✅ Success Message */}
               {isSubmitted && (
                 <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg shadow-sm">
                   <div className="flex items-start">
@@ -233,11 +284,12 @@ const ProductRegistration = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
-                      <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="Enter your phone number" className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-500 focus:outline-none transition duration-200" />
+                      <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="Enter 10-digit number" className={`w-full px-4 py-3 rounded-lg border ${errors.phone ? 'bg-red-50 border-red-500' : 'border-gray-300 focus:border-green-500 focus:ring-green-500'} focus:ring-2 focus:outline-none transition duration-200`} />
+                      {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Postal / Zip code</label>
-                      <input type="text" name="postalZipCode" value={formData.postalZipCode} onChange={handleChange} placeholder="Postal / Zip code" className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-500 focus:outline-none transition duration-200" />
+                      <input type="text" name="postalZipCode" value={formData.postalZipCode} onChange={handleChange} placeholder="Enter code" className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-500 focus:outline-none transition duration-200" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
@@ -250,24 +302,78 @@ const ProductRegistration = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Serial Number <span className="text-red-500">*</span></label>
-                      <input type="text" name="serialNumber" value={formData.serialNumber} onChange={handleChange} placeholder="Enter Serial Number"
-                        className={`w-full px-4 py-3 rounded-lg border ${errors.serialNumber ? 'bg-red-50 border-red-500' : 'border-gray-300 focus:border-green-500 focus:ring-green-500'} focus:ring-2 focus:outline-none transition duration-200`} />
-                      {errors.serialNumber && <p className="mt-1 text-sm text-red-600">{errors.serialNumber}</p>}
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Model(s) <span className="text-red-500">*</span></label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          value={currentModel} 
+                          onChange={(e) => setCurrentModel(e.target.value)}
+                          onKeyDown={(e) => handleAddItem(e, 'models', currentModel, setCurrentModel)}
+                          placeholder="Type model and press Enter" 
+                          className={`flex-1 px-4 py-3 rounded-lg border ${errors.models ? 'bg-red-50 border-red-500' : 'border-gray-300 focus:border-green-500 focus:ring-green-500'} focus:ring-2 focus:outline-none transition duration-200`} 
+                        />
+                        <button 
+                          type="button" 
+                          onClick={(e) => handleAddItem(e, 'models', currentModel, setCurrentModel)}
+                          className="bg-green-600 text-white p-3 rounded-lg hover:bg-green-700"
+                        >
+                          <Plus className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {formData.models.map((m, i) => (
+                          <span key={i} className="flex items-center gap-1 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                            {m} <X onClick={() => removeItem('models', i)} className="w-3 h-3 cursor-pointer hover:text-red-600" />
+                          </span>
+                        ))}
+                      </div>
+                      {errors.models && <p className="mt-1 text-sm text-red-600">{errors.models}</p>}
                     </div>
+
+                    <div>
+                      {/* ✅ Alphanumeric Serial Number Field */}
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Serial Number(s) <span className="text-red-500">*</span></label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          value={currentSerial} 
+                          onChange={(e) => setCurrentSerial(e.target.value)}
+                          onKeyDown={(e) => handleAddItem(e, 'serialNumbers', currentSerial, setCurrentSerial)}
+                          placeholder="Type serial and press Enter" 
+                          className={`flex-1 px-4 py-3 rounded-lg border ${errors.serialNumbers ? 'bg-red-50 border-red-500' : 'border-gray-300 focus:border-green-500 focus:ring-green-500'} focus:ring-2 focus:outline-none transition duration-200`} 
+                        />
+                        <button 
+                          type="button" 
+                          onClick={(e) => handleAddItem(e, 'serialNumbers', currentSerial, setCurrentSerial)}
+                          className="bg-green-600 text-white p-3 rounded-lg hover:bg-green-700"
+                        >
+                          <Plus className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {formData.serialNumbers.map((s, i) => (
+                          <span key={i} className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                            {s} <X onClick={() => removeItem('serialNumbers', i)} className="w-3 h-3 cursor-pointer hover:text-red-600" />
+                          </span>
+                        ))}
+                      </div>
+                      {errors.serialNumbers && <p className="mt-1 text-sm text-red-600">{errors.serialNumbers}</p>}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Number <span className="text-red-500">*</span></label>
                       <input type="text" name="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} placeholder="Enter Number"
                         className={`w-full px-4 py-3 rounded-lg border ${errors.invoiceNumber ? 'bg-red-50 border-red-500' : 'border-gray-300 focus:border-green-500 focus:ring-green-500'} focus:ring-2 focus:outline-none transition duration-200`} />
                       {errors.invoiceNumber && <p className="mt-1 text-sm text-red-600">{errors.invoiceNumber}</p>}
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Purchased From <span className="text-red-500">*</span></label>
-                    <input type="text" name="purchasedFrom" value={formData.purchasedFrom} onChange={handleChange} placeholder="Purchased From"
-                      className={`w-full px-4 py-3 rounded-lg border ${errors.purchasedFrom ? 'bg-red-50 border-red-500' : 'border-gray-300 focus:border-green-500 focus:ring-green-500'} focus:ring-2 focus:outline-none transition duration-200`} />
-                    {errors.purchasedFrom && <p className="mt-1 text-sm text-red-600">{errors.purchasedFrom}</p>}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Purchased From <span className="text-red-500">*</span></label>
+                      <input type="text" name="purchasedFrom" value={formData.purchasedFrom} onChange={handleChange} placeholder="Purchased From"
+                        className={`w-full px-4 py-3 rounded-lg border ${errors.purchasedFrom ? 'bg-red-50 border-red-500' : 'border-gray-300 focus:border-green-500 focus:ring-green-500'} focus:ring-2 focus:outline-none transition duration-200`} />
+                      {errors.purchasedFrom && <p className="mt-1 text-sm text-red-600">{errors.purchasedFrom}</p>}
+                    </div>
                   </div>
 
                   <div>
