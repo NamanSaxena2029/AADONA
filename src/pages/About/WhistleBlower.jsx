@@ -20,16 +20,7 @@ const WhistleBlower = () => {
     <>
       <Navbar />
 
-      {/* Background with CSR style */}
-      <div
-        className="min-h-screen bg-cover bg-center"
-        style={{
-          backgroundImage: `url(${bg})`,
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center',
-        }}
-      >
+      
         {/* Hero Section */}
         <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16">
           <div className="max-w-7xl mx-auto px-4 text-center">
@@ -41,6 +32,11 @@ const WhistleBlower = () => {
             </p>
           </div>
         </div>
+
+          <div
+                      className="bg-cover bg-fixed py-16"
+                      style={{ backgroundImage: `url(${bg})` }}
+                    >
 
         {/* CONTENT */}
         <div className="max-w-5xl mx-auto px-6 sm:px-8 mt-16 pb-20 space-y-10">

@@ -130,15 +130,6 @@ const ApplyNow = () => {
     <>
       <Navbar />
 
-      <div
-        className="min-h-screen bg-cover bg-center"
-        style={{
-          backgroundImage: `url(${bg})`,
-          backgroundRepeat: "no-repeat",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
         <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16 text-center">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h1 className="text-5xl font-bold text-white sm:text-6xl">
@@ -150,6 +141,11 @@ const ApplyNow = () => {
           </div>
         </div>
 
+          <div
+                      className="bg-cover bg-fixed py-16"
+                      style={{ backgroundImage: `url(${bg})` }}
+                    >
+          
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 -mt-8">
           
           <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">

@@ -281,10 +281,10 @@ export default function App() {
         </div>
       </div>
 
-      <div
-        className="font-sans bg-cover bg-center"
-        style={{ backgroundImage: `url(${bg})` }}
-      >
+        <div
+                    className="bg-cover bg-fixed py-16"
+                    style={{ backgroundImage: `url(${bg})` }}
+                  >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 pt-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
 

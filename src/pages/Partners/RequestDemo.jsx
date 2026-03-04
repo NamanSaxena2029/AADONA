@@ -86,10 +86,7 @@ export default function RequestDemo() {
     <>
       <Navbar />
 
-      <div
-        className="min-h-screen bg-cover bg-center"
-        style={{ backgroundImage: `url(${bg})`, backgroundSize: "cover", backgroundRepeat: "no-repeat" }}
-      >
+      
         <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16">
           <div className="max-w-7xl mx-auto px-4 text-center">
             <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">Request a Demo</h1>
@@ -98,6 +95,11 @@ export default function RequestDemo() {
             </p>
           </div>
         </div>
+
+          <div
+                      className="bg-cover bg-fixed py-16"
+                      style={{ backgroundImage: `url(${bg})` }}
+                    >
 
         <main className="flex justify-center py-16 px-5">
           <div className="relative bg-white w-full max-w-5xl rounded-xl p-10 md:p-14 lg:p-16 shadow-2xl">

@@ -86,14 +86,14 @@ export default function CustomerPage() {
 
 
       {/* Background & Content */}
-      <div
-        className="min-h-screen bg-cover bg-center bg-fixed"
-        style={{ backgroundImage: `url(${bg})` }}
-      >
-        <div className="min-h-screen bg-white/30 backdrop-blur-sm">
+        <div
+                    className="bg-cover bg-fixed py-16"
+                    style={{ backgroundImage: `url(${bg})` }}
+                  >
+        <div className="min-h-screen bg-white/30">
         
          {/* ✅ Search Bar Input */}
-          <div className="mt-10 max-w-md mx-auto">
+          <div className=" pt-5 max-w-md mx-auto">
             <div className="relative">
               <input
                 type="text"

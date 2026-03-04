@@ -121,16 +121,7 @@ const WhistleBlowerButton = () => {
     <>
       <Navbar />
 
-      {/* Full-page background */}
-      <div
-        className="min-h-screen bg-gray-100"
-        style={{
-          backgroundImage: `url(${bg})`,
-          backgroundRepeat: "no-repeat",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
+      
         {/* Hero Section */}
         <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -142,6 +133,11 @@ const WhistleBlowerButton = () => {
             </p>
           </div>
         </div>
+
+          <div
+                      className="bg-cover bg-fixed py-16"
+                      style={{ backgroundImage: `url(${bg})` }}
+                    >
 
         {/* Form Container */}
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 -mt-10">

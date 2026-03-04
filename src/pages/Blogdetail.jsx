@@ -312,8 +312,8 @@ const BlogDetail = () => {
           MAIN CONTENT AREA
       ══════════════════════════════════════ */}
       <div
-              className="min-h-screen bg-cover bg-center"
-              style={{ backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }}
+              className="bg-cover bg-fixed py-16"
+              style={{ backgroundImage: `url(${bg})` }}
             >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         

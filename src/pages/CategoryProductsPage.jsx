@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import CheckCircle from "../assets/checkcircle.png";
+import bg from '../assets/bg.jpg'
 
 const API = `${import.meta.env.VITE_API_URL}/products`;
 const RELATED_API = `${import.meta.env.VITE_API_URL}/related-products`;
@@ -128,7 +129,7 @@ const RelatedProducts = ({ relatedProducts }) => {
   const displayProducts = shouldScroll ? [...relatedProducts, ...relatedProducts] : relatedProducts;
 
   return (
-    <div className="mt-24 bg-gray-100 py-16  overflow-hidden">
+    <div className="mt-24  py-16  overflow-hidden">
       <div className="max-w-7xl mx-auto px-4">
         <h2 className="text-3xl font-bold text-center text-green-700 mb-10">Related Products</h2>
         
@@ -322,6 +323,15 @@ export default function CategoryProductsPage() {
         </div>
       </div>
 
+       {/* <div
+        className="min-h-screen bg-cover bg-center"
+        style={{
+          backgroundImage: `url(${bg})`,
+          backgroundSize: "cover",
+          backgroundRepeat: "no-repeat",
+        }}
+      >  */}
+
       <div className="max-w-7xl mx-auto px-4 mt-10 space-y-8 flex flex-col items-center">
         {loading ? (
           <SubCategorySkeleton />
@@ -388,6 +398,7 @@ export default function CategoryProductsPage() {
       </div>
 
       <RelatedProducts relatedProducts={relatedProducts} />
+      {/* </div> */}
       <Footer />
     </div>
   );

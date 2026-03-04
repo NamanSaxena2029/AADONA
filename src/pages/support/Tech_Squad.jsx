@@ -152,10 +152,6 @@ const TechSquad = () => {
     <div className="min-h-screen">
       <Navbar />
 
-      <div
-        className="min-h-screen bg-cover bg-center"
-        style={{ backgroundImage: `url(${bg})`, backgroundSize: "cover", backgroundRepeat: "no-repeat", backgroundPosition: "center" }}
-      >
         <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16 text-center">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-tight">Tech Squad</h1>
@@ -164,6 +160,11 @@ const TechSquad = () => {
             </p>
           </div>
         </div>
+
+          <div
+                      className="bg-cover bg-fixed py-16"
+                      style={{ backgroundImage: `url(${bg})` }}
+                    >
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 -mt-8">
           <div className="grid md:grid-cols-3 gap-6 mb-10">

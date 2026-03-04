@@ -13,16 +13,6 @@ const SupportTools = () => {
     <div className="min-h-screen">
       <Navbar />
 
-      {/* Full background (CSR style) */}
-      <div
-        className="min-h-screen bg-cover bg-center"
-        style={{
-          backgroundImage: `url(${bg})`,
-          backgroundSize: "cover",
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "center",
-        }}
-      >
         {/* HERO SECTION - matches CSR style */}
         <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -34,6 +24,11 @@ const SupportTools = () => {
             </p>
           </div>
         </div>
+
+          <div
+                      className="bg-cover bg-fixed py-16"
+                      style={{ backgroundImage: `url(${bg})` }}
+                    >
 
         {/* Page content directly on background (NO big white wrapper) */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 -mt-8">

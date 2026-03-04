@@ -68,7 +68,6 @@ export default function MediaCenter() {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-cover bg-center" style={{ backgroundImage: `url(${bg})` }}>
 
         <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16">
           <div className="max-w-7xl mx-auto px-4 text-center">
@@ -78,6 +77,11 @@ export default function MediaCenter() {
             </p>
           </div>
         </div>
+   
+          <div
+                      className="bg-cover bg-fixed py-16"
+                      style={{ backgroundImage: `url(${bg})` }}
+                    >
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 -mt-10">
           <div className="backdrop-blur-sm bg-white/40 py-10 rounded-2xl shadow-lg space-y-24">
