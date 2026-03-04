@@ -2249,7 +2249,7 @@ export default function AdminPanel() {
 </div>
 
               {/* Products Table */}
-              <div className="bg-white rounded-3xl shadow-lg border border-green-100 mb-8 overflow-hidden">
+              <div className="bg-white rounded-3xl shadow-lg border mt-15 border-green-100 mb-8 overflow-hidden">
                 <div className="p-6 border-b border-green-100">
                   <h3 className="text-lg font-bold text-green-800 mb-4">Filter Listed Products</h3>
                   <div className="grid md:grid-cols-4 gap-4">

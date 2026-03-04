@@ -89,16 +89,25 @@ const RelatedProducts = ({ relatedProducts }) => {
   const startX = useRef(0);
   const startPos = useRef(0);
 
+  // Check if scrolling is needed
+  // Desktop par 4 se zyada, Mobile par 2 se zyada (ya aap apni marzi se limit set kar sakte hain)
+  const shouldScroll = relatedProducts && relatedProducts.length > 4;
+
   useEffect(() => {
-    if (!relatedProducts || relatedProducts.length === 0) return;
+    // Agar products nahi hain ya count kam hai, toh animation mat chalao
+    if (!relatedProducts || !shouldScroll) return;
+
     const timeout = setTimeout(() => {
       const track = trackRef.current;
       if (!track) return;
+      
       const speed = 0.6;
       const animate = () => {
         if (!isPaused.current && !isDragging.current) {
           positionRef.current += speed;
+          // track.scrollWidth / 2 isliye kyunki humne items double kiye hain
           const totalWidth = track.scrollWidth / 2;
+          
           if (positionRef.current >= totalWidth) positionRef.current = 0;
           track.style.transform = `translateX(-${positionRef.current}px)`;
         }
@@ -106,20 +115,23 @@ const RelatedProducts = ({ relatedProducts }) => {
       };
       animationRef.current = requestAnimationFrame(animate);
     }, 300);
+
     return () => {
       clearTimeout(timeout);
       cancelAnimationFrame(animationRef.current);
     };
-  }, [relatedProducts]);
+  }, [relatedProducts, shouldScroll]); // Added shouldScroll to dependency
 
   if (!relatedProducts || relatedProducts.length === 0) return null;
 
-  const doubled = [...relatedProducts, ...relatedProducts];
+  // Sirf tabhi double karein jab scroll karna ho
+  const displayProducts = shouldScroll ? [...relatedProducts, ...relatedProducts] : relatedProducts;
 
   return (
-    <div className="mt-24 bg-gray-100 py-16 overflow-hidden">
-      <div className="max-w-7xl mx-auto">
+    <div className="mt-24 bg-gray-100 py-16  overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4">
         <h2 className="text-3xl font-bold text-center text-green-700 mb-10">Related Products</h2>
+        
         <div
           style={{ overflow: "hidden" }}
           onPointerEnter={() => (isPaused.current = true)}
@@ -128,26 +140,34 @@ const RelatedProducts = ({ relatedProducts }) => {
           <div
             ref={trackRef}
             onPointerDown={(e) => {
+              if (!shouldScroll) return;
               isDragging.current = true;
               startX.current = e.clientX;
               startPos.current = positionRef.current;
             }}
             onPointerMove={(e) => {
-              if (!isDragging.current) return;
+              if (!isDragging.current || !shouldScroll) return;
               positionRef.current = startPos.current - (e.clientX - startX.current);
               trackRef.current.style.transform = `translateX(-${positionRef.current}px)`;
             }}
             onPointerUp={() => { isDragging.current = false; }}
             onPointerCancel={() => { isDragging.current = false; }}
             style={{
-              display: "flex", gap: "3rem", width: "max-content",
-              cursor: "grab", userSelect: "none", touchAction: "none", willChange: "transform",
+              display: "flex",
+              gap: "3rem",
+              width: "max-content",
+              // Jab items kam hon, toh screen ke center mein dikhane ke liye logic
+              margin: shouldScroll ? "0" : "0 auto", 
+              justifyContent: shouldScroll ? "flex-start" : "center",
+              cursor: shouldScroll ? "grab" : "default",
+              userSelect: "none",
+              touchAction: "none",
+              willChange: "transform",
             }}
           >
-            {doubled.map((product, i) => (
+            {displayProducts.map((product, i) => (
               <div
                 key={`${product._id}-${i}`}
-                // ✅ UPDATED URL logic in related products
                 onClick={() => window.open(`/${nameToSlug(product.category)}/${product.slug}`, "_blank", "noopener,noreferrer")}
                 style={{ minWidth: "200px", flexShrink: 0, cursor: "pointer" }}
               >
