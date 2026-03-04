@@ -30,7 +30,7 @@ const SupportTools = () => {
               Support Tools
             </h1>
             <p className="mt-6 text-xl text-green-100 max-w-3xl mx-auto">
-              Access our comprehensive support tools and resources
+              Access comprehensive support tools and resources
             </p>
           </div>
         </div>
