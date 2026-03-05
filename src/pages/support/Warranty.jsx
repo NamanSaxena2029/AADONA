@@ -116,6 +116,10 @@ const handleDownload = (docName) => {
               </section>
             </Reveal>
 
+            <h2 className="text-3xl md:text-4xl font-extrabold text-green-700 mb-12 text-center  tracking-tight">
+            Download Policy Documents
+          </h2>  
+
             {/* Grid with Download Buttons added to each card */}
             <div className="grid md:grid-cols-2 gap-6 mb-8">
               <Reveal>
