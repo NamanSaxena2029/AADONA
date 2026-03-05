@@ -8,6 +8,8 @@ const crypto = require("crypto");
 const dns = require("dns").promises;
 const transporter = require("./mailer");
 require("dotenv").config();
+const { BetaAnalyticsDataClient } = require("@google-analytics/data");
+const analyticsClient = new BetaAnalyticsDataClient();
 
 const app = express();
 
@@ -1498,6 +1500,63 @@ app.get("/audit-logs", verifyToken, async (req, res) => {
     const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(500);
     res.json(logs);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* =============================
+   ANALYTICS ROUTE
+============================= */
+
+app.get("/analytics/summary", verifyToken, async (req, res) => {
+  try {
+    const propertyId = process.env.GA_PROPERTY_ID;
+
+    const [summaryReport] = await analyticsClient.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
+      metrics: [
+        { name: "totalUsers" },
+        { name: "screenPageViews" },
+        { name: "averageSessionDuration" },
+        { name: "sessions" },
+      ],
+    });
+
+    const [topPagesReport] = await analyticsClient.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
+      dimensions: [{ name: "pagePath" }],
+      metrics: [{ name: "screenPageViews" }],
+      orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+      limit: 5,
+    });
+
+    const [devicesReport] = await analyticsClient.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
+      dimensions: [{ name: "deviceCategory" }],
+      metrics: [{ name: "sessions" }],
+    });
+
+    const metrics = summaryReport.rows?.[0]?.metricValues || [];
+
+    res.json({
+      totalUsers: metrics[0]?.value || "0",
+      pageViews: metrics[1]?.value || "0",
+      avgSessionDuration: Math.round(parseFloat(metrics[2]?.value || "0")) + "s",
+      sessions: metrics[3]?.value || "0",
+      topPages: (topPagesReport.rows || []).map(r => ({
+        page: r.dimensionValues[0].value,
+        views: r.metricValues[0].value,
+      })),
+      devices: (devicesReport.rows || []).map(r => ({
+        device: r.dimensionValues[0].value,
+        sessions: r.metricValues[0].value,
+      })),
+    });
+  } catch (err) {
+    console.error("❌ GA Analytics Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
