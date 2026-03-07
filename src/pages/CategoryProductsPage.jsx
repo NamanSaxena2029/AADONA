@@ -317,7 +317,7 @@ export default function CategoryProductsPage() {
 
       <div className="bg-white py-12 shadow-md mt-20">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight mb-4 border-b-4 border-green-500 inline-block pb-1 uppercase">
+          <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight mb-4 border-b-4 border-green-500 inline-block pb-1">
             {actualCategoryName}
           </h1>
         </div>
