@@ -317,6 +317,7 @@ export default function Categories({
               if (groupCats.length === 0) return null;
               return (
                 <div key={typeGroup}>
+                  {/* uppercase sirf is header div pe hai — normal-case neeche spans pe lagaya hai */}
                   <div className={`px-6 py-3 text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${typeGroup === "active" ? "bg-green-50 text-green-700" : "bg-teal-50 text-teal-700"}`}>
                     {typeGroup === "active" ? "🟢 Active Categories" : "🔵 Passive Categories"}
                   </div>
@@ -347,7 +348,7 @@ export default function Categories({
                             {renamingCatId === cat._id ? (
                               <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
                                 <input autoFocus
-                                  className="flex-1 border border-green-400 rounded-lg px-3 py-1.5 text-sm font-bold outline-none focus:ring-2 focus:ring-green-300"
+                                  className="flex-1 border border-green-400 rounded-lg px-3 py-1.5 text-sm font-bold outline-none focus:ring-2 focus:ring-green-300 normal-case"
                                   value={renameCatInput}
                                   onChange={(e) => setRenameCatInput(e.target.value)}
                                   onKeyDown={(e) => {
@@ -362,8 +363,9 @@ export default function Categories({
                               </div>
                             ) : (
                               <>
-                                <span className="font-bold text-gray-800 text-base">{cat.name}</span>
-                                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                                {/* ✅ FIX: normal-case added */}
+                                <span className="font-bold text-gray-800 text-base normal-case">{cat.name}</span>
+                                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full normal-case">
                                   {cat.subCategories?.length || 0} sub
                                 </span>
                               </>
@@ -377,7 +379,7 @@ export default function Categories({
                               </button>
                             )}
                             <button onClick={() => { setAddingSubFor(cat._id); setExpandedCat(cat._id); }}
-                              className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 transition font-semibold">
+                              className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 transition font-semibold normal-case">
                               <Plus size={12} /> Add Sub
                             </button>
                             <button onClick={() => deleteCategory(cat._id, cat.name)}
@@ -394,26 +396,26 @@ export default function Categories({
                             {/* Add Sub Form */}
                             {addingSubFor === cat._id && (
                               <div className="bg-white border border-green-200 rounded-xl p-4 mb-4 shadow-sm">
-                                <p className="text-sm font-bold text-green-800 mb-3">Add New SubCategory</p>
+                                <p className="text-sm font-bold text-green-800 mb-3 normal-case">Add New SubCategory</p>
                                 <div className="flex flex-wrap gap-3">
                                   <input
-                                    className="flex-1 min-w-[160px] border border-green-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-300"
+                                    className="flex-1 min-w-[160px] border border-green-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-300 normal-case"
                                     placeholder="SubCategory name (e.g. Indoor)"
                                     value={newSubName}
                                     onChange={(e) => setNewSubName(e.target.value)}
                                   />
                                   <input
-                                    className="flex-[2] min-w-[200px] border border-green-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-300"
+                                    className="flex-[2] min-w-[200px] border border-green-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-300 normal-case"
                                     placeholder="Extra categories (comma separated) — optional"
                                     value={newSubExtra}
                                     onChange={(e) => setNewSubExtra(e.target.value)}
                                   />
                                   <button onClick={() => addSubCategory(cat._id)}
-                                    className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition">
+                                    className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition normal-case">
                                     Add
                                   </button>
                                   <button onClick={() => { setAddingSubFor(null); setNewSubName(""); setNewSubExtra(""); }}
-                                    className="bg-gray-100 text-gray-500 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition">
+                                    className="bg-gray-100 text-gray-500 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition normal-case">
                                     Cancel
                                   </button>
                                 </div>
@@ -447,7 +449,7 @@ export default function Categories({
                                           {renamingSubFor === `${cat._id}-${sub.name}` ? (
                                             <div className="flex items-center gap-2 flex-1">
                                               <input autoFocus
-                                                className="flex-1 border border-green-400 rounded-lg px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-green-300"
+                                                className="flex-1 border border-green-400 rounded-lg px-2 py-1 text-sm font-semibold outline-none focus:ring-2 focus:ring-green-300 normal-case"
                                                 value={renameSubInput}
                                                 onChange={(e) => setRenameSubInput(e.target.value)}
                                                 onKeyDown={(e) => {
@@ -462,7 +464,8 @@ export default function Categories({
                                             </div>
                                           ) : (
                                             <>
-                                              <span className="font-semibold text-gray-800">{sub.name}</span>
+                                              {/* ✅ FIX: normal-case added */}
+                                              <span className="font-semibold text-gray-800 normal-case">{sub.name}</span>
                                               <button onClick={() => { setRenamingSubFor(`${cat._id}-${sub.name}`); setRenameSubInput(sub.name); }}
                                                 className="p-1 text-blue-400 hover:text-blue-600 transition">
                                                 <Edit size={12} />
@@ -474,7 +477,7 @@ export default function Categories({
                                         {editingSubFor === `${cat._id}-${sub.name}` ? (
                                           <div className="flex gap-2 mt-2">
                                             <input
-                                              className="flex-1 border border-green-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-green-300"
+                                              className="flex-1 border border-green-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-green-300 normal-case"
                                               placeholder="Comma separated extras"
                                               value={editingExtraInput}
                                               onChange={(e) => setEditingExtraInput(e.target.value)}
@@ -493,7 +496,7 @@ export default function Categories({
                                                 renamingExtraFor === `${cat._id}-${sub.name}-${ex}` ? (
                                                   <span key={ex} className="flex items-center gap-1">
                                                     <input autoFocus
-                                                      className="border border-blue-400 rounded-lg px-2 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-300 w-28"
+                                                      className="border border-blue-400 rounded-lg px-2 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-300 w-28 normal-case"
                                                       value={renameExtraInput}
                                                       onChange={(e) => setRenameExtraInput(e.target.value)}
                                                       onKeyDown={(e) => {
@@ -508,7 +511,7 @@ export default function Categories({
                                                   </span>
                                                 ) : (
                                                   <span key={ex}
-                                                    className="text-xs px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-100 flex items-center gap-1">
+                                                    className="text-xs px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-100 flex items-center gap-1 normal-case">
                                                     <button onClick={() => moveExtra(cat, sub, exIdx, -1)} disabled={exIdx === 0}
                                                       className="disabled:opacity-20 hover:text-blue-900 transition leading-none">‹</button>
                                                     {ex}
@@ -525,7 +528,7 @@ export default function Categories({
                                             }
                                             <button
                                               onClick={() => { setEditingSubFor(`${cat._id}-${sub.name}`); setEditingExtraInput((sub.extraCategories || []).join(", ")); }}
-                                              className="text-xs text-green-600 hover:text-green-800 font-semibold ml-1">
+                                              className="text-xs text-green-600 hover:text-green-800 font-semibold ml-1 normal-case">
                                               ✏️ Edit
                                             </button>
                                           </div>
