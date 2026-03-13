@@ -153,12 +153,12 @@ export default function AdminPanel() {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-green-50 pt-28 px-4 md:px-10 pb-10">
+      <div className="min-h-screen bg-green-50 pt-12 px-4 md:px-10 pb-10">
         <div className="max-w-6xl mx-auto">
 
           {/* ── Top Header Bar ── */}
           <div className="flex justify-between items-center mb-10 flex-wrap gap-4">
-            <h1 className="text-3xl font-extrabold text-green-800 tracking-tight">
+            <h1 className="text-3xl font-extrabold text-green-800 sm:align-middle tracking-tight">
               Admin Dashboard
             </h1>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
@@ -179,7 +179,7 @@ export default function AdminPanel() {
       setShowAdminList((v) => !v);
       if (showAdminForm) setShowAdminForm(false);
     }}
-    className="flex items-center justify-center gap-2 bg-orange-600 text-white w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg hover:bg-orange-700 transition shadow-md text-sm sm:text-base font-semibold"
+    className="flex items-center justify-center gap-2 bg-orange-500 text-white w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg hover:bg-orange-600 transition shadow-md text-sm sm:text-base font-semibold"
   >
     👥 {showAdminList ? "Hide Admins" : "Manage Admins"}
   </button>

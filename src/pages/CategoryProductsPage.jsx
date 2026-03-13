@@ -314,66 +314,76 @@ export default function CategoryProductsPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-
-     <div
-  className="relative h-[100px] sm:h-[280px] md:h-[380px] flex items-center justify-center bg-no-repeat bg-center bg-contain sm:bg-cover"
+<div
+  className="relative min-h-[120px] sm:h-[280px] md:h-[380px] flex items-center justify-center bg-no-repeat bg-center bg-contain sm:bg-cover"
   style={{ backgroundImage: `url(${banner_animation})` }}
 >
   <div className="relative text-center max-w-7xl mx-auto px-4">
-    <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-white border-b-4 border-green-500 inline-block pb-1">
+    <h1 className="text-xl sm:text-4xl md:text-5xl font-extrabold text-white border-b-4 border-green-500 inline-block pb-1">
       {actualCategoryName}
     </h1>
   </div>
 </div>
 
-      <div className="max-w-7xl mx-auto px-4 mt-10 space-y-8 flex flex-col items-center">
-        {loading ? (
-          <SubCategorySkeleton />
-        ) : (
-          <div className="flex flex-wrap justify-center gap-3">
-            {orderedSubCategories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveSubCategory(cat)}
-                className={`px-8 py-2.5 rounded-lg font-semibold transition-all duration-300 ${
-                  activeSubCategory === cat
-                    ? "bg-green-600 text-white shadow-md"
-                    : "bg-white text-gray-600 border hover:bg-gray-100"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        )}
+     <div className="max-w-7xl mx-auto px-4 mt-10 space-y-8 flex flex-col items-center">
+  {loading ? (
+    <SubCategorySkeleton />
+  ) : (
+    <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-center gap-3 w-full max-w-xl">
+      {orderedSubCategories.map((cat, index) => {
+        const isOdd = orderedSubCategories.length % 2 !== 0;
+        const isLast = index === orderedSubCategories.length - 1;
 
-        {!loading && detailOptions.length > 0 && (
-          <div className="flex flex-col items-center space-y-8 w-full">
-            <div className="flex items-center gap-2 bg-gray-200/60 p-1.5 rounded-full border border-gray-300">
-              {detailOptions.map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => setActiveDetail(opt)}
-                  className={`px-10 py-2 rounded-full text-sm font-bold transition-all duration-300 ${
-                    activeDetail === opt
-                      ? "bg-white text-green-700 shadow-md"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
+        return (
+          <button
+            key={cat}
+            onClick={() => setActiveSubCategory(cat)}
+            className={`px-8 py-2.5 rounded-lg font-semibold transition-all duration-300 w-full sm:w-auto
+              ${isOdd && isLast ? "col-span-2 mx-auto" : ""}
+              ${
+                activeSubCategory === cat
+                  ? "bg-green-600 text-white shadow-md"
+                  : "bg-white text-gray-600 border hover:bg-gray-100"
+              }`}
+          >
+            {cat}
+          </button>
+        );
+      })}
+    </div>
+  )}
 
-            {activeDetail && detailContent[activeDetail] && (
-              <div className="max-w-4xl w-full p-8 bg-white border-l-8 border-green-500 shadow-xl rounded-r-xl text-left">
-                <h2 className="text-2xl font-bold text-gray-900 mb-3">{detailContent[activeDetail].title}</h2>
-                <p className="text-gray-600 italic leading-relaxed">{detailContent[activeDetail].para}</p>
-              </div>
-            )}
-          </div>
-        )}
+  {!loading && detailOptions.length > 0 && (
+    <div className="flex flex-col items-center space-y-8 w-full">
+      <div className="flex items-center gap-2 bg-gray-200/60 p-1.5 rounded-full border border-gray-300 flex-wrap justify-center">
+        {detailOptions.map((opt) => (
+          <button
+            key={opt}
+            onClick={() => setActiveDetail(opt)}
+            className={`px-10 py-2 rounded-full text-sm font-bold transition-all duration-300 ${
+              activeDetail === opt
+                ? "bg-white text-green-700 shadow-md"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {opt}
+          </button>
+        ))}
       </div>
+
+      {activeDetail && detailContent[activeDetail] && (
+        <div className="max-w-4xl w-full p-8 bg-white border-l-8 border-green-500 shadow-xl rounded-r-xl text-left">
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            {detailContent[activeDetail].title}
+          </h2>
+          <p className="text-gray-600 italic leading-relaxed">
+            {detailContent[activeDetail].para}
+          </p>
+        </div>
+      )}
+    </div>
+  )}
+</div>
 
       <div className="max-w-7xl mx-auto py-12 px-4 flex-grow w-full">
         {loading ? (
