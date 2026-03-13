@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import linkedin from '../assets/linkedin.png';
 import facebook from '../assets/facebook.png';
 import insta from '../assets/insta.png';
-import whitelogo from '../../public/WhiteLogo.png'
+import whitelogo from '../assets/WhiteLogo.png'
 
 const PRIMARY_GREEN = 'bg-green-800';
 const ACCENT_GREEN = 'text-green-400';
