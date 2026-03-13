@@ -325,7 +325,7 @@ export default function CategoryProductsPage() {
   </div>
 </div>
 
-     <div className="max-w-7xl mx-auto px-4 mt-5 space-y-8 flex flex-col items-center">
+     <div className="max-w-7xl mx-auto px-4 mt-4 space-y-4 flex flex-col items-center">
   {loading ? (
     <SubCategorySkeleton />
   ) : (
@@ -338,7 +338,7 @@ export default function CategoryProductsPage() {
         <button
   key={cat}
   onClick={() => setActiveSubCategory(cat)}
-  className={`px-1 py-1 sm:px-8 sm:py-2.5 text-sm sm:text-base rounded-lg font-semibold transition-all duration-300 w-full sm:w-auto
+  className={`px-2 py-1 sm:px-8 sm:py-2.5 text-sm sm:text-base rounded-lg font-semibold transition-all duration-300 w-full sm:w-auto
     ${isOdd && isLast ? "col-span-2 mx-auto" : ""}
     ${
       activeSubCategory === cat
