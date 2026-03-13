@@ -325,7 +325,7 @@ export default function CategoryProductsPage() {
   </div>
 </div>
 
-     <div className="max-w-7xl mx-auto px-4 mt-4 space-y-2 flex flex-col items-center">
+     <div className="max-w-7xl mx-auto px-4 mt-7 space-y-3 flex flex-col items-center">
   {loading ? (
     <SubCategorySkeleton />
   ) : (
