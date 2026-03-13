@@ -315,7 +315,7 @@ export default function CategoryProductsPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
 <div
-  className="relative min-h-[130px] sm:h-[280px] md:h-[380px] flex items-center justify-center bg-no-repeat bg-center bg-contain sm:bg-cover"
+  className="relative min-h-[145px] sm:h-[280px] md:h-[380px] flex items-center justify-center bg-no-repeat bg-center bg-contain sm:bg-cover"
   style={{ backgroundImage: `url(${banner_animation})` }}
 >
   <div className="relative text-center max-w-7xl mx-auto px-4">
