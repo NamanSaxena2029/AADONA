@@ -315,11 +315,11 @@ export default function CategoryProductsPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
 <div
-  className="relative min-h-[120px] sm:h-[280px] md:h-[380px] flex items-center justify-center bg-no-repeat bg-center bg-contain sm:bg-cover"
+  className="relative min-h-[130px] sm:h-[280px] md:h-[380px] flex items-center justify-center bg-no-repeat bg-center bg-contain sm:bg-cover"
   style={{ backgroundImage: `url(${banner_animation})` }}
 >
   <div className="relative text-center max-w-7xl mx-auto px-4">
-    <h1 className="text-xl sm:text-4xl md:text-5xl font-extrabold text-white border-b-4 border-green-500 inline-block pb-1">
+    <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-white border-b-4 border-green-500 inline-block pb-1">
       {actualCategoryName}
     </h1>
   </div>
@@ -338,7 +338,7 @@ export default function CategoryProductsPage() {
         <button
   key={cat}
   onClick={() => setActiveSubCategory(cat)}
-  className={`px-4 py-2 sm:px-8 sm:py-2.5 text-sm sm:text-base rounded-lg font-semibold transition-all duration-300 w-full sm:w-auto
+  className={`px-3 py-1 sm:px-8 sm:py-2.5 text-sm sm:text-base rounded-lg font-semibold transition-all duration-300 w-full sm:w-auto
     ${isOdd && isLast ? "col-span-2 mx-auto" : ""}
     ${
       activeSubCategory === cat
