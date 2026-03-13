@@ -338,7 +338,7 @@ export default function CategoryProductsPage() {
         <button
   key={cat}
   onClick={() => setActiveSubCategory(cat)}
-  className={`px-3 py-1 sm:px-8 sm:py-2.5 text-sm sm:text-base rounded-lg font-semibold transition-all duration-300 w-full sm:w-auto
+  className={`px-1 py-1 sm:px-8 sm:py-2.5 text-sm sm:text-base rounded-lg font-semibold transition-all duration-300 w-full sm:w-auto
     ${isOdd && isLast ? "col-span-2 mx-auto" : ""}
     ${
       activeSubCategory === cat
