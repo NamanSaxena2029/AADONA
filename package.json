@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google-analytics/data": "^5.2.1",
     "@vitejs/plugin-react": "^5.1.0",
     "firebase": "^12.9.0",
     "framer-motion": "^12.23.24",

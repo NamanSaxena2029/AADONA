@@ -161,33 +161,37 @@ export default function AdminPanel() {
             <h1 className="text-3xl font-extrabold text-green-800 tracking-tight">
               Admin Dashboard
             </h1>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  setShowAdminForm((v) => !v);
-                  if (showAdminList) setShowAdminList(false);
-                }}
-                className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-full hover:bg-green-700 transition shadow-md font-semibold"
-              >
-                <UserPlus size={18} />
-                {showAdminForm ? "Cancel" : "Create Admin"}
-              </button>
-              <button
-                onClick={() => {
-                  setShowAdminList((v) => !v);
-                  if (showAdminForm) setShowAdminForm(false);
-                }}
-                className="flex items-center gap-2 bg-orange-500 text-white px-5 py-2.5 rounded-full hover:bg-orange-600 transition shadow-md font-semibold"
-              >
-                👥 {showAdminList ? "Hide Admins" : "Manage Admins"}
-              </button>
-              <button
-                onClick={() => signOut(auth)}
-                className="flex items-center gap-2 bg-red-500 text-white px-6 py-2.5 rounded-full hover:bg-red-600 transition shadow-md font-semibold"
-              >
-                <LogOut size={18} /> Logout
-              </button>
-            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+
+  <button
+    onClick={() => {
+      setShowAdminForm((v) => !v);
+      if (showAdminList) setShowAdminList(false);
+    }}
+    className="flex items-center justify-center gap-2 bg-green-600 text-white w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg hover:bg-green-700 transition shadow-md text-sm sm:text-base font-semibold"
+  >
+    <UserPlus size={18} />
+    {showAdminForm ? "Cancel" : "Create Admin"}
+  </button>
+
+  <button
+    onClick={() => {
+      setShowAdminList((v) => !v);
+      if (showAdminForm) setShowAdminForm(false);
+    }}
+    className="flex items-center justify-center gap-2 bg-orange-600 text-white w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg hover:bg-orange-700 transition shadow-md text-sm sm:text-base font-semibold"
+  >
+    👥 {showAdminList ? "Hide Admins" : "Manage Admins"}
+  </button>
+
+  <button
+    onClick={() => signOut(auth)}
+    className="flex items-center justify-center gap-2 bg-red-500 text-white w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg hover:bg-red-600 transition shadow-md text-sm sm:text-base font-semibold"
+  >
+    <LogOut size={18} /> Logout
+  </button>
+
+</div>
           </div>
 
           {/* ── Manage Admin Panel (shown above tabs when toggled) ── */}

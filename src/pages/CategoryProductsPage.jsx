@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import CheckCircle from "../assets/checkcircle.png";
-import bg from '../assets/bg.jpg'
+import banner_animation from '../assets/banner_animation.gif'
 
 const API = `${import.meta.env.VITE_API_URL}/products`;
 const RELATED_API = `${import.meta.env.VITE_API_URL}/related-products`;
@@ -315,22 +315,16 @@ export default function CategoryProductsPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
 
-      <div className="bg-white py-12 shadow-md mt-20">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight mb-4 border-b-4 border-green-500 inline-block pb-1">
-            {actualCategoryName}
-          </h1>
-        </div>
-      </div>
-
-       {/* <div
-        className="min-h-screen bg-cover bg-center"
-        style={{
-          backgroundImage: `url(${bg})`,
-          backgroundSize: "cover",
-          backgroundRepeat: "no-repeat",
-        }}
-      >  */}
+     <div
+  className="relative h-[100px] sm:h-[280px] md:h-[380px] flex items-center justify-center bg-no-repeat bg-center bg-contain sm:bg-cover"
+  style={{ backgroundImage: `url(${banner_animation})` }}
+>
+  <div className="relative text-center max-w-7xl mx-auto px-4">
+    <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-white border-b-4 border-green-500 inline-block pb-1">
+      {actualCategoryName}
+    </h1>
+  </div>
+</div>
 
       <div className="max-w-7xl mx-auto px-4 mt-10 space-y-8 flex flex-col items-center">
         {loading ? (

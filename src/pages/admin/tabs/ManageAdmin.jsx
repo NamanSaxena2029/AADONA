@@ -460,44 +460,49 @@ export default function ManageAdmin({
             <div className="py-8 text-center text-gray-400 italic">No admins found.</div>
           ) : (
             <div className="space-y-3">
-              {adminList.map((admin) => (
-                <div
-                  key={admin.uid}
-                  className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 hover:bg-orange-50/40 transition"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm flex-shrink-0">
-                      {admin.email?.[0]?.toUpperCase() || "A"}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-800 text-sm">{admin.email}</p>
-                      <p className="text-xs text-gray-400">
-                        UID: {admin.uid.slice(0, 12)}...
-                        {admin.lastSignIn && (
-                          <> · Last login: {new Date(admin.lastSignIn).toLocaleDateString()}</>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => removeAdmin(admin.uid, admin.email)}
-                    disabled={removeAdminLoading === admin.uid}
-                    className="flex items-center gap-1.5 text-xs bg-red-50 text-red-500 border border-red-100 px-4 py-2 rounded-xl hover:bg-red-500 hover:text-white hover:border-red-500 transition font-semibold disabled:opacity-50"
-                  >
-                    {removeAdminLoading === admin.uid ? (
-                      <>
-                        <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        Removing...
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 size={13} /> Remove
-                      </>
-                    )}
-                  </button>
-                </div>
-              ))}
-            </div>
+  {adminList.map((admin) => (
+    <div
+      key={admin.uid}
+      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50 border border-gray-100 rounded-2xl px-4 sm:px-5 py-4 hover:bg-orange-50/40 transition"
+    >
+      <div className="flex items-center gap-3 sm:gap-4">
+        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm flex-shrink-0">
+          {admin.email?.[0]?.toUpperCase() || "A"}
+        </div>
+
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-800 text-sm break-all">
+            {admin.email}
+          </p>
+
+          <p className="text-xs text-gray-400 break-all">
+            UID: {admin.uid.slice(0, 12)}...
+            {admin.lastSignIn && (
+              <> · Last login: {new Date(admin.lastSignIn).toLocaleDateString()}</>
+            )}
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={() => removeAdmin(admin.uid, admin.email)}
+        disabled={removeAdminLoading === admin.uid}
+        className="flex items-center justify-center gap-1.5 text-xs bg-red-50 text-red-500 border border-red-100 px-3 sm:px-4 py-2 rounded-xl hover:bg-red-500 hover:text-white hover:border-red-500 transition font-semibold disabled:opacity-50 w-full sm:w-auto"
+      >
+        {removeAdminLoading === admin.uid ? (
+          <>
+            <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            Removing...
+          </>
+        ) : (
+          <>
+            <Trash2 size={13} /> Remove
+          </>
+        )}
+      </button>
+    </div>
+  ))}
+</div>
           )}
         </div>
       )}
