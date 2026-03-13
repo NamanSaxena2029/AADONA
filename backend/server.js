@@ -48,13 +48,13 @@ const getFirebasePath = (url) => {
   try {
     const match = url.match(/\/o\/(.+?)(\?|$)/);
     if (!match) {
-      console.log("⚠️ Could not extract path from URL:", url);
+      console.log("Could not extract path from URL:", url);
       return null;
     }
     const path = decodeURIComponent(match[1]);
     return path;
   } catch (e) {
-    console.log("⚠️ getFirebasePath error:", e.message);
+    console.log("getFirebasePath error:", e.message);
     return null;
   }
 };
@@ -69,16 +69,16 @@ const deleteFromFirebase = async (url) => {
   try {
     const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
     if (!bucketName) {
-      console.log("⚠️ FIREBASE_STORAGE_BUCKET not set in .env");
+      console.log("FIREBASE_STORAGE_BUCKET not set in .env");
       return;
     }
     await admin.storage().bucket(bucketName).file(path).delete();
-    console.log("✅ Firebase deleted:", path);
+    console.log("Firebase deleted:", path);
   } catch (e) {
     if (e.code === 404) {
-      console.log("ℹ️ File already gone:", path);
+      console.log("File already gone:", path);
     } else {
-      console.log("⚠️ Firebase delete failed:", e.code, "-", e.message);
+      console.log("Firebase delete failed:", e.code, "-", e.message);
     }
   }
 };
@@ -109,7 +109,7 @@ const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    console.log("❌ No token provided");
+    console.log("No token provided");
     return res.status(401).json({ message: "No token provided" });
   }
 
@@ -119,15 +119,15 @@ const verifyToken = async (req, res, next) => {
     const decodedToken = await admin.auth().verifyIdToken(token);
 
     if (decodedToken.admin !== true) {
-      console.log("❌ Not Admin:", decodedToken.email);
+      console.log("Not Admin:", decodedToken.email);
       return res.status(403).json({ message: "Not authorized as admin" });
     }
 
     req.user = decodedToken;
-    console.log("✅ Admin Verified:", decodedToken.email);
+    console.log("Admin Verified:", decodedToken.email);
     next();
   } catch (error) {
-    console.log("❌ TOKEN ERROR:", error.message);
+    console.log("TOKEN ERROR:", error.message);
     return res.status(403).json({ message: "Invalid or expired token" });
   }
 };
@@ -144,18 +144,18 @@ app.use(express.json());
 ============================= */
 
 if (!process.env.MONGO_URL) {
-  console.log("❌ MONGO_URL not found in .env");
+  console.log("MONGO_URL not found in .env");
   process.exit(1);
 }
 
 mongoose
   .connect(process.env.MONGO_URL)
   .then(() => {
-    console.log("✅ MongoDB Atlas Connected");
-    console.log("📂 Connected Database:", mongoose.connection.name);
+    console.log("MongoDB VPS Connected");
+    console.log("Connected Database:", mongoose.connection.name);
   })
   .catch((err) => {
-    console.log("❌ MongoDB Connection Error:", err.message);
+    console.log("MongoDB Connection Error:", err.message);
   });
 
 /* =============================
@@ -296,7 +296,7 @@ const AuditLog = mongoose.model("AuditLog", AuditLogSchema);
 
 const logAction = (adminEmail, action, entity, entityName = "", details = {}) => {
   AuditLog.create({ adminEmail, action, entity, entityName, details })
-    .catch(err => console.log("⚠️ Audit log failed:", err.message));
+    .catch(err => console.log("Audit log failed:", err.message));
 };
 
 /* =============================
@@ -378,7 +378,7 @@ app.post("/categories", verifyToken, async (req, res) => {
       changes: { type: { new: type }, name: { new: name } }
     });
 
-    console.log("✅ Category created:", category.name);
+    console.log("Category created:", category.name);
     res.status(201).json(category);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -400,10 +400,10 @@ app.put("/categories/reorder", verifyToken, async (req, res) => {
       changes: { reordered: { new: `${items.length} categories reordered` } }
     });
 
-    console.log("✅ Categories reordered:", items.length, "items");
+    console.log("Categories reordered:", items.length, "items");
     res.json({ message: "Reordered successfully" });
   } catch (err) {
-    console.log("❌ Reorder error:", err.message);
+    console.log("Reorder error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -430,7 +430,7 @@ app.put("/categories/:id/rename", verifyToken, async (req, res) => {
       changes: { name: { old: oldName, new: trimmedNew } }
     });
 
-    console.log(`✅ Category renamed: "${oldName}" to "${trimmedNew}"`);
+    console.log(`Category renamed: "${oldName}" to "${trimmedNew}"`);
     res.json(category);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -467,7 +467,7 @@ app.put("/categories/:id/subcategory/:subName/rename", verifyToken, async (req, 
       changes: { subCategory: { old: oldSubName, new: trimmedNew } }
     });
 
-    console.log(`✅ SubCategory renamed: "${oldSubName}" to "${trimmedNew}"`);
+    console.log(`SubCategory renamed: "${oldSubName}" to "${trimmedNew}"`);
     res.json(category);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -507,7 +507,7 @@ app.put("/categories/:id/subcategory/:subName/extra/rename", verifyToken, async 
       changes: { extraCategory: { old: oldExtra, new: trimmedNew } }
     });
 
-    console.log(`✅ ExtraCategory renamed: "${oldExtra}" to "${trimmedNew}"`);
+    console.log(`ExtraCategory renamed: "${oldExtra}" to "${trimmedNew}"`);
     res.json(category);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -530,7 +530,7 @@ const deleteProductsCascade = async (query) => {
     await deleteFromFirebase(product.image);
     await deleteFromFirebase(product.datasheet);
     await Product.findByIdAndDelete(product._id);
-    console.log("🗑️ Cascade deleted product:", product.name);
+    console.log("Cascade deleted product:", product.name);
   }
   await RelatedProduct.deleteMany(query);
 };
@@ -547,7 +547,7 @@ app.delete("/categories/:id", verifyToken, async (req, res) => {
       changes: { deleted: { old: category.name, new: "DELETED" } }
     });
 
-    console.log("🗑️ Category + all products deleted:", category.name);
+    console.log("Category + all products deleted:", category.name);
     res.json({ message: "Category and all its products deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -599,7 +599,7 @@ app.put("/categories/:id/subcategory/reorder", verifyToken, async (req, res) => 
       changes: { subCategoryReorder: { new: orderedNames.join(" → ") } }
     });
 
-    console.log("✅ SubCategories reordered for category:", category.name);
+    console.log("SubCategories reordered for category:", category.name);
     res.json(category);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -660,7 +660,7 @@ app.delete("/categories/:id/subcategory/:subName", verifyToken, async (req, res)
       changes: { deleted: { old: `${category.name} > ${subName}`, new: "DELETED" } }
     });
 
-    console.log("🗑️ SubCategory + all products deleted:", subName);
+    console.log("SubCategory + all products deleted:", subName);
     res.json(category);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -672,7 +672,7 @@ app.delete("/categories/:id/subcategory/:subName", verifyToken, async (req, res)
 ============================= */
 
 app.put("/products/reorder", verifyToken, async (req, res) => {
-  console.log("🎯 REORDER ROUTE HIT");
+  console.log("REORDER ROUTE HIT");
   try {
     const { items } = req.body;
     if (!Array.isArray(items)) {
@@ -700,10 +700,10 @@ app.put("/products/reorder", verifyToken, async (req, res) => {
       changes: { reordered: { new: `${validItems.length} products reordered` } }
     });
 
-    console.log("✅ Products reordered:", validItems.length, "items");
+    console.log("Products reordered:", validItems.length, "items");
     res.json({ message: "Products reordered successfully" });
   } catch (err) {
-    console.log("❌ Product reorder error:", err.message);
+    console.log("Product reorder error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -810,19 +810,19 @@ app.post("/products", verifyToken, async (req, res) => {
 });
 
 app.put("/products/:id", verifyToken, async (req, res) => {
-  console.log("🔍 :id route hit with id:", req.params.id);
+  console.log(":id route hit with id:", req.params.id);
   try {
     const existing = await Product.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: "Product not found" });
 
     if (req.body.image && req.body.image !== existing.image) {
       await deleteFromFirebase(existing.image);
-      console.log("🗑️ Old product image deleted from Firebase");
+      console.log("Old product image deleted from Firebase");
     }
 
     if (req.body.datasheet && req.body.datasheet !== existing.datasheet) {
       await deleteFromFirebase(existing.datasheet);
-      console.log("🗑️ Old product datasheet deleted from Firebase");
+      console.log("Old product datasheet deleted from Firebase");
     }
 
     // Track basic field changes
@@ -906,7 +906,7 @@ app.delete("/products/:id", verifyToken, async (req, res) => {
       }
     });
 
-    console.log("🗑️ Product deleted:", product.name);
+    console.log("Product deleted:", product.name);
     res.json({ message: "Deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -943,10 +943,10 @@ app.post("/send-otp", verifyToken, async (req, res) => {
       `,
     });
 
-    console.log(`✅ OTP sent to: ${email}`);
+    console.log(`OTP sent to: ${email}`);
     res.json({ message: "OTP sent successfully" });
   } catch (err) {
-    console.error("❌ Send OTP error:", err.message);
+    console.error("Send OTP error:", err.message);
     res.status(500).json({ message: "Failed to send OTP" });
   }
 });
@@ -969,10 +969,10 @@ app.post("/verify-otp", verifyToken, async (req, res) => {
     }
 
     otpStore.delete(email);
-    console.log(`✅ OTP verified for: ${email}`);
+    console.log(`OTP verified for: ${email}`);
     res.json({ message: "OTP verified successfully" });
   } catch (err) {
-    console.error("❌ Verify OTP error:", err.message);
+    console.error("Verify OTP error:", err.message);
     res.status(500).json({ message: "Failed to verify OTP" });
   }
 });
@@ -993,10 +993,10 @@ app.post("/create-admin", verifyToken, async (req, res) => {
       changes: { email: { new: email } }
     });
 
-    console.log(`✅ Admin created: ${email}`);
+    console.log(`Admin created: ${email}`);
     res.json({ message: "New Admin Created ✅" });
   } catch (error) {
-    console.error("❌ Create admin error:", error.message);
+    console.error("Create admin error:", error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1014,10 +1014,10 @@ app.get("/get-admins", verifyToken, async (req, res) => {
         createdAt: user.metadata.creationTime || null,
       }));
 
-    console.log(`✅ Fetched ${admins.length} admins`);
+    console.log(`Fetched ${admins.length} admins`);
     res.json({ admins });
   } catch (err) {
-    console.error("❌ Get admins error:", err.message);
+    console.error("Get admins error:", err.message);
     res.status(500).json({ message: "Failed to fetch admins" });
   }
 });
@@ -1041,11 +1041,11 @@ app.delete("/delete-admin/:uid", verifyToken, async (req, res) => {
       changes: { email: { old: userRecord.email, new: "DELETED" } }
     });
 
-    console.log(`✅ Admin permanently deleted. UID: ${uid}, Email: ${userRecord.email}`);
+    console.log(`Admin permanently deleted. UID: ${uid}, Email: ${userRecord.email}`);
     res.json({ message: "Admin removed successfully ✅" });
 
   } catch (err) {
-    console.error("❌ Delete admin error:", err.message);
+    console.error("Delete admin error:", err.message);
     if (err.code === "auth/user-not-found") {
       return res.status(404).json({ message: "User not found in Firebase." });
     }
@@ -1058,7 +1058,7 @@ app.delete("/delete-admin/:uid", verifyToken, async (req, res) => {
 ============================= */
 
 app.post("/save-related-products", verifyToken, async (req, res) => {
-  console.log("📦 /save-related-products HIT");
+  console.log("/save-related-products HIT");
 
   try {
     const { type, category, subCategory, extraCategory, relatedProducts } = req.body;
@@ -1109,10 +1109,10 @@ app.post("/save-related-products", verifyToken, async (req, res) => {
       }
     });
 
-    console.log("✅ Saved successfully:", result._id);
+    console.log("Saved successfully:", result._id);
     res.json({ message: "Related products saved successfully ✅", result });
   } catch (err) {
-    console.log("❌ Save Related Products Error:", err.message);
+    console.log("Save Related Products Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1131,7 +1131,7 @@ app.get("/related-products", async (req, res) => {
     const products = await Product.find({ _id: { $in: related.relatedProducts } });
     res.json({ relatedProducts: products });
   } catch (err) {
-    console.log("❌ Get Related Products Error:", err.message);
+    console.log("Get Related Products Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1192,13 +1192,13 @@ app.put("/related-products/remove", verifyToken, async (req, res) => {
       }
     });
 
-    console.log(`✅ Removed product ${productId} from related list. ${before} → ${related.relatedProducts.length}`);
+    console.log(`Removed product ${productId} from related list. ${before} → ${related.relatedProducts.length}`);
     res.json({
       message: "Product removed from related list ✅",
       relatedProducts: related.relatedProducts,
     });
   } catch (err) {
-    console.log("❌ Remove from related error:", err.message);
+    console.log("Remove from related error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1252,7 +1252,7 @@ app.post("/blogs/slug/:slug/like", async (req, res) => {
     transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.COMPANY_EMAIL,
-      subject: `❤️ New Like on: "${blog.title}"`,
+      subject: `New Like on: "${blog.title}"`,
       html: `<p>Someone liked your blog <b>"${blog.title}"</b>.</p><p>Total likes now: <b>${blog.likes}</b></p>`,
     }).catch(() => {});
 
@@ -1277,7 +1277,7 @@ app.post("/blogs/slug/:slug/comment", async (req, res) => {
     transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.COMPANY_EMAIL,
-      subject: `💬 New Comment on: "${blog.title}"`,
+      subject: `New Comment on: "${blog.title}"`,
       html: `
         <h3>New comment on <b>"${blog.title}"</b></h3>
         <p><b>From:</b> ${name}</p>
@@ -1336,7 +1336,7 @@ app.put("/blogs/:id", verifyToken, async (req, res) => {
 
     if (req.body.image && req.body.image !== existing.image) {
       await deleteFromFirebase(existing.image);
-      console.log("🗑️ Old blog hero image deleted from Firebase");
+      console.log("Old blog hero image deleted from Firebase");
     }
 
     if (req.body.blocks) {
@@ -1350,7 +1350,7 @@ app.put("/blogs/:id", verifyToken, async (req, res) => {
 
       for (const block of oldBlockImages) {
         await deleteFromFirebase(block.url);
-        console.log("🗑️ Old blog block image deleted from Firebase:", block.url);
+        console.log("Old blog block image deleted from Firebase:", block.url);
       }
     }
 
@@ -1389,7 +1389,7 @@ app.delete("/blogs/:id", verifyToken, async (req, res) => {
     const blockImages = (blog.blocks || []).filter(b => b.type === "image" && b.url);
     for (const block of blockImages) {
       await deleteFromFirebase(block.url);
-      console.log("🗑️ Blog block image deleted from Firebase");
+      console.log("Blog block image deleted from Firebase");
     }
 
     await Blog.findByIdAndDelete(req.params.id);
@@ -1401,7 +1401,7 @@ app.delete("/blogs/:id", verifyToken, async (req, res) => {
       }
     });
 
-    console.log("🗑️ Blog deleted:", blog.title);
+    console.log("Blog deleted:", blog.title);
     res.json({ message: "Deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1465,10 +1465,10 @@ app.post("/inquiries/:id/reply", verifyToken, async (req, res) => {
     inquiry.status = "replied";
     await inquiry.save();
 
-    console.log(`✅ Reply sent to: ${inquiry.customerEmail}`);
+    console.log(`Reply sent to: ${inquiry.customerEmail}`);
     res.json({ message: "Reply sent successfully ✅", inquiry });
   } catch (err) {
-    console.error("❌ Reply error:", err.message);
+    console.error("Reply error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1662,7 +1662,7 @@ app.get("/analytics/summary", verifyToken, async (req, res) => {
       })),
     });
   } catch (err) {
-    console.error("❌ GA Analytics Error:", err.message);
+    console.error("GA Analytics Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1673,7 +1673,7 @@ app.get("/analytics/summary", verifyToken, async (req, res) => {
 
 app.post("/submit-partner", async (req, res) => {
   const form = req.body;
-  console.log("📧 Partner form received:", form.email);
+  console.log("Partner form received:", form.email);
 
   const emailValid = await isEmailDomainValid(form.email);
   if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
@@ -1713,17 +1713,17 @@ app.post("/submit-partner", async (req, res) => {
       `,
     });
 
-    console.log("✅ Partner email sent");
+    console.log("Partner email sent");
     res.json({ success: true, message: "Application submitted successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
 app.post("/submit-project-locking", async (req, res) => {
   const form = req.body;
-  console.log("📧 Project Locking form received:", form.email);
+  console.log("Project Locking form received:", form.email);
 
   const emailValid = await isEmailDomainValid(form.email);
   if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
@@ -1763,17 +1763,17 @@ app.post("/submit-project-locking", async (req, res) => {
       `,
     });
 
-    console.log("✅ Project Locking email sent");
+    console.log("Project Locking email sent");
     res.json({ success: true, message: "Application submitted successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
 app.post("/submit-demo", async (req, res) => {
   const form = req.body;
-  console.log("📧 Demo request received:", form.email);
+  console.log("Demo request received:", form.email);
 
   const emailValid = await isEmailDomainValid(form.email);
   if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
@@ -1806,17 +1806,17 @@ app.post("/submit-demo", async (req, res) => {
       `,
     });
 
-    console.log("✅ Demo request email sent");
+    console.log("Demo request email sent");
     res.json({ success: true, message: "Demo request submitted successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
 app.post("/submit-training", async (req, res) => {
   const form = req.body;
-  console.log("📧 Training request received:", form.email);
+  console.log("Training request received:", form.email);
 
   const emailValid = await isEmailDomainValid(form.email);
   if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
@@ -1850,17 +1850,17 @@ app.post("/submit-training", async (req, res) => {
       `,
     });
 
-    console.log("✅ Training request email sent");
+    console.log("Training request email sent");
     res.json({ success: true, message: "Training request submitted successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
 app.post("/submit-warranty", upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
-  console.log("📧 Warranty check received:", form.email);
+  console.log("Warranty check received:", form.email);
 
   const emailValid = await isEmailDomainValid(form.email);
   if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
@@ -1896,10 +1896,10 @@ app.post("/submit-warranty", upload.single("invoiceFile"), async (req, res) => {
     }
 
     await transporter.sendMail(mailOptions);
-    console.log("✅ Warranty check email sent");
+    console.log("Warranty check email sent");
     res.json({ success: true, message: "Warranty check submitted successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -1944,17 +1944,17 @@ app.post("/submit-techsquad", upload.single("invoiceFile"), async (req, res) => 
     }
 
     await transporter.sendMail(mailOptions);
-    console.log("✅ Tech Squad email sent");
+    console.log("Tech Squad email sent");
     res.json({ success: true, message: "Tech Squad request submitted successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
 app.post("/submit-doa", upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
-  console.log("📧 DOA request received:", form.email);
+  console.log("DOA request received:", form.email);
 
   const emailValid = await isEmailDomainValid(form.email);
   if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
@@ -1995,17 +1995,17 @@ app.post("/submit-doa", upload.single("invoiceFile"), async (req, res) => {
     }
 
     await transporter.sendMail(mailOptions);
-    console.log("✅ DOA request email sent");
+    console.log("DOA request email sent");
     res.json({ success: true, message: "DOA request submitted successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
 app.post("/submit-product-support", async (req, res) => {
   const form = req.body;
-  console.log("📧 Product Support request received:", form.email);
+  console.log("Product Support request received:", form.email);
 
   const emailValid = await isEmailDomainValid(form.email);
   if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
@@ -2034,17 +2034,17 @@ app.post("/submit-product-support", async (req, res) => {
       `,
     });
 
-    console.log("✅ Product Support email sent");
+    console.log("Product Support email sent");
     res.json({ success: true, message: "Support request submitted successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
 app.post("/submit-product-registration", upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
-  console.log("📧 Product Registration received:", form.email);
+  console.log("Product Registration received:", form.email);
 
   const emailValid = await isEmailDomainValid(form.email);
   if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
@@ -2086,17 +2086,17 @@ app.post("/submit-product-registration", upload.single("invoiceFile"), async (re
     }
 
     await transporter.sendMail(mailOptions);
-    console.log("✅ Product Registration email sent");
+    console.log("Product Registration email sent");
     res.json({ success: true, message: "Product registered successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
 app.post("/submit-contact", async (req, res) => {
   const form = req.body;
-  console.log("📧 Contact form received:", form.email);
+  console.log("Contact form received:", form.email);
 
   const emailValid = await isEmailDomainValid(form.email);
   if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
@@ -2127,17 +2127,17 @@ app.post("/submit-contact", async (req, res) => {
       `,
     });
 
-    console.log("✅ Contact email sent");
+    console.log("Contact email sent");
     res.json({ success: true, message: "Message sent successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
 app.post("/submit-apply", upload.single("resumeFile"), async (req, res) => {
   const form = req.body;
-  console.log("📧 Job application received:", form.email);
+  console.log("Job application received:", form.email);
 
   const emailValid = await isEmailDomainValid(form.email);
   if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
@@ -2173,10 +2173,10 @@ app.post("/submit-apply", upload.single("resumeFile"), async (req, res) => {
     }
 
     await transporter.sendMail(mailOptions);
-    console.log("✅ Job application email sent");
+    console.log("Job application email sent");
     res.json({ success: true, message: "Application submitted successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2219,10 +2219,10 @@ app.post("/submit-whistleblower", upload.single("attachmentFile"), async (req, r
     }
 
     await transporter.sendMail(mailOptions);
-    console.log("✅ Whistle blower email sent");
+    console.log("Whistle blower email sent");
     res.json({ success: true, message: "Report submitted successfully" });
   } catch (err) {
-    console.error("❌ Mail error:", err.message);
+    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2234,5 +2234,5 @@ app.post("/submit-whistleblower", upload.single("attachmentFile"), async (req, r
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
