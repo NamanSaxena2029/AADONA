@@ -109,7 +109,7 @@ const OurCustomers = () => {
             onClick={() => navigate('/customers')} 
             className="group inline-flex items-center justify-center px-8 py-3 border border-green-600 text-green-600 font-semibold rounded-lg hover:bg-green-600 hover:text-white transition-all duration-300 shadow-sm hover:shadow-lg"
           >
-            See Mor
+            See More
             <img 
               src={arrowIcon} 
               alt="arrow" 
