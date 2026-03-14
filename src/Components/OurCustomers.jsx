@@ -62,37 +62,45 @@ const OurCustomers = () => {
 
         {/* Double-row parallax scroll */}
         <div className="overflow-hidden space-y-10">
-          {/* Row 1 - Left to Right */}
-          <div className="animate-marquee-row1 flex space-x-12">
-            {[...firstRow, ...firstRow].map((img, idx) => (
-              <div
-                key={`row1-${idx}`}
-                className="flex justify-center items-center w-40 h-28 sm:w-48 sm:h-32 opacity-90 hover:opacity-100 animate-float"
-              >
-                <img
-                  src={img}
-                  alt={`Company ${idx}`}
-                  className="object-contain w-full h-full drop-shadow-md"
-                />
-              </div>
-            ))}
-          </div>
+      {/* Row 1 - Left to Right */}
+<div className="animate-marquee-row1 flex pt-7 space-x-12">
+  {[...firstRow, ...firstRow].map((img, idx) => (
+    <div
+      key={`row1-${idx}`}
+      className="flex justify-center items-center w-40 h-28 sm:w-48 sm:h-32 animate-float"
+    >
+      <img
+        src={img}
+        alt={`Company ${idx}`}
+        className="object-contain w-full h-full rounded-xl bg-white p-2
+          shadow-[0_4px_16px_rgba(0,0,0,0.12),_0_1px_4px_rgba(0,0,0,0.08)]
+          transition-all duration-300 ease-out
+          hover:scale-110
+          hover:shadow-[0_8px_32px_rgba(0,0,0,0.2),_0_2px_8px_rgba(0,0,0,0.1)]"
+      />
+    </div>
+  ))}
+</div>
 
-          {/* Row 2 - Right to Left */}
-          <div className="animate-marquee-row2 flex space-x-12">
-            {[...secondRow, ...secondRow].map((img, idx) => (
-              <div
-                key={`row2-${idx}`}
-                className="flex justify-center items-center w-40 h-28 sm:w-48 sm:h-32 opacity-90 hover:opacity-100 animate-float"
-              >
-                <img
-                  src={img}
-                  alt={`Company ${idx}`}
-                  className="object-contain w-full h-full drop-shadow-md"
-                />
-              </div>
-            ))}
-          </div>
+{/* Row 2 - Right to Left */}
+<div className="animate-marquee-row2 flex pt-6 pb-6 space-x-12">
+  {[...secondRow, ...secondRow].map((img, idx) => (
+    <div
+      key={`row2-${idx}`}
+      className="flex justify-center items-center w-40 h-28 sm:w-48 sm:h-32 animate-float"
+    >
+      <img
+        src={img}
+        alt={`Company ${idx}`}
+        className="object-contain w-full h-full rounded-xl bg-white p-2
+          shadow-[0_4px_16px_rgba(0,0,0,0.12),_0_1px_4px_rgba(0,0,0,0.08)]
+          transition-all duration-300 ease-out
+          hover:scale-110
+          hover:shadow-[0_8px_32px_rgba(0,0,0,0.2),_0_2px_8px_rgba(0,0,0,0.1)]"
+      />
+    </div>
+  ))}
+</div>
         </div>
 
         {/* --- SEE MORE BUTTON --- */}
