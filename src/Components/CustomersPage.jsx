@@ -2,14 +2,15 @@ import React, { useEffect, useState } from "react"; // Added useState
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import bg from "../assets/bg.jpg";
+import { FaSearch } from "react-icons/fa";
 
-/* ✅ Dynamic Import */
+/* Dynamic Import */
 const imageModules = import.meta.glob(
   "../assets/Companies/**/*.{png,jpg,jpeg,avif}",
   { eager: true }
 );
 
-/* ✅ Sorting Logic */
+/* Sorting Logic */
 const sortImages = (modules) => {
   const govt = [];
   const privateCo = [];
@@ -56,7 +57,7 @@ export default function CustomerPage() {
 
   useEffect(() => window.scrollTo(0, 0), []);
 
-  // ✅ Filter logic based on search input
+  // Filter logic based on search input
   const filteredGovt = allImages.govt.filter((co) =>
     co.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -92,23 +93,39 @@ export default function CustomerPage() {
                   >
         <div className="min-h-screen bg-white/30">
         
-         {/* ✅ Search Bar Input */}
-          <div className=" pt-5 max-w-md mx-auto">
-            <div className="relative">
+         {/* Search Bar Input */}
+          <div className="pt-5 max-w-md mx-auto">
+            <div className="relative group">
               <input
+                id="companySearch"
                 type="text"
                 placeholder="Search for a company..."
-                className="w-full px-5 py-3 rounded-lg border-2 border-green-400 focus:border-green-400 focus:outline-none shadow-lg text-gray-800"
+                className="w-full px-5 pr-12 py-3 rounded-xl border-2 border-green-400
+                shadow-md text-gray-800
+                transition-all duration-300
+                focus:outline-none
+                focus:border-green-600
+                focus:ring-2 focus:ring-green-300
+                hover:shadow-lg"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-                        <span className="absolute right-4 top-3.5 text-gray-400">
-                🔍
+
+              <span
+                className="absolute right-4 top-1/2 -translate-y-1/2
+                text-gray-500 text-lg
+                transition-all duration-300
+                group-hover:text-green-600
+                group-hover:scale-110
+                cursor-pointer"
+                onClick={() => document.getElementById("companySearch").focus()}
+              >
+                <FaSearch />
               </span>
             </div>
           </div>
           
-          {/* ✅ GOVERNMENT SECTION */}
+          {/* GOVERNMENT SECTION */}
           {filteredGovt.length > 0 && (
             <section className="max-w-7xl mx-auto py-12 px-4">
               <h2 className="text-3xl font-bold text-center bg-white/90 p-4 mb-10 text-green-600 rounded-lg shadow-lg">
@@ -122,7 +139,7 @@ export default function CustomerPage() {
             </section>
           )}
 
-          {/* ✅ PRIVATE SECTION */}
+          {/* PRIVATE SECTION */}
           {filteredPrivate.length > 0 && (
             <section className="max-w-7xl mx-auto py-12 px-4">
               <h2 className="text-3xl font-bold text-center bg-white/90 p-4 mb-10 text-green-600 rounded-lg shadow-lg">
@@ -136,7 +153,7 @@ export default function CustomerPage() {
             </section>
           )}
 
-          {/* ✅ No Results Message */}
+          {/* No Results Message */}
           {filteredGovt.length === 0 && filteredPrivate.length === 0 && (
             <div className="py-20 text-center">
               <p className="text-2xl font-semibold text-gray-800 bg-white/80 inline-block px-6 py-2 rounded-lg">
