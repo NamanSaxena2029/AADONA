@@ -32,78 +32,77 @@ height:1123px;
 overflow:hidden;
 }
 
-/* Background */
+/* FULL BACKGROUND */
 
 .bg{
 position:absolute;
 bottom:0;
 left:0;
 width:100%;
+height:450px;
+object-fit:cover;
 opacity:0.9;
 }
 
-/* Logo */
+/* LOGO */
 
 .logo{
 position:absolute;
-top:40px;
-left:40px;
-width:220px;
+top:50px;
+left:60px;
+width:240px;
 }
 
-/* Model */
+/* MODEL */
 
 .model{
 position:absolute;
-top:200px;
-left:100px;
-font-size:28px;
-font-weight:bold;
-color:#000;
+top:220px;
+left:120px;
+font-size:34px;
+font-weight:700;
 }
 
-/* Product Image */
+/* PRODUCT IMAGE */
 
 .product{
 position:absolute;
-top:360px;
+top:420px;
 left:50%;
 transform:translateX(-50%);
-width:360px;
-object-fit:contain;
+width:420px;
 }
 
-/* Description */
+/* DESCRIPTION */
 
 .desc{
 position:absolute;
-top:720px;
+top:740px;
 left:50%;
 transform:translateX(-50%);
-font-size:18px;
+font-size:22px;
 font-weight:600;
 text-align:center;
-width:620px;
-color:#000;
+width:650px;
 }
 
-/* Make in India */
+/* MAKE IN INDIA */
 
 .india{
 position:absolute;
-bottom:140px;
-right:80px;
-width:150px;
+bottom:180px;
+right:120px;
+width:180px;
 }
 
-/* Footer */
+/* FOOTER */
 
 .footer{
 position:absolute;
-bottom:20px;
-left:40px;
+bottom:30px;
+left:60px;
 font-size:12px;
-color:#444;
+color:#333;
 }
 
 </style>
