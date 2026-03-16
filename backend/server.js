@@ -183,6 +183,7 @@ const verifyToken = async (req, res, next) => {
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
+app.use("/assets", express.static("assets"));
 /* =============================
    DATABASE CONNECTION
 ============================= */
