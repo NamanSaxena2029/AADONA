@@ -7,11 +7,45 @@ const crypto = require("crypto");
 const dns = require("dns").promises;
 const transporter = require("./mailer");
 const puppeteer = require("puppeteer-core");
+const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 const { BetaAnalyticsDataClient } = require("@google-analytics/data");
 const analyticsClient = new BetaAnalyticsDataClient();
 const buildDatasheetHTML = require("./pdf/buildDatasheet");
+
+let browserInstance = null;
+
+// ─── PDF Cache: slug → { url, generatedAt } ───────────────────────────────
+const pdfCache = new Map();
+const PDF_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 const app = express();
+
+/* =============================
+   RATE LIMITERS
+============================= */
+
+// Public form submissions — 10 requests per 15 min per IP
+const formLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests. Please try again later." },
+});
+
+// Datasheet PDF route — 30 per 15 min
+const pdfLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: "Too many PDF requests. Please try again later." },
+});
+
+// Analytics / admin routes — 60 per 15 min
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+});
 
 /* =============================
    MULTER SETUP FOR FILE UPLOADS
@@ -19,8 +53,21 @@ const app = express();
 
 const storage = multer.memoryStorage();
 const upload = multer({
-  storage: storage,
+  storage,
   limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = [
+      "application/pdf",
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+    ];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only PDF, PNG, JPEG, WEBP allowed."), false);
+    }
+  },
 });
 
 /* =============================
@@ -40,19 +87,15 @@ const isEmailDomainValid = async (email) => {
 };
 
 /* =============================
-   FIREBASE STORAGE HELPER
+   FIREBASE STORAGE HELPERS
 ============================= */
 
 const getFirebasePath = (url) => {
   if (!url || typeof url !== "string") return null;
   try {
     const match = url.match(/\/o\/(.+?)(\?|$)/);
-    if (!match) {
-      console.log("Could not extract path from URL:", url);
-      return null;
-    }
-    const path = decodeURIComponent(match[1]);
-    return path;
+    if (!match) return null;
+    return decodeURIComponent(match[1]);
   } catch (e) {
     console.log("getFirebasePath error:", e.message);
     return null;
@@ -61,17 +104,18 @@ const getFirebasePath = (url) => {
 
 const deleteFromFirebase = async (url) => {
   if (!url || typeof url !== "string") return;
-  if (!url.includes("firebasestorage.googleapis.com") && !url.includes("firebasestorage.app")) return;
+  if (
+    !url.includes("firebasestorage.googleapis.com") &&
+    !url.includes("firebasestorage.app")
+  )
+    return;
 
   const path = getFirebasePath(url);
   if (!path) return;
 
   try {
     const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
-    if (!bucketName) {
-      console.log("FIREBASE_STORAGE_BUCKET not set in .env");
-      return;
-    }
+    if (!bucketName) return;
     await admin.storage().bucket(bucketName).file(path).delete();
     console.log("Firebase deleted:", path);
   } catch (e) {
@@ -83,14 +127,15 @@ const deleteFromFirebase = async (url) => {
   }
 };
 
-/* =============================
-   FIREBASE UPLOAD HELPER
-============================= */
+// Sanitize filename before upload — removes special chars
+const sanitizeFileName = (name) =>
+  name.replace(/[^a-zA-Z0-9._-]/g, "_");
 
 const uploadToFirebase = async (file, folder) => {
   if (!file) return null;
   const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
-  const fileName = `${folder}/${Date.now()}-${file.originalname}`;
+  const safeName = sanitizeFileName(file.originalname);
+  const fileName = `${folder}/${Date.now()}-${crypto.randomBytes(6).toString("hex")}-${safeName}`;
   const fileUpload = bucket.file(fileName);
   await fileUpload.save(file.buffer, {
     metadata: { contentType: file.mimetype },
@@ -100,43 +145,71 @@ const uploadToFirebase = async (file, folder) => {
 };
 
 /* =============================
-   GENERATE & UPLOAD PDF TO FIREBASE
+   BROWSER / PUPPETEER
+============================= */
+
+const getBrowser = async () => {
+  if (browserInstance) return browserInstance;
+
+  browserInstance = await puppeteer.launch({
+    executablePath: process.env.CHROME_PATH || "/usr/bin/chromium-browser",
+    headless: "new",
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+    ],
+  });
+
+  console.log("Puppeteer browser started");
+  return browserInstance;
+};
+
+/* =============================
+   GENERATE & UPLOAD PDF (with cache)
 ============================= */
 
 const generateAndUploadDatasheet = async (product) => {
   try {
+    // Check in-memory cache first
+    const cached = pdfCache.get(product.slug);
+    if (cached && Date.now() - cached.generatedAt < PDF_CACHE_TTL_MS) {
+      console.log("PDF cache hit for:", product.slug);
+      return cached.url;
+    }
+
     const html = buildDatasheetHTML(product);
-
-    const browser = await puppeteer.launch({
-      executablePath: process.env.CHROME_PATH || "/usr/bin/chromium-browser",
-      headless: "new",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-      ],
-    });
-
+    const browser = await getBrowser();
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-    const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
-    await browser.close();
 
-    // Firebase pe upload karo
+    // Better rendering with explicit viewport
+    await page.setViewport({ width: 1280, height: 900 });
+    await page.setContent(html, { waitUntil: "networkidle0" });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
+    await page.close();
+
     const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
-    const fileName = `datasheets/${product.slug}-datasheet.pdf`;
+    const fileName = `datasheets/${product.slug}-${Date.now()}.pdf`;
     const fileUpload = bucket.file(fileName);
 
     await fileUpload.save(pdfBuffer, {
-      metadata: { contentType: "application/pdf" },
+      metadata: {
+        contentType: "application/pdf",
+        cacheControl: "public, max-age=86400", // CDN cache: 24h
+      },
     });
     await fileUpload.makePublic();
 
     const url = `https://firebasestorage.googleapis.com/v0/b/${process.env.FIREBASE_STORAGE_BUCKET}/o/${encodeURIComponent(fileName)}?alt=media`;
     console.log("Datasheet uploaded to Firebase:", url);
-    return url;
 
+    // Store in memory cache
+    pdfCache.set(product.slug, { url, generatedAt: Date.now() });
+
+    return url;
   } catch (err) {
     console.log("Datasheet generation failed:", err.message);
     return null;
@@ -151,22 +224,16 @@ const otpStore = new Map();
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
-
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    console.log("No token provided");
     return res.status(401).json({ message: "No token provided" });
   }
 
   const token = authHeader.split(" ")[1];
-
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
-
     if (decodedToken.admin !== true) {
-      console.log("Not Admin:", decodedToken.email);
       return res.status(403).json({ message: "Not authorized as admin" });
     }
-
     req.user = decodedToken;
     console.log("Admin Verified:", decodedToken.email);
     next();
@@ -180,10 +247,28 @@ const verifyToken = async (req, res, next) => {
    MIDDLEWARE
 ============================= */
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(
+  cors({
+    origin: [
+      "https://aadona.com",
+      "https://www.aadona.com",
+      "http://localhost:3000",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
-
 app.use("/assets", express.static("assets"));
+
+// SEO / Security headers for all responses
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+
 /* =============================
    DATABASE CONNECTION
 ============================= */
@@ -212,12 +297,12 @@ const ProductSchema = new mongoose.Schema(
     name: { type: String, required: true },
     description: { type: String, required: true },
     features: { type: [String], default: [] },
-    slug: { type: String, required: true, unique: true },
+    slug: { type: String, required: true, unique: true, index: true },
     image: { type: String, required: true },
     datasheet: { type: String },
     type: { type: String, required: true },
-    category: { type: String, required: true },
-    subCategory: { type: String, required: true },
+    category: { type: String, required: true, index: true },
+    subCategory: { type: String, required: true, index: true },
     extraCategory: { type: String, default: null },
     model: { type: String },
     fullName: { type: String },
@@ -240,13 +325,17 @@ const ProductSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Compound index for category filtering (very common query)
+ProductSchema.index({ category: 1, subCategory: 1 });
+ProductSchema.index({ category: 1, subCategory: 1, extraCategory: 1 });
+
 const Product = mongoose.model("Product", ProductSchema);
 
 const RelatedProductSchema = new mongoose.Schema(
   {
     type: { type: String, default: null },
-    category: { type: String, required: true },
-    subCategory: { type: String, required: true },
+    category: { type: String, required: true, index: true },
+    subCategory: { type: String, required: true, index: true },
     extraCategory: { type: String, default: null },
     relatedProducts: { type: [String], default: [] },
   },
@@ -258,7 +347,7 @@ const RelatedProduct = mongoose.model("RelatedProduct", RelatedProductSchema);
 const CategorySchema = new mongoose.Schema(
   {
     type: { type: String, required: true, enum: ["active", "passive"] },
-    name: { type: String, required: true },
+    name: { type: String, required: true, index: true },
     subCategories: [
       {
         name: { type: String, required: true },
@@ -275,7 +364,7 @@ const Category = mongoose.model("Category", CategorySchema);
 const BlogSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
-    slug: { type: String, required: true, unique: true },
+    slug: { type: String, required: true, unique: true, index: true },
     excerpt: { type: String, required: true },
     author: { type: String, default: "Pinakii Chatterje" },
     date: { type: String },
@@ -283,7 +372,7 @@ const BlogSchema = new mongoose.Schema(
     image: { type: String, required: true },
     views: { type: Number, default: 0 },
     likes: { type: Number, default: 0 },
-    published: { type: Boolean, default: true },
+    published: { type: Boolean, default: true, index: true },
     blocks: [
       {
         type: { type: String, enum: ["text", "image"], required: true },
@@ -311,7 +400,12 @@ const InquirySchema = new mongoose.Schema(
     customerName: { type: String, default: "Unknown" },
     customerEmail: { type: String, default: "" },
     formData: { type: mongoose.Schema.Types.Mixed },
-    status: { type: String, enum: ["new", "read", "replied"], default: "new" },
+    status: {
+      type: String,
+      enum: ["new", "read", "replied"],
+      default: "new",
+      index: true,
+    },
     replies: [
       {
         message: { type: String, required: true },
@@ -323,34 +417,41 @@ const InquirySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Auto-delete inquiries after 1 year
+InquirySchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 365 });
+
 const Inquiry = mongoose.model("Inquiry", InquirySchema);
 
 /* =============================
    AUDIT LOG SCHEMA
 ============================= */
 
-const AuditLogSchema = new mongoose.Schema({
-  adminEmail: { type: String, required: true },
-  action:     { type: String, required: true },
-  entity:     { type: String, required: true },
-  entityName: { type: String, default: "" },
-  details:    { type: mongoose.Schema.Types.Mixed, default: {} },
-}, { timestamps: true });
+const AuditLogSchema = new mongoose.Schema(
+  {
+    adminEmail: { type: String, required: true, index: true },
+    action: { type: String, required: true },
+    entity: { type: String, required: true },
+    entityName: { type: String, default: "" },
+    details: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true }
+);
 
 const AuditLog = mongoose.model("AuditLog", AuditLogSchema);
 
 const logAction = (adminEmail, action, entity, entityName = "", details = {}) => {
-  AuditLog.create({ adminEmail, action, entity, entityName, details })
-    .catch(err => console.log("Audit log failed:", err.message));
+  AuditLog.create({ adminEmail, action, entity, entityName, details }).catch(
+    (err) => console.log("Audit log failed:", err.message)
+  );
 };
 
 /* =============================
-   DIFF HELPER — compare two objects
+   DIFF HELPERS
 ============================= */
 
 const getDiff = (oldObj, newObj, fields) => {
   const changes = {};
-  fields.forEach(field => {
+  fields.forEach((field) => {
     const oldVal = oldObj[field];
     const newVal = newObj[field];
     if (newVal !== undefined && String(newVal) !== String(oldVal)) {
@@ -361,8 +462,8 @@ const getDiff = (oldObj, newObj, fields) => {
 };
 
 const getArrayDiff = (oldArr = [], newArr = []) => {
-  const added = newArr.filter(x => !oldArr.includes(x));
-  const removed = oldArr.filter(x => !newArr.includes(x));
+  const added = newArr.filter((x) => !oldArr.includes(x));
+  const removed = oldArr.filter((x) => !newArr.includes(x));
   return { added, removed };
 };
 
@@ -370,13 +471,12 @@ const getArrayDiff = (oldArr = [], newArr = []) => {
    SLUG GENERATOR
 ============================= */
 
-const generateSlug = (name) => {
-  return name
+const generateSlug = (name) =>
+  name
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, "")
-    .replace(/[^\w]+/g, "");
-};
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]+/g, "");
 
 /* =============================
    ROUTES
@@ -404,10 +504,12 @@ app.get("/categories", async (req, res) => {
 app.post("/categories", verifyToken, async (req, res) => {
   try {
     const { type, name, subCategories, order } = req.body;
-    if (!type || !name) return res.status(400).json({ message: "type and name are required" });
+    if (!type || !name)
+      return res.status(400).json({ message: "type and name are required" });
 
     const existing = await Category.findOne({ type, name });
-    if (existing) return res.status(400).json({ message: "Category already exists" });
+    if (existing)
+      return res.status(400).json({ message: "Category already exists" });
 
     const maxOrderDoc = await Category.findOne({ type }).sort({ order: -1 });
     const newOrder = maxOrderDoc ? maxOrderDoc.order + 1 : 0;
@@ -420,10 +522,9 @@ app.post("/categories", verifyToken, async (req, res) => {
     });
 
     logAction(req.user.email, "CREATE", "Category", category.name, {
-      changes: { type: { new: type }, name: { new: name } }
+      changes: { type: { new: type }, name: { new: name } },
     });
 
-    console.log("Category created:", category.name);
     res.status(201).json(category);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -433,7 +534,8 @@ app.post("/categories", verifyToken, async (req, res) => {
 app.put("/categories/reorder", verifyToken, async (req, res) => {
   try {
     const { items } = req.body;
-    if (!Array.isArray(items)) return res.status(400).json({ message: "items array required" });
+    if (!Array.isArray(items))
+      return res.status(400).json({ message: "items array required" });
 
     await Promise.all(
       items.map(({ id, order }) =>
@@ -442,13 +544,11 @@ app.put("/categories/reorder", verifyToken, async (req, res) => {
     );
 
     logAction(req.user.email, "UPDATE", "Category", "Reorder", {
-      changes: { reordered: { new: `${items.length} categories reordered` } }
+      changes: { reordered: { new: `${items.length} categories reordered` } },
     });
 
-    console.log("Categories reordered:", items.length, "items");
     res.json({ message: "Reordered successfully" });
   } catch (err) {
-    console.log("Reorder error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -456,10 +556,12 @@ app.put("/categories/reorder", verifyToken, async (req, res) => {
 app.put("/categories/:id/rename", verifyToken, async (req, res) => {
   try {
     const { newName } = req.body;
-    if (!newName || !newName.trim()) return res.status(400).json({ message: "newName is required" });
+    if (!newName || !newName.trim())
+      return res.status(400).json({ message: "newName is required" });
 
     const category = await Category.findById(req.params.id);
-    if (!category) return res.status(404).json({ message: "Category not found" });
+    if (!category)
+      return res.status(404).json({ message: "Category not found" });
 
     const oldName = category.name;
     const trimmedNew = newName.trim();
@@ -468,101 +570,142 @@ app.put("/categories/:id/rename", verifyToken, async (req, res) => {
     category.name = trimmedNew;
     await category.save();
 
-    await Product.updateMany({ category: oldName }, { $set: { category: trimmedNew } });
-    await RelatedProduct.updateMany({ category: oldName }, { $set: { category: trimmedNew } });
+    await Product.updateMany(
+      { category: oldName },
+      { $set: { category: trimmedNew } }
+    );
+    await RelatedProduct.updateMany(
+      { category: oldName },
+      { $set: { category: trimmedNew } }
+    );
 
     logAction(req.user.email, "UPDATE", "Category", trimmedNew, {
-      changes: { name: { old: oldName, new: trimmedNew } }
+      changes: { name: { old: oldName, new: trimmedNew } },
     });
 
-    console.log(`Category renamed: "${oldName}" to "${trimmedNew}"`);
     res.json(category);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.put("/categories/:id/subcategory/:subName/rename", verifyToken, async (req, res) => {
-  try {
-    const { newName } = req.body;
-    if (!newName || !newName.trim()) return res.status(400).json({ message: "newName is required" });
+app.put(
+  "/categories/:id/subcategory/:subName/rename",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const { newName } = req.body;
+      if (!newName || !newName.trim())
+        return res.status(400).json({ message: "newName is required" });
 
-    const category = await Category.findById(req.params.id);
-    if (!category) return res.status(404).json({ message: "Category not found" });
+      const category = await Category.findById(req.params.id);
+      if (!category)
+        return res.status(404).json({ message: "Category not found" });
 
-    const oldSubName = decodeURIComponent(req.params.subName);
-    const trimmedNew = newName.trim();
-    const sub = category.subCategories.find(s => s.name === oldSubName);
-    if (!sub) return res.status(404).json({ message: "SubCategory not found" });
-    if (oldSubName === trimmedNew) return res.json(category);
+      const oldSubName = decodeURIComponent(req.params.subName);
+      const trimmedNew = newName.trim();
+      const sub = category.subCategories.find((s) => s.name === oldSubName);
+      if (!sub)
+        return res.status(404).json({ message: "SubCategory not found" });
+      if (oldSubName === trimmedNew) return res.json(category);
 
-    sub.name = trimmedNew;
-    await category.save();
+      sub.name = trimmedNew;
+      await category.save();
 
-    await Product.updateMany(
-      { category: category.name, subCategory: oldSubName },
-      { $set: { subCategory: trimmedNew } }
-    );
-    await RelatedProduct.updateMany(
-      { category: category.name, subCategory: oldSubName },
-      { $set: { subCategory: trimmedNew } }
-    );
+      await Product.updateMany(
+        { category: category.name, subCategory: oldSubName },
+        { $set: { subCategory: trimmedNew } }
+      );
+      await RelatedProduct.updateMany(
+        { category: category.name, subCategory: oldSubName },
+        { $set: { subCategory: trimmedNew } }
+      );
 
-    logAction(req.user.email, "UPDATE", "Category", `${category.name} > ${trimmedNew}`, {
-      changes: { subCategory: { old: oldSubName, new: trimmedNew } }
-    });
+      logAction(
+        req.user.email,
+        "UPDATE",
+        "Category",
+        `${category.name} > ${trimmedNew}`,
+        { changes: { subCategory: { old: oldSubName, new: trimmedNew } } }
+      );
 
-    console.log(`SubCategory renamed: "${oldSubName}" to "${trimmedNew}"`);
-    res.json(category);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+      res.json(category);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   }
-});
+);
 
-app.put("/categories/:id/subcategory/:subName/extra/rename", verifyToken, async (req, res) => {
-  try {
-    const { oldExtra, newExtra } = req.body;
-    if (!oldExtra || !newExtra || !newExtra.trim()) return res.status(400).json({ message: "oldExtra and newExtra are required" });
+app.put(
+  "/categories/:id/subcategory/:subName/extra/rename",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const { oldExtra, newExtra } = req.body;
+      if (!oldExtra || !newExtra || !newExtra.trim())
+        return res
+          .status(400)
+          .json({ message: "oldExtra and newExtra are required" });
 
-    const category = await Category.findById(req.params.id);
-    if (!category) return res.status(404).json({ message: "Category not found" });
+      const category = await Category.findById(req.params.id);
+      if (!category)
+        return res.status(404).json({ message: "Category not found" });
 
-    const subName = decodeURIComponent(req.params.subName);
-    const sub = category.subCategories.find(s => s.name === subName);
-    if (!sub) return res.status(404).json({ message: "SubCategory not found" });
+      const subName = decodeURIComponent(req.params.subName);
+      const sub = category.subCategories.find((s) => s.name === subName);
+      if (!sub)
+        return res.status(404).json({ message: "SubCategory not found" });
 
-    const trimmedNew = newExtra.trim();
-    const idx = sub.extraCategories.indexOf(oldExtra);
-    if (idx === -1) return res.status(404).json({ message: "Extra category not found" });
-    if (oldExtra === trimmedNew) return res.json(category);
+      const trimmedNew = newExtra.trim();
+      const idx = sub.extraCategories.indexOf(oldExtra);
+      if (idx === -1)
+        return res.status(404).json({ message: "Extra category not found" });
+      if (oldExtra === trimmedNew) return res.json(category);
 
-    sub.extraCategories[idx] = trimmedNew;
-    await category.save();
+      sub.extraCategories[idx] = trimmedNew;
+      await category.save();
 
-    await Product.updateMany(
-      { category: category.name, subCategory: subName, extraCategory: oldExtra },
-      { $set: { extraCategory: trimmedNew } }
-    );
-    await RelatedProduct.updateMany(
-      { category: category.name, subCategory: subName, extraCategory: oldExtra },
-      { $set: { extraCategory: trimmedNew } }
-    );
+      await Product.updateMany(
+        {
+          category: category.name,
+          subCategory: subName,
+          extraCategory: oldExtra,
+        },
+        { $set: { extraCategory: trimmedNew } }
+      );
+      await RelatedProduct.updateMany(
+        {
+          category: category.name,
+          subCategory: subName,
+          extraCategory: oldExtra,
+        },
+        { $set: { extraCategory: trimmedNew } }
+      );
 
-    logAction(req.user.email, "UPDATE", "Category", `${category.name} > ${subName}`, {
-      changes: { extraCategory: { old: oldExtra, new: trimmedNew } }
-    });
+      logAction(
+        req.user.email,
+        "UPDATE",
+        "Category",
+        `${category.name} > ${subName}`,
+        { changes: { extraCategory: { old: oldExtra, new: trimmedNew } } }
+      );
 
-    console.log(`ExtraCategory renamed: "${oldExtra}" to "${trimmedNew}"`);
-    res.json(category);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+      res.json(category);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   }
-});
+);
 
 app.put("/categories/:id", verifyToken, async (req, res) => {
   try {
-    const updated = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updated) return res.status(404).json({ message: "Category not found" });
+    const updated = await Category.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    if (!updated)
+      return res.status(404).json({ message: "Category not found" });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -574,6 +717,7 @@ const deleteProductsCascade = async (query) => {
   for (const product of products) {
     await deleteFromFirebase(product.image);
     await deleteFromFirebase(product.datasheet);
+    pdfCache.delete(product.slug); // clear PDF cache
     await Product.findByIdAndDelete(product._id);
     console.log("Cascade deleted product:", product.name);
   }
@@ -583,16 +727,16 @@ const deleteProductsCascade = async (query) => {
 app.delete("/categories/:id", verifyToken, async (req, res) => {
   try {
     const category = await Category.findById(req.params.id);
-    if (!category) return res.status(404).json({ message: "Category not found" });
+    if (!category)
+      return res.status(404).json({ message: "Category not found" });
 
     await deleteProductsCascade({ category: category.name });
     await Category.findByIdAndDelete(req.params.id);
 
     logAction(req.user.email, "DELETE", "Category", category.name, {
-      changes: { deleted: { old: category.name, new: "DELETED" } }
+      changes: { deleted: { old: category.name, new: "DELETED" } },
     });
 
-    console.log("Category + all products deleted:", category.name);
     res.json({ message: "Category and all its products deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -602,86 +746,34 @@ app.delete("/categories/:id", verifyToken, async (req, res) => {
 app.post("/categories/:id/subcategory", verifyToken, async (req, res) => {
   try {
     const { name, extraCategories } = req.body;
-    if (!name) return res.status(400).json({ message: "SubCategory name required" });
+    if (!name)
+      return res.status(400).json({ message: "SubCategory name required" });
 
     const category = await Category.findById(req.params.id);
-    if (!category) return res.status(404).json({ message: "Category not found" });
+    if (!category)
+      return res.status(404).json({ message: "Category not found" });
 
-    const exists = category.subCategories.find(s => s.name === name);
-    if (exists) return res.status(400).json({ message: "SubCategory already exists" });
+    const exists = category.subCategories.find((s) => s.name === name);
+    if (exists)
+      return res.status(400).json({ message: "SubCategory already exists" });
 
     category.subCategories.push({ name, extraCategories: extraCategories || [] });
     await category.save();
 
-    logAction(req.user.email, "CREATE", "Category", `${category.name} > ${name}`, {
-      changes: { subCategory: { new: name }, extraCategories: { new: (extraCategories || []).join(", ") || "none" } }
-    });
-
-    res.json(category);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.put("/categories/:id/subcategory/reorder", verifyToken, async (req, res) => {
-  try {
-    const category = await Category.findById(req.params.id);
-    if (!category) return res.status(404).json({ message: "Category not found" });
-
-    const { orderedNames } = req.body;
-    if (!Array.isArray(orderedNames)) return res.status(400).json({ message: "orderedNames array required" });
-
-    const reordered = orderedNames
-      .map(name => category.subCategories.find(s => s.name === name))
-      .filter(Boolean);
-
-    const missing = category.subCategories.filter(s => !orderedNames.includes(s.name));
-    category.subCategories = [...reordered, ...missing];
-
-    await category.save();
-
-    logAction(req.user.email, "UPDATE", "Category", category.name, {
-      changes: { subCategoryReorder: { new: orderedNames.join(" → ") } }
-    });
-
-    console.log("SubCategories reordered for category:", category.name);
-    res.json(category);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.put("/categories/:id/subcategory/:subName", verifyToken, async (req, res) => {
-  try {
-    const category = await Category.findById(req.params.id);
-    if (!category) return res.status(404).json({ message: "Category not found" });
-
-    const sub = category.subCategories.find(s => s.name === req.params.subName);
-    if (!sub) return res.status(404).json({ message: "SubCategory not found" });
-
-    const changes = {};
-    if (req.body.name && req.body.name !== sub.name) {
-      changes.name = { old: sub.name, new: req.body.name };
-      sub.name = req.body.name;
-    }
-    if (req.body.extraCategories !== undefined) {
-      const diff = getArrayDiff(sub.extraCategories, req.body.extraCategories);
-      if (diff.added.length || diff.removed.length) {
-        changes.extraCategories = {
-          old: sub.extraCategories.join(", ") || "none",
-          new: req.body.extraCategories.join(", ") || "none",
-          added: diff.added,
-          removed: diff.removed,
-        };
+    logAction(
+      req.user.email,
+      "CREATE",
+      "Category",
+      `${category.name} > ${name}`,
+      {
+        changes: {
+          subCategory: { new: name },
+          extraCategories: {
+            new: (extraCategories || []).join(", ") || "none",
+          },
+        },
       }
-      sub.extraCategories = req.body.extraCategories;
-    }
-
-    await category.save();
-
-    if (Object.keys(changes).length > 0) {
-      logAction(req.user.email, "UPDATE", "Category", `${category.name} > ${req.params.subName}`, { changes });
-    }
+    );
 
     res.json(category);
   } catch (err) {
@@ -689,66 +781,160 @@ app.put("/categories/:id/subcategory/:subName", verifyToken, async (req, res) =>
   }
 });
 
-app.delete("/categories/:id/subcategory/:subName", verifyToken, async (req, res) => {
-  try {
-    const category = await Category.findById(req.params.id);
-    if (!category) return res.status(404).json({ message: "Category not found" });
+app.put(
+  "/categories/:id/subcategory/reorder",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const category = await Category.findById(req.params.id);
+      if (!category)
+        return res.status(404).json({ message: "Category not found" });
 
-    const subName = decodeURIComponent(req.params.subName);
+      const { orderedNames } = req.body;
+      if (!Array.isArray(orderedNames))
+        return res.status(400).json({ message: "orderedNames array required" });
 
-    await deleteProductsCascade({ category: category.name, subCategory: subName });
+      const reordered = orderedNames
+        .map((name) => category.subCategories.find((s) => s.name === name))
+        .filter(Boolean);
+      const missing = category.subCategories.filter(
+        (s) => !orderedNames.includes(s.name)
+      );
+      category.subCategories = [...reordered, ...missing];
+      await category.save();
 
-    category.subCategories = category.subCategories.filter(s => s.name !== subName);
-    await category.save();
+      logAction(req.user.email, "UPDATE", "Category", category.name, {
+        changes: { subCategoryReorder: { new: orderedNames.join(" → ") } },
+      });
 
-    logAction(req.user.email, "DELETE", "Category", `${category.name} > ${subName}`, {
-      changes: { deleted: { old: `${category.name} > ${subName}`, new: "DELETED" } }
-    });
-
-    console.log("SubCategory + all products deleted:", subName);
-    res.json(category);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+      res.json(category);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   }
-});
+);
+
+app.put(
+  "/categories/:id/subcategory/:subName",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const category = await Category.findById(req.params.id);
+      if (!category)
+        return res.status(404).json({ message: "Category not found" });
+
+      const sub = category.subCategories.find(
+        (s) => s.name === req.params.subName
+      );
+      if (!sub)
+        return res.status(404).json({ message: "SubCategory not found" });
+
+      const changes = {};
+      if (req.body.name && req.body.name !== sub.name) {
+        changes.name = { old: sub.name, new: req.body.name };
+        sub.name = req.body.name;
+      }
+      if (req.body.extraCategories !== undefined) {
+        const diff = getArrayDiff(sub.extraCategories, req.body.extraCategories);
+        if (diff.added.length || diff.removed.length) {
+          changes.extraCategories = {
+            old: sub.extraCategories.join(", ") || "none",
+            new: req.body.extraCategories.join(", ") || "none",
+            added: diff.added,
+            removed: diff.removed,
+          };
+        }
+        sub.extraCategories = req.body.extraCategories;
+      }
+
+      await category.save();
+
+      if (Object.keys(changes).length > 0) {
+        logAction(
+          req.user.email,
+          "UPDATE",
+          "Category",
+          `${category.name} > ${req.params.subName}`,
+          { changes }
+        );
+      }
+
+      res.json(category);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.delete(
+  "/categories/:id/subcategory/:subName",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const category = await Category.findById(req.params.id);
+      if (!category)
+        return res.status(404).json({ message: "Category not found" });
+
+      const subName = decodeURIComponent(req.params.subName);
+      await deleteProductsCascade({ category: category.name, subCategory: subName });
+
+      category.subCategories = category.subCategories.filter(
+        (s) => s.name !== subName
+      );
+      await category.save();
+
+      logAction(
+        req.user.email,
+        "DELETE",
+        "Category",
+        `${category.name} > ${subName}`,
+        {
+          changes: {
+            deleted: {
+              old: `${category.name} > ${subName}`,
+              new: "DELETED",
+            },
+          },
+        }
+      );
+
+      res.json(category);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
 
 /* =============================
    PRODUCT ROUTES
 ============================= */
 
 app.put("/products/reorder", verifyToken, async (req, res) => {
-  console.log("REORDER ROUTE HIT");
   try {
     const { items } = req.body;
-    if (!Array.isArray(items)) {
+    if (!Array.isArray(items))
       return res.status(400).json({ error: "Items must be an array" });
-    }
 
-    const validItems = items.filter(item =>
-      item.id && mongoose.Types.ObjectId.isValid(item.id)
+    const validItems = items.filter(
+      (item) => item.id && mongoose.Types.ObjectId.isValid(item.id)
     );
-
-    if (validItems.length === 0) {
+    if (validItems.length === 0)
       return res.status(400).json({ error: "No valid product IDs provided" });
-    }
 
-    const bulkOps = validItems.map(item => ({
+    const bulkOps = validItems.map((item) => ({
       updateOne: {
         filter: { _id: new mongoose.Types.ObjectId(item.id) },
-        update: { $set: { order: item.order } }
-      }
+        update: { $set: { order: item.order } },
+      },
     }));
-
     await Product.bulkWrite(bulkOps);
 
     logAction(req.user.email, "UPDATE", "Product", "Reorder", {
-      changes: { reordered: { new: `${validItems.length} products reordered` } }
+      changes: { reordered: { new: `${validItems.length} products reordered` } },
     });
 
-    console.log("Products reordered:", validItems.length, "items");
     res.json({ message: "Products reordered successfully" });
   } catch (err) {
-    console.log("Product reorder error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -767,7 +953,11 @@ app.get("/products", async (req, res) => {
 app.get("/products/:slug", async (req, res) => {
   try {
     const product = await Product.findOne({ slug: req.params.slug });
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (!product)
+      return res.status(404).json({ message: "Product not found" });
+
+    // SEO-friendly cache headers for product pages
+    res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
     res.json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -775,59 +965,41 @@ app.get("/products/:slug", async (req, res) => {
 });
 
 /* =============================
-   DATASHEET PDF ROUTE (Puppeteer)
+   DATASHEET PDF ROUTE (Puppeteer + Cache)
 ============================= */
 
-app.get("/products/:slug/datasheet", async (req, res) => {
+app.get("/products/:slug/datasheet", pdfLimiter, async (req, res) => {
   try {
-
     const product = await Product.findOne({ slug: req.params.slug });
-
     if (!product)
       return res.status(404).json({ message: "Product not found" });
 
+    // If product already has a stored datasheet URL, redirect to it
+    if (product.datasheet) {
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      return res.redirect(302, product.datasheet);
+    }
+
+    // Fallback: generate on the fly
     const html = buildDatasheetHTML(product);
-
-    const browser = await puppeteer.launch({
-      executablePath: process.env.CHROME_PATH || "/usr/bin/chromium-browser",
-      headless: "new",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-      ],
-    });
-
+    const browser = await getBrowser();
     const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 900 });
+    await page.setContent(html, { waitUntil: "networkidle0" });
 
-    await page.setContent(html, {
-      waitUntil: "networkidle0",
-    });
-
-    const pdf = await page.pdf({
-      format: "A4",
-      printBackground: true,
-    });
-
-    await browser.close();
+    const pdf = await page.pdf({ format: "A4", printBackground: true });
+    await page.close();
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename=${product.slug}.pdf`
     );
-
+    res.setHeader("Cache-Control", "public, max-age=86400");
     res.send(pdf);
-
   } catch (err) {
-
     console.log("PDF ERROR:", err.message);
-
-    res.status(500).json({
-      error: "Failed to generate PDF",
-    });
-
+    res.status(500).json({ error: "Failed to generate PDF" });
   }
 });
 
@@ -836,7 +1008,6 @@ app.post("/products", verifyToken, async (req, res) => {
     let baseSlug = generateSlug(req.body.name);
     let slug = baseSlug;
     let counter = 1;
-
     while (await Product.findOne({ slug })) {
       slug = `${baseSlug}-${counter}`;
       counter++;
@@ -847,7 +1018,6 @@ app.post("/products", verifyToken, async (req, res) => {
 
     const newProduct = await Product.create({ ...req.body, slug, order: nextOrder });
 
-    // PDF generate karo aur Firebase pe store karo
     const datasheetUrl = await generateAndUploadDatasheet(newProduct);
     if (datasheetUrl) {
       newProduct.datasheet = datasheetUrl;
@@ -862,7 +1032,7 @@ app.post("/products", verifyToken, async (req, res) => {
         subCategory: { new: newProduct.subCategory },
         type: { new: newProduct.type },
         model: { new: newProduct.model || "-" },
-      }
+      },
     });
 
     res.status(201).json(newProduct);
@@ -872,85 +1042,53 @@ app.post("/products", verifyToken, async (req, res) => {
 });
 
 app.put("/products/:id", verifyToken, async (req, res) => {
-  console.log(":id route hit with id:", req.params.id);
   try {
     const existing = await Product.findById(req.params.id);
-    if (!existing) return res.status(404).json({ message: "Product not found" });
+    if (!existing)
+      return res.status(404).json({ message: "Product not found" });
 
     if (req.body.image && req.body.image !== existing.image) {
       await deleteFromFirebase(existing.image);
-      console.log("Old product image deleted from Firebase");
     }
 
-    if (req.body.datasheet && req.body.datasheet !== existing.datasheet) {
-      await deleteFromFirebase(existing.datasheet);
-      console.log("Old product datasheet deleted from Firebase");
-    }
+    const updated = await Product.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
 
-    const changes = getDiff(existing, req.body, [
-      "name", "description", "category", "subCategory", "extraCategory",
-      "type", "model", "fullName", "series"
-    ]);
-
-    if (req.body.highlights) {
-      const diff = getArrayDiff(existing.highlights || [], req.body.highlights);
-      if (diff.added.length || diff.removed.length) {
-        changes.highlights = {
-          old: (existing.highlights || []).join(", ") || "none",
-          new: req.body.highlights.join(", ") || "none",
-          added: diff.added,
-          removed: diff.removed,
-        };
-      }
-    }
-
-    if (req.body.overview) {
-      if (req.body.overview.title !== existing.overview?.title) {
-        changes["overview.title"] = { old: existing.overview?.title, new: req.body.overview.title };
-      }
-      if (req.body.overview.content !== existing.overview?.content) {
-        changes["overview.content"] = {
-          old: (existing.overview?.content || "").substring(0, 80) + "...",
-          new: (req.body.overview.content || "").substring(0, 80) + "...",
-        };
-      }
-    }
-
-    if (req.body.specifications) {
-      const oldSpecStr = JSON.stringify(existing.specifications || {});
-      const newSpecStr = JSON.stringify(req.body.specifications || {});
-      if (oldSpecStr !== newSpecStr) {
-        const oldKeys = Object.keys(existing.specifications || {});
-        const newKeys = Object.keys(req.body.specifications || {});
-        changes.specifications = {
-          old: `${oldKeys.length} sections`,
-          new: `${newKeys.length} sections`,
-        };
-      }
-    }
-
-    if (req.body.image && req.body.image !== existing.image) {
-      changes.image = { old: "Previous image", new: "New image uploaded" };
-    }
-
-    if (req.body.datasheet && req.body.datasheet !== existing.datasheet) {
-      changes.datasheet = { old: "Previous datasheet", new: "New datasheet uploaded" };
-    }
-
-    const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // Delete old datasheet (both from Firebase and cache)
     if (existing.datasheet) {
       await deleteFromFirebase(existing.datasheet);
     }
-    const datasheetUrl = await generateAndUploadDatasheet(updated);
+    pdfCache.delete(existing.slug); // invalidate cache on update
+
+    // ✅ FIX: datasheetUrl declared outside if block (was a ReferenceError before)
+    let datasheetUrl = null;
+    if (
+      req.body.name ||
+      req.body.description ||
+      req.body.features ||
+      req.body.specifications
+    ) {
+      datasheetUrl = await generateAndUploadDatasheet(updated);
+    }
+
     if (datasheetUrl) {
       updated.datasheet = datasheetUrl;
       await updated.save();
       console.log("Datasheet regenerated for:", updated.slug);
     }
 
+    // Log changes
+    const changes = getDiff(existing, req.body, [
+      "name", "description", "category", "subCategory", "type", "model",
+    ]);
     logAction(req.user.email, "UPDATE", "Product", updated.name, { changes });
+
     res.json(updated);
   } catch (err) {
+    console.log("Product update error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -958,10 +1096,12 @@ app.put("/products/:id", verifyToken, async (req, res) => {
 app.delete("/products/:id", verifyToken, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (!product)
+      return res.status(404).json({ message: "Product not found" });
 
     await deleteFromFirebase(product.image);
     await deleteFromFirebase(product.datasheet);
+    pdfCache.delete(product.slug);
     await Product.findByIdAndDelete(req.params.id);
 
     logAction(req.user.email, "DELETE", "Product", product.name, {
@@ -969,10 +1109,9 @@ app.delete("/products/:id", verifyToken, async (req, res) => {
         name: { old: product.name, new: "DELETED" },
         category: { old: product.category, new: "DELETED" },
         subCategory: { old: product.subCategory, new: "DELETED" },
-      }
+      },
     });
 
-    console.log("Product deleted:", product.name);
     res.json({ message: "Deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1009,10 +1148,8 @@ app.post("/send-otp", verifyToken, async (req, res) => {
       `,
     });
 
-    console.log(`OTP sent to: ${email}`);
     res.json({ message: "OTP sent successfully" });
   } catch (err) {
-    console.error("Send OTP error:", err.message);
     res.status(500).json({ message: "Failed to send OTP" });
   }
 });
@@ -1020,14 +1157,20 @@ app.post("/send-otp", verifyToken, async (req, res) => {
 app.post("/verify-otp", verifyToken, async (req, res) => {
   try {
     const { email, otp } = req.body;
-    if (!email || !otp) return res.status(400).json({ message: "Email and OTP are required" });
+    if (!email || !otp)
+      return res.status(400).json({ message: "Email and OTP are required" });
 
     const record = otpStore.get(email);
-    if (!record) return res.status(400).json({ message: "OTP not found. Please request a new one." });
+    if (!record)
+      return res
+        .status(400)
+        .json({ message: "OTP not found. Please request a new one." });
 
     if (Date.now() > record.expiresAt) {
       otpStore.delete(email);
-      return res.status(400).json({ message: "OTP has expired. Please request a new one." });
+      return res
+        .status(400)
+        .json({ message: "OTP has expired. Please request a new one." });
     }
 
     if (record.otp !== otp.toString()) {
@@ -1035,10 +1178,8 @@ app.post("/verify-otp", verifyToken, async (req, res) => {
     }
 
     otpStore.delete(email);
-    console.log(`OTP verified for: ${email}`);
     res.json({ message: "OTP verified successfully" });
   } catch (err) {
-    console.error("Verify OTP error:", err.message);
     res.status(500).json({ message: "Failed to verify OTP" });
   }
 });
@@ -1050,29 +1191,28 @@ app.post("/verify-otp", verifyToken, async (req, res) => {
 app.post("/create-admin", verifyToken, async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
+    if (!email || !password)
+      return res.status(400).json({ message: "Email and password are required" });
 
     const user = await admin.auth().createUser({ email, password });
     await admin.auth().setCustomUserClaims(user.uid, { admin: true });
 
     logAction(req.user.email, "CREATE", "Admin", email, {
-      changes: { email: { new: email } }
+      changes: { email: { new: email } },
     });
 
-    console.log(`Admin created: ${email}`);
     res.json({ message: "New Admin Created ✅" });
   } catch (error) {
-    console.error("Create admin error:", error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get("/get-admins", verifyToken, async (req, res) => {
+app.get("/get-admins", verifyToken, adminLimiter, async (req, res) => {
   try {
     const listResult = await admin.auth().listUsers(100);
     const admins = listResult.users
-      .filter(user => user.customClaims?.admin === true)
-      .map(user => ({
+      .filter((user) => user.customClaims?.admin === true)
+      .map((user) => ({
         uid: user.uid,
         email: user.email,
         displayName: user.displayName || null,
@@ -1080,10 +1220,8 @@ app.get("/get-admins", verifyToken, async (req, res) => {
         createdAt: user.metadata.creationTime || null,
       }));
 
-    console.log(`Fetched ${admins.length} admins`);
     res.json({ admins });
   } catch (err) {
-    console.error("Get admins error:", err.message);
     res.status(500).json({ message: "Failed to fetch admins" });
   }
 });
@@ -1091,30 +1229,25 @@ app.get("/get-admins", verifyToken, async (req, res) => {
 app.delete("/delete-admin/:uid", verifyToken, async (req, res) => {
   try {
     const { uid } = req.params;
-
-    if (uid === req.user.uid) {
-      return res.status(400).json({ message: "You cannot remove your own admin access." });
-    }
+    if (uid === req.user.uid)
+      return res
+        .status(400)
+        .json({ message: "You cannot remove your own admin access." });
 
     const userRecord = await admin.auth().getUser(uid);
-    if (!userRecord.customClaims?.admin) {
+    if (!userRecord.customClaims?.admin)
       return res.status(400).json({ message: "This user is not an admin." });
-    }
 
     await admin.auth().deleteUser(uid);
 
     logAction(req.user.email, "DELETE", "Admin", userRecord.email, {
-      changes: { email: { old: userRecord.email, new: "DELETED" } }
+      changes: { email: { old: userRecord.email, new: "DELETED" } },
     });
 
-    console.log(`Admin permanently deleted. UID: ${uid}, Email: ${userRecord.email}`);
     res.json({ message: "Admin removed successfully ✅" });
-
   } catch (err) {
-    console.error("Delete admin error:", err.message);
-    if (err.code === "auth/user-not-found") {
+    if (err.code === "auth/user-not-found")
       return res.status(404).json({ message: "User not found in Firebase." });
-    }
     res.status(500).json({ message: "Failed to remove admin" });
   }
 });
@@ -1124,18 +1257,19 @@ app.delete("/delete-admin/:uid", verifyToken, async (req, res) => {
 ============================= */
 
 app.post("/save-related-products", verifyToken, async (req, res) => {
-  console.log("/save-related-products HIT");
-
   try {
-    const { type, category, subCategory, extraCategory, relatedProducts } = req.body;
+    const { type, category, subCategory, extraCategory, relatedProducts } =
+      req.body;
 
-    if (!category || !subCategory) {
-      return res.status(400).json({ message: "category and subCategory are required" });
-    }
+    if (!category || !subCategory)
+      return res
+        .status(400)
+        .json({ message: "category and subCategory are required" });
 
-    if (!relatedProducts || relatedProducts.length === 0) {
-      return res.status(400).json({ message: "Select at least one related product" });
-    }
+    if (!relatedProducts || relatedProducts.length === 0)
+      return res
+        .status(400)
+        .json({ message: "Select at least one related product" });
 
     const filter = {
       category,
@@ -1161,22 +1295,29 @@ app.post("/save-related-products", verifyToken, async (req, res) => {
       { upsert: true, new: true }
     );
 
-    const diff = getArrayDiff(oldRelated.map(String), relatedProducts.map(String));
-    logAction(req.user.email, "UPDATE", "Product", `Related: ${category} > ${subCategory}`, {
-      changes: {
-        relatedProducts: {
-          old: `${oldRelated.length} products`,
-          new: `${relatedProducts.length} products`,
-          added: `${diff.added.length} added`,
-          removed: `${diff.removed.length} removed`,
-        }
+    const diff = getArrayDiff(
+      oldRelated.map(String),
+      relatedProducts.map(String)
+    );
+    logAction(
+      req.user.email,
+      "UPDATE",
+      "Product",
+      `Related: ${category} > ${subCategory}`,
+      {
+        changes: {
+          relatedProducts: {
+            old: `${oldRelated.length} products`,
+            new: `${relatedProducts.length} products`,
+            added: `${diff.added.length} added`,
+            removed: `${diff.removed.length} removed`,
+          },
+        },
       }
-    });
+    );
 
-    console.log("Saved successfully:", result._id);
     res.json({ message: "Related products saved successfully ✅", result });
   } catch (err) {
-    console.log("Save Related Products Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1184,7 +1325,6 @@ app.post("/save-related-products", verifyToken, async (req, res) => {
 app.get("/related-products", async (req, res) => {
   try {
     const { category, subCategory, extraCategory, type } = req.query;
-
     const query = { category, subCategory };
     if (extraCategory) query.extraCategory = extraCategory;
     if (type) query.type = type;
@@ -1192,10 +1332,11 @@ app.get("/related-products", async (req, res) => {
     const related = await RelatedProduct.findOne(query);
     if (!related) return res.json({ relatedProducts: [] });
 
-    const products = await Product.find({ _id: { $in: related.relatedProducts } });
+    const products = await Product.find({
+      _id: { $in: related.relatedProducts },
+    });
     res.json({ relatedProducts: products });
   } catch (err) {
-    console.log("Get Related Products Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1203,10 +1344,10 @@ app.get("/related-products", async (req, res) => {
 app.get("/related-products/raw", verifyToken, async (req, res) => {
   try {
     const { category, subCategory, extraCategory, type } = req.query;
-
-    if (!category || !subCategory) {
-      return res.status(400).json({ message: "category and subCategory are required" });
-    }
+    if (!category || !subCategory)
+      return res
+        .status(400)
+        .json({ message: "category and subCategory are required" });
 
     const query = {
       category,
@@ -1214,7 +1355,6 @@ app.get("/related-products/raw", verifyToken, async (req, res) => {
       extraCategory: extraCategory || null,
       type: type || null,
     };
-
     const related = await RelatedProduct.findOne(query);
     res.json({ relatedProducts: related ? related.relatedProducts : [] });
   } catch (err) {
@@ -1225,10 +1365,10 @@ app.get("/related-products/raw", verifyToken, async (req, res) => {
 app.put("/related-products/remove", verifyToken, async (req, res) => {
   try {
     const { category, subCategory, extraCategory, type, productId } = req.body;
-
-    if (!category || !subCategory || !productId) {
-      return res.status(400).json({ message: "category, subCategory, and productId are required" });
-    }
+    if (!category || !subCategory || !productId)
+      return res
+        .status(400)
+        .json({ message: "category, subCategory, and productId are required" });
 
     const filter = {
       category,
@@ -1236,33 +1376,39 @@ app.put("/related-products/remove", verifyToken, async (req, res) => {
       extraCategory: extraCategory || null,
       type: type || null,
     };
-
     const related = await RelatedProduct.findOne(filter);
-    if (!related) return res.status(404).json({ message: "Related products entry not found" });
+    if (!related)
+      return res
+        .status(404)
+        .json({ message: "Related products entry not found" });
 
     const before = related.relatedProducts.length;
     related.relatedProducts = related.relatedProducts.filter(
-      id => id.toString() !== productId.toString()
+      (id) => id.toString() !== productId.toString()
     );
     await related.save();
 
-    logAction(req.user.email, "UPDATE", "Product", `Related: ${category} > ${subCategory}`, {
-      changes: {
-        relatedProducts: {
-          old: `${before} products`,
-          new: `${related.relatedProducts.length} products`,
-          removed: `Product ID: ${productId}`,
-        }
+    logAction(
+      req.user.email,
+      "UPDATE",
+      "Product",
+      `Related: ${category} > ${subCategory}`,
+      {
+        changes: {
+          relatedProducts: {
+            old: `${before} products`,
+            new: `${related.relatedProducts.length} products`,
+            removed: `Product ID: ${productId}`,
+          },
+        },
       }
-    });
+    );
 
-    console.log(`Removed product ${productId} from related list. ${before} → ${related.relatedProducts.length}`);
     res.json({
       message: "Product removed from related list ✅",
       relatedProducts: related.relatedProducts,
     });
   } catch (err) {
-    console.log("Remove from related error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1273,7 +1419,10 @@ app.put("/related-products/remove", verifyToken, async (req, res) => {
 
 app.get("/blogs", async (req, res) => {
   try {
-    const blogs = await Blog.find({ published: true }).sort({ createdAt: -1 });
+    const blogs = await Blog.find({ published: true })
+      .sort({ createdAt: -1 })
+      .select("-comments"); // Don't send comments in list view (faster)
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=30");
     res.json(blogs);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1282,8 +1431,12 @@ app.get("/blogs", async (req, res) => {
 
 app.get("/blogs/slug/:slug", async (req, res) => {
   try {
-    const blog = await Blog.findOne({ slug: req.params.slug, published: true });
+    const blog = await Blog.findOne({
+      slug: req.params.slug,
+      published: true,
+    });
     if (!blog) return res.status(404).json({ error: "Blog not found" });
+    res.setHeader("Cache-Control", "public, max-age=120, stale-while-revalidate=60");
     res.json(blog);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1313,12 +1466,14 @@ app.post("/blogs/slug/:slug/like", async (req, res) => {
     );
     if (!blog) return res.status(404).json({ error: "Blog not found" });
 
-    transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.COMPANY_EMAIL,
-      subject: `New Like on: "${blog.title}"`,
-      html: `<p>Someone liked your blog <b>"${blog.title}"</b>.</p><p>Total likes now: <b>${blog.likes}</b></p>`,
-    }).catch(() => {});
+    transporter
+      .sendMail({
+        from: process.env.EMAIL_USER,
+        to: process.env.COMPANY_EMAIL,
+        subject: `New Like on: "${blog.title}"`,
+        html: `<p>Someone liked your blog <b>"${blog.title}"</b>.</p><p>Total likes now: <b>${blog.likes}</b></p>`,
+      })
+      .catch(() => {});
 
     res.json({ likes: blog.likes });
   } catch (err) {
@@ -1329,7 +1484,8 @@ app.post("/blogs/slug/:slug/like", async (req, res) => {
 app.post("/blogs/slug/:slug/comment", async (req, res) => {
   try {
     const { name, text } = req.body;
-    if (!name || !text) return res.status(400).json({ error: "Name and text required" });
+    if (!name || !text)
+      return res.status(400).json({ error: "Name and text required" });
 
     const blog = await Blog.findOneAndUpdate(
       { slug: req.params.slug, published: true },
@@ -1338,17 +1494,19 @@ app.post("/blogs/slug/:slug/comment", async (req, res) => {
     );
     if (!blog) return res.status(404).json({ error: "Blog not found" });
 
-    transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.COMPANY_EMAIL,
-      subject: `New Comment on: "${blog.title}"`,
-      html: `
+    transporter
+      .sendMail({
+        from: process.env.EMAIL_USER,
+        to: process.env.COMPANY_EMAIL,
+        subject: `New Comment on: "${blog.title}"`,
+        html: `
         <h3>New comment on <b>"${blog.title}"</b></h3>
         <p><b>From:</b> ${name}</p>
         <p><b>Comment:</b> ${text}</p>
         <p><small>Total comments: ${blog.comments.length}</small></p>
       `,
-    }).catch(() => {});
+      })
+      .catch(() => {});
 
     res.json({ comments: blog.comments });
   } catch (err) {
@@ -1371,7 +1529,6 @@ app.post("/blogs", verifyToken, async (req, res) => {
     let baseSlug = generateSlug(req.body.title);
     let finalSlug = baseSlug;
     let counter = 1;
-
     while (await Blog.findOne({ slug: finalSlug })) {
       finalSlug = `${baseSlug}-${counter}`;
       counter++;
@@ -1384,7 +1541,7 @@ app.post("/blogs", verifyToken, async (req, res) => {
         title: { new: blog.title },
         author: { new: blog.author },
         published: { new: blog.published },
-      }
+      },
     });
 
     res.status(201).json(blog);
@@ -1396,43 +1553,44 @@ app.post("/blogs", verifyToken, async (req, res) => {
 app.put("/blogs/:id", verifyToken, async (req, res) => {
   try {
     const existing = await Blog.findById(req.params.id);
-    if (!existing) return res.status(404).json({ message: "Blog not found" });
+    if (!existing)
+      return res.status(404).json({ message: "Blog not found" });
 
     if (req.body.image && req.body.image !== existing.image) {
       await deleteFromFirebase(existing.image);
-      console.log("Old blog hero image deleted from Firebase");
     }
 
     if (req.body.blocks) {
       const newBlockUrls = new Set(
         req.body.blocks
-          .filter(b => b.type === "image" && b.url)
-          .map(b => b.url)
+          .filter((b) => b.type === "image" && b.url)
+          .map((b) => b.url)
       );
-      const oldBlockImages = (existing.blocks || [])
-        .filter(b => b.type === "image" && b.url && !newBlockUrls.has(b.url));
-
+      const oldBlockImages = (existing.blocks || []).filter(
+        (b) => b.type === "image" && b.url && !newBlockUrls.has(b.url)
+      );
       for (const block of oldBlockImages) {
         await deleteFromFirebase(block.url);
-        console.log("Old blog block image deleted from Firebase:", block.url);
       }
     }
 
-    const changes = getDiff(existing, req.body, ["title", "excerpt", "author", "readTime", "published", "date"]);
+    const changes = getDiff(existing, req.body, [
+      "title", "excerpt", "author", "readTime", "published", "date",
+    ]);
 
     if (req.body.image && req.body.image !== existing.image) {
       changes.image = { old: "Previous image", new: "New image uploaded" };
     }
-
     if (req.body.blocks) {
       const oldCount = (existing.blocks || []).length;
       const newCount = req.body.blocks.length;
-      if (oldCount !== newCount) {
+      if (oldCount !== newCount)
         changes.blocks = { old: `${oldCount} blocks`, new: `${newCount} blocks` };
-      }
     }
 
-    const updated = await Blog.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await Blog.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
     logAction(req.user.email, "UPDATE", "Blog", updated.title, { changes });
     res.json(updated);
   } catch (err) {
@@ -1446,11 +1604,11 @@ app.delete("/blogs/:id", verifyToken, async (req, res) => {
     if (!blog) return res.status(404).json({ message: "Blog not found" });
 
     await deleteFromFirebase(blog.image);
-
-    const blockImages = (blog.blocks || []).filter(b => b.type === "image" && b.url);
+    const blockImages = (blog.blocks || []).filter(
+      (b) => b.type === "image" && b.url
+    );
     for (const block of blockImages) {
       await deleteFromFirebase(block.url);
-      console.log("Blog block image deleted from Firebase");
     }
 
     await Blog.findByIdAndDelete(req.params.id);
@@ -1459,10 +1617,9 @@ app.delete("/blogs/:id", verifyToken, async (req, res) => {
       changes: {
         title: { old: blog.title, new: "DELETED" },
         author: { old: blog.author, new: "DELETED" },
-      }
+      },
     });
 
-    console.log("Blog deleted:", blog.title);
     res.json({ message: "Deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1489,7 +1646,8 @@ app.put("/inquiries/:id/read", verifyToken, async (req, res) => {
       { status: "read" },
       { new: true }
     );
-    if (!inquiry) return res.status(404).json({ message: "Inquiry not found" });
+    if (!inquiry)
+      return res.status(404).json({ message: "Inquiry not found" });
     res.json(inquiry);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1499,11 +1657,14 @@ app.put("/inquiries/:id/read", verifyToken, async (req, res) => {
 app.post("/inquiries/:id/reply", verifyToken, async (req, res) => {
   try {
     const { message } = req.body;
-    if (!message) return res.status(400).json({ message: "Message is required" });
+    if (!message)
+      return res.status(400).json({ message: "Message is required" });
 
     const inquiry = await Inquiry.findById(req.params.id);
-    if (!inquiry) return res.status(404).json({ message: "Inquiry not found" });
-    if (!inquiry.customerEmail) return res.status(400).json({ message: "No customer email found" });
+    if (!inquiry)
+      return res.status(404).json({ message: "Inquiry not found" });
+    if (!inquiry.customerEmail)
+      return res.status(400).json({ message: "No customer email found" });
 
     await transporter.sendMail({
       from: `"AADONA Support" <${process.env.EMAIL_USER}>`,
@@ -1522,14 +1683,16 @@ app.post("/inquiries/:id/reply", verifyToken, async (req, res) => {
       `,
     });
 
-    inquiry.replies.push({ message, sentBy: req.user.email, sentAt: new Date() });
+    inquiry.replies.push({
+      message,
+      sentBy: req.user.email,
+      sentAt: new Date(),
+    });
     inquiry.status = "replied";
     await inquiry.save();
 
-    console.log(`Reply sent to: ${inquiry.customerEmail}`);
     res.json({ message: "Reply sent successfully ✅", inquiry });
   } catch (err) {
-    console.error("Reply error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1537,13 +1700,11 @@ app.post("/inquiries/:id/reply", verifyToken, async (req, res) => {
 app.delete("/inquiries/:id", verifyToken, async (req, res) => {
   try {
     const inquiry = await Inquiry.findById(req.params.id);
-    if (!inquiry) return res.status(404).json({ message: "Inquiry not found" });
+    if (!inquiry)
+      return res.status(404).json({ message: "Inquiry not found" });
 
     const attachmentUrl = inquiry.formData?.attachmentUrl;
-    if (attachmentUrl) {
-      await deleteFromFirebase(attachmentUrl);
-      console.log("🗑️ Inquiry attachment deleted from Firebase");
-    }
+    if (attachmentUrl) await deleteFromFirebase(attachmentUrl);
 
     await Inquiry.findByIdAndDelete(req.params.id);
     res.json({ message: "Inquiry deleted successfully" });
@@ -1556,7 +1717,7 @@ app.delete("/inquiries/:id", verifyToken, async (req, res) => {
    AUDIT LOG ROUTE
 ============================= */
 
-app.get("/audit-logs", verifyToken, async (req, res) => {
+app.get("/audit-logs", verifyToken, adminLimiter, async (req, res) => {
   try {
     const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(500);
     res.json(logs);
@@ -1569,14 +1730,13 @@ app.get("/audit-logs", verifyToken, async (req, res) => {
    ANALYTICS ROUTE
 ============================= */
 
-app.get("/analytics/summary", verifyToken, async (req, res) => {
+app.get("/analytics/summary", verifyToken, adminLimiter, async (req, res) => {
   try {
     const propertyId = process.env.GA_PROPERTY_ID;
-
     const { range } = req.query;
 
-    let startDate, endDate, dailyRange, dailyDimension;
-    endDate = "today";
+    let startDate, dailyRange, dailyDimension;
+    const endDate = "today";
 
     switch (range) {
       case "7days":
@@ -1685,37 +1845,33 @@ app.get("/analytics/summary", verifyToken, async (req, res) => {
       range: range || "30days",
       totalUsers: metrics[0]?.value || "0",
       pageViews: metrics[1]?.value || "0",
-      avgSessionDuration: Math.round(parseFloat(metrics[2]?.value || "0")) + "s",
+      avgSessionDuration:
+        Math.round(parseFloat(metrics[2]?.value || "0")) + "s",
       sessions: metrics[3]?.value || "0",
-      bounceRate: (parseFloat(metrics[4]?.value || "0") * 100).toFixed(1) + "%",
+      bounceRate:
+        (parseFloat(metrics[4]?.value || "0") * 100).toFixed(1) + "%",
       newUsers: metrics[5]?.value || "0",
-
-      topPages: (topPagesReport.rows || []).map(r => ({
+      topPages: (topPagesReport.rows || []).map((r) => ({
         page: r.dimensionValues[0].value,
         views: r.metricValues[0].value,
       })),
-
-      devices: (devicesReport.rows || []).map(r => ({
+      devices: (devicesReport.rows || []).map((r) => ({
         device: r.dimensionValues[0].value,
         sessions: r.metricValues[0].value,
       })),
-
-      countries: (countriesReport.rows || []).map(r => ({
+      countries: (countriesReport.rows || []).map((r) => ({
         country: r.dimensionValues[0].value,
         sessions: r.metricValues[0].value,
       })),
-
-      cities: (citiesReport.rows || []).map(r => ({
+      cities: (citiesReport.rows || []).map((r) => ({
         city: r.dimensionValues[0].value,
         sessions: r.metricValues[0].value,
       })),
-
-      trafficSources: (trafficSourceReport.rows || []).map(r => ({
+      trafficSources: (trafficSourceReport.rows || []).map((r) => ({
         source: r.dimensionValues[0].value,
         sessions: r.metricValues[0].value,
       })),
-
-      trendData: (trendReport.rows || []).map(r => ({
+      trendData: (trendReport.rows || []).map((r) => ({
         label: r.dimensionValues[0].value,
         sessions: r.metricValues[0].value,
         users: r.metricValues[1].value,
@@ -1728,15 +1884,16 @@ app.get("/analytics/summary", verifyToken, async (req, res) => {
 });
 
 /* =============================
-   FORM SUBMISSION ROUTES
+   FORM SUBMISSION ROUTES  (rate limited)
 ============================= */
 
-app.post("/submit-partner", async (req, res) => {
+app.post("/submit-partner", formLimiter, async (req, res) => {
   const form = req.body;
-  console.log("Partner form received:", form.email);
-
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+  if (!emailValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email address. Please enter a real email." });
 
   try {
     await Inquiry.create({
@@ -1773,20 +1930,19 @@ app.post("/submit-partner", async (req, res) => {
       `,
     });
 
-    console.log("Partner email sent");
     res.json({ success: true, message: "Application submitted successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-app.post("/submit-project-locking", async (req, res) => {
+app.post("/submit-project-locking", formLimiter, async (req, res) => {
   const form = req.body;
-  console.log("Project Locking form received:", form.email);
-
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+  if (!emailValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email address. Please enter a real email." });
 
   try {
     await Inquiry.create({
@@ -1823,20 +1979,19 @@ app.post("/submit-project-locking", async (req, res) => {
       `,
     });
 
-    console.log("Project Locking email sent");
     res.json({ success: true, message: "Application submitted successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-app.post("/submit-demo", async (req, res) => {
+app.post("/submit-demo", formLimiter, async (req, res) => {
   const form = req.body;
-  console.log("Demo request received:", form.email);
-
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+  if (!emailValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email address. Please enter a real email." });
 
   try {
     await Inquiry.create({
@@ -1866,20 +2021,19 @@ app.post("/submit-demo", async (req, res) => {
       `,
     });
 
-    console.log("Demo request email sent");
     res.json({ success: true, message: "Demo request submitted successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-app.post("/submit-training", async (req, res) => {
+app.post("/submit-training", formLimiter, async (req, res) => {
   const form = req.body;
-  console.log("Training request received:", form.email);
-
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+  if (!emailValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email address. Please enter a real email." });
 
   try {
     await Inquiry.create({
@@ -1910,20 +2064,19 @@ app.post("/submit-training", async (req, res) => {
       `,
     });
 
-    console.log("Training request email sent");
     res.json({ success: true, message: "Training request submitted successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-app.post("/submit-warranty", upload.single("invoiceFile"), async (req, res) => {
+app.post("/submit-warranty", formLimiter, upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
-  console.log("Warranty check received:", form.email);
-
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+  if (!emailValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email address. Please enter a real email." });
 
   try {
     const attachmentUrl = await uploadToFirebase(req.file, "warranty");
@@ -1950,26 +2103,25 @@ app.post("/submit-warranty", upload.single("invoiceFile"), async (req, res) => {
         </table>
       `,
     };
-
-    if (req.file) {
-      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-    }
+    if (req.file)
+      mailOptions.attachments = [
+        { filename: req.file.originalname, content: req.file.buffer },
+      ];
 
     await transporter.sendMail(mailOptions);
-    console.log("Warranty check email sent");
     res.json({ success: true, message: "Warranty check submitted successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-app.post("/submit-techsquad", upload.single("invoiceFile"), async (req, res) => {
+app.post("/submit-techsquad", formLimiter, upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
-  console.log("Tech Squad request received:", form.email);
-
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+  if (!emailValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email address. Please enter a real email." });
 
   try {
     const attachmentUrl = await uploadToFirebase(req.file, "techsquad");
@@ -1998,26 +2150,25 @@ app.post("/submit-techsquad", upload.single("invoiceFile"), async (req, res) => 
         </table>
       `,
     };
-
-    if (req.file) {
-      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-    }
+    if (req.file)
+      mailOptions.attachments = [
+        { filename: req.file.originalname, content: req.file.buffer },
+      ];
 
     await transporter.sendMail(mailOptions);
-    console.log("Tech Squad email sent");
     res.json({ success: true, message: "Tech Squad request submitted successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-app.post("/submit-doa", upload.single("invoiceFile"), async (req, res) => {
+app.post("/submit-doa", formLimiter, upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
-  console.log("DOA request received:", form.email);
-
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+  if (!emailValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email address. Please enter a real email." });
 
   try {
     const attachmentUrl = await uploadToFirebase(req.file, "doa");
@@ -2049,26 +2200,25 @@ app.post("/submit-doa", upload.single("invoiceFile"), async (req, res) => {
         </table>
       `,
     };
-
-    if (req.file) {
-      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-    }
+    if (req.file)
+      mailOptions.attachments = [
+        { filename: req.file.originalname, content: req.file.buffer },
+      ];
 
     await transporter.sendMail(mailOptions);
-    console.log("DOA request email sent");
     res.json({ success: true, message: "DOA request submitted successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-app.post("/submit-product-support", async (req, res) => {
+app.post("/submit-product-support", formLimiter, async (req, res) => {
   const form = req.body;
-  console.log("Product Support request received:", form.email);
-
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+  if (!emailValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email address. Please enter a real email." });
 
   try {
     await Inquiry.create({
@@ -2094,20 +2244,19 @@ app.post("/submit-product-support", async (req, res) => {
       `,
     });
 
-    console.log("Product Support email sent");
     res.json({ success: true, message: "Support request submitted successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-app.post("/submit-product-registration", upload.single("invoiceFile"), async (req, res) => {
+app.post("/submit-product-registration", formLimiter, upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
-  console.log("Product Registration received:", form.email);
-
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+  if (!emailValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email address. Please enter a real email." });
 
   try {
     const attachmentUrl = await uploadToFirebase(req.file, "registrations");
@@ -2140,26 +2289,25 @@ app.post("/submit-product-registration", upload.single("invoiceFile"), async (re
         </table>
       `,
     };
-
-    if (req.file) {
-      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-    }
+    if (req.file)
+      mailOptions.attachments = [
+        { filename: req.file.originalname, content: req.file.buffer },
+      ];
 
     await transporter.sendMail(mailOptions);
-    console.log("Product Registration email sent");
     res.json({ success: true, message: "Product registered successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-app.post("/submit-contact", async (req, res) => {
+app.post("/submit-contact", formLimiter, async (req, res) => {
   const form = req.body;
-  console.log("Contact form received:", form.email);
-
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+  if (!emailValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email address. Please enter a real email." });
 
   try {
     await Inquiry.create({
@@ -2187,20 +2335,19 @@ app.post("/submit-contact", async (req, res) => {
       `,
     });
 
-    console.log("Contact email sent");
     res.json({ success: true, message: "Message sent successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-app.post("/submit-apply", upload.single("resumeFile"), async (req, res) => {
+app.post("/submit-apply", formLimiter, upload.single("resumeFile"), async (req, res) => {
   const form = req.body;
-  console.log("Job application received:", form.email);
-
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+  if (!emailValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid email address. Please enter a real email." });
 
   try {
     const attachmentUrl = await uploadToFirebase(req.file, "resumes");
@@ -2227,27 +2374,26 @@ app.post("/submit-apply", upload.single("resumeFile"), async (req, res) => {
         </table>
       `,
     };
-
-    if (req.file) {
-      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-    }
+    if (req.file)
+      mailOptions.attachments = [
+        { filename: req.file.originalname, content: req.file.buffer },
+      ];
 
     await transporter.sendMail(mailOptions);
-    console.log("Job application email sent");
     res.json({ success: true, message: "Application submitted successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-app.post("/submit-whistleblower", upload.single("attachmentFile"), async (req, res) => {
+app.post("/submit-whistleblower", formLimiter, upload.single("attachmentFile"), async (req, res) => {
   const form = req.body;
-  console.log("Whistle blower report received:", form.name || "Anonymous");
-
   if (form.email) {
     const emailValid = await isEmailDomainValid(form.email);
-    if (!emailValid) return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email." });
+    if (!emailValid)
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid email address. Please enter a real email." });
   }
 
   try {
@@ -2273,26 +2419,35 @@ app.post("/submit-whistleblower", upload.single("attachmentFile"), async (req, r
         </table>
       `,
     };
-
-    if (req.file) {
-      mailOptions.attachments = [{ filename: req.file.originalname, content: req.file.buffer }];
-    }
+    if (req.file)
+      mailOptions.attachments = [
+        { filename: req.file.originalname, content: req.file.buffer },
+      ];
 
     await transporter.sendMail(mailOptions);
-    console.log("Whistle blower email sent");
     res.json({ success: true, message: "Report submitted successfully" });
   } catch (err) {
-    console.error("Mail error:", err.message);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
 /* =============================
-   START
+   GRACEFUL SHUTDOWN
+============================= */
+
+process.on("SIGINT", async () => {
+  if (browserInstance) {
+    await browserInstance.close();
+    console.log("Puppeteer browser closed");
+  }
+  process.exit();
+});
+
+/* =============================
+   START SERVER
 ============================= */
 
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
