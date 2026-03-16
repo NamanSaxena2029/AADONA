@@ -100,6 +100,50 @@ const uploadToFirebase = async (file, folder) => {
 };
 
 /* =============================
+   GENERATE & UPLOAD PDF TO FIREBASE
+============================= */
+
+const generateAndUploadDatasheet = async (product) => {
+  try {
+    const html = buildDatasheetHTML(product);
+
+    const browser = await puppeteer.launch({
+      executablePath: process.env.CHROME_PATH || "/usr/bin/chromium-browser",
+      headless: "new",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+      ],
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
+    const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
+    await browser.close();
+
+    // Firebase pe upload karo
+    const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
+    const fileName = `datasheets/${product.slug}-datasheet.pdf`;
+    const fileUpload = bucket.file(fileName);
+
+    await fileUpload.save(pdfBuffer, {
+      metadata: { contentType: "application/pdf" },
+    });
+    await fileUpload.makePublic();
+
+    const url = `https://firebasestorage.googleapis.com/v0/b/${process.env.FIREBASE_STORAGE_BUCKET}/o/${encodeURIComponent(fileName)}?alt=media`;
+    console.log("Datasheet uploaded to Firebase:", url);
+    return url;
+
+  } catch (err) {
+    console.log("Datasheet generation failed:", err.message);
+    return null;
+  }
+};
+
+/* =============================
    VERIFY TOKEN MIDDLEWARE
 ============================= */
 
@@ -1224,6 +1268,14 @@ app.post("/products", verifyToken, async (req, res) => {
 
     const newProduct = await Product.create({ ...req.body, slug, order: nextOrder });
 
+    // PDF generate karo aur Firebase pe store karo
+    const datasheetUrl = await generateAndUploadDatasheet(newProduct);
+    if (datasheetUrl) {
+      newProduct.datasheet = datasheetUrl;
+      await newProduct.save();
+      console.log("Datasheet saved to product:", newProduct.slug);
+    }
+
     logAction(req.user.email, "CREATE", "Product", newProduct.name, {
       changes: {
         name: { new: newProduct.name },
@@ -1307,6 +1359,16 @@ app.put("/products/:id", verifyToken, async (req, res) => {
     }
 
     const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (existing.datasheet) {
+      await deleteFromFirebase(existing.datasheet);
+    }
+    const datasheetUrl = await generateAndUploadDatasheet(updated);
+    if (datasheetUrl) {
+      updated.datasheet = datasheetUrl;
+      await updated.save();
+      console.log("Datasheet regenerated for:", updated.slug);
+    }
+
     logAction(req.user.email, "UPDATE", "Product", updated.name, { changes });
     res.json(updated);
   } catch (err) {
