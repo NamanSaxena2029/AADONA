@@ -185,7 +185,7 @@ const generateAndUploadDatasheet = async (product) => {
 
     // Match HTML page width exactly (794px = A4 width at 96dpi)
     await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 });
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 60000 });
 
     // Wait for fonts + images to fully load
     await page.evaluateHandle("document.fonts.ready");
@@ -995,7 +995,7 @@ app.get("/products/:slug/datasheet", pdfLimiter, async (req, res) => {
     const browser = await getBrowser();
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 900 });
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 60000 });
 
     const pdf = await page.pdf({ format: "A4", printBackground: true });
     await page.close();
