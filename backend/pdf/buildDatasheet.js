@@ -60,14 +60,27 @@ const buildDatasheetHTML = (product) => {
     }
 
     /* ============================
+       PAGE WRAPPER
+    ============================ */
+
+    .pdf-page {
+      width: 794px;
+      height: 1123px;
+      overflow: hidden;
+      position: relative;
+      page-break-after: always;
+      page-break-inside: avoid;
+    }
+
+    .pdf-page:last-child {
+      page-break-after: auto;
+    }
+
+    /* ============================
        PAGE 1 — COVER
     ============================ */
 
     .page {
-      position: relative;
-      width: 794px;
-      height: 1123px;
-      overflow: hidden;
       background: #0a1628;
     }
 
@@ -266,22 +279,17 @@ const buildDatasheetHTML = (product) => {
     }
 
     /* ============================
-       PAGE BREAK
-    ============================ */
-
-    .page-break {
-      page-break-before: always;
-    }
-
-    /* ============================
        PAGE 2+ — CONTENT
     ============================ */
 
-    .page2 {
+    .page2-inner {
       padding: 80px;
+      width: 794px;
+      min-height: 1123px;
+      background: #fff;
     }
 
-    .page2 h1 {
+    .page2-inner h1 {
       font-family: 'Montserrat', sans-serif;
       font-size: 22px;
       font-weight: 800;
@@ -292,19 +300,19 @@ const buildDatasheetHTML = (product) => {
       color: #1b7f4c;
     }
 
-    .page2 p {
+    .page2-inner p {
       font-size: 14px;
       line-height: 1.9;
       margin-bottom: 40px;
       color: #444;
     }
 
-    .page2 ul {
+    .page2-inner ul {
       padding-left: 22px;
       margin-bottom: 40px;
     }
 
-    .page2 li {
+    .page2-inner li {
       margin-bottom: 10px;
       font-size: 14px;
       color: #444;
@@ -355,10 +363,6 @@ const buildDatasheetHTML = (product) => {
     ============================ */
 
     .last-page {
-      position: relative;
-      width: 794px;
-      height: 1123px;
-      overflow: hidden;
       background: #0a1628;
     }
 
@@ -549,7 +553,7 @@ const buildDatasheetHTML = (product) => {
 <body>
 
   <!-- PAGE 1 — COVER -->
-  <div class="page">
+  <div class="pdf-page page">
     <img class="bg" src="data:image/png;base64,${bg}" />
     <div class="cover-overlay"></div>
     <div class="cover-accent-bar"></div>
@@ -574,19 +578,17 @@ const buildDatasheetHTML = (product) => {
     </div>
   </div>
 
-  <div class="page-break"></div>
-
   <!-- PAGE 2+ — CONTENT -->
-  <div class="page2">
-    ${product.overview?.content ? `<h1>Product Overview</h1><p>${product.overview.content}</p>` : ""}
-    ${(product.highlights || []).length ? `<h1>Key Features</h1><ul>${highlightsHTML}</ul>` : ""}
-    ${Object.keys(product.specifications || {}).length ? `<h1>Technical Specifications</h1>${specsHTML}` : ""}
+  <div class="pdf-page" style="height: auto; min-height: 1123px; overflow: visible;">
+    <div class="page2-inner">
+      ${product.overview?.content ? `<h1>Product Overview</h1><p>${product.overview.content}</p>` : ""}
+      ${(product.highlights || []).length ? `<h1>Key Features</h1><ul>${highlightsHTML}</ul>` : ""}
+      ${Object.keys(product.specifications || {}).length ? `<h1>Technical Specifications</h1>${specsHTML}` : ""}
+    </div>
   </div>
 
-  <div class="page-break"></div>
-
   <!-- LAST PAGE — BACK COVER -->
-  <div class="last-page">
+  <div class="pdf-page last-page">
     <img class="last-bg" src="data:image/png;base64,${bg}" />
     <div class="last-overlay"></div>
     <div class="last-accent-bar"></div>

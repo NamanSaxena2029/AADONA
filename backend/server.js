@@ -183,12 +183,21 @@ const generateAndUploadDatasheet = async (product) => {
     const browser = await getBrowser();
     const page = await browser.newPage();
 
-    // Better rendering with explicit viewport
-    await page.setViewport({ width: 1280, height: 900 });
+    // Match HTML page width exactly (794px = A4 width at 96dpi)
+    await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 });
     await page.setContent(html, { waitUntil: "networkidle0" });
-    await new Promise((resolve) => setTimeout(resolve, 300));
 
-    const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
+    // Wait for fonts + images to fully load
+    await page.evaluateHandle("document.fonts.ready");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const pdfBuffer = await page.pdf({
+      width: "794px",
+      height: "1123px",
+      printBackground: true,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+    });
+
     await page.close();
 
     const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
@@ -198,7 +207,7 @@ const generateAndUploadDatasheet = async (product) => {
     await fileUpload.save(pdfBuffer, {
       metadata: {
         contentType: "application/pdf",
-        cacheControl: "public, max-age=86400", // CDN cache: 24h
+        cacheControl: "public, max-age=86400",
       },
     });
     await fileUpload.makePublic();
