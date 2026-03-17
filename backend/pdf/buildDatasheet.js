@@ -8,7 +8,7 @@ const buildDatasheetHTML = (product) => {
   ).toString("base64");
 
   const bg = fs.readFileSync(
-    path.resolve(__dirname, "../assets/bg.png")
+    path.resolve(__dirname, "../assets/bg.jpeg")
   ).toString("base64");
 
   const makeIndia = fs.readFileSync(
