@@ -48,7 +48,9 @@ const buildDatasheetHTML = (product) => {
 
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Open+Sans:wght@400;600&display=swap');
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
@@ -85,7 +87,10 @@ const buildDatasheetHTML = (product) => {
     /* Dark gradient overlay for readability */
     .cover-overlay {
       position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background: linear-gradient(
         160deg,
         rgba(5,15,35,0.82) 0%,
@@ -98,8 +103,10 @@ const buildDatasheetHTML = (product) => {
     /* Green left accent bar */
     .cover-accent-bar {
       position: absolute;
-      top: 0; left: 0;
-      width: 6px; height: 100%;
+      top: 0;
+      left: 0;
+      width: 6px;
+      height: 100%;
       background: linear-gradient(180deg, #1b7f4c 0%, #25a86a 50%, #1b7f4c 100%);
       z-index: 3;
     }
@@ -107,7 +114,9 @@ const buildDatasheetHTML = (product) => {
     /* Top header band */
     .cover-header {
       position: absolute;
-      top: 0; left: 6px; right: 0;
+      top: 0;
+      left: 6px;
+      right: 0;
       height: 90px;
       background: rgba(255,255,255,0.04);
       border-bottom: 1px solid rgba(255,255,255,0.10);
@@ -176,7 +185,8 @@ const buildDatasheetHTML = (product) => {
       position: absolute;
       top: 278px;
       left: 54px;
-      width: 60px; height: 3px;
+      width: 60px;
+      height: 3px;
       background: linear-gradient(90deg, #25a86a, transparent);
       z-index: 4;
     }
@@ -197,7 +207,8 @@ const buildDatasheetHTML = (product) => {
     .desc-wrap {
       position: absolute;
       bottom: 95px;
-      left: 54px; right: 54px;
+      left: 54px;
+      right: 54px;
       z-index: 4;
       display: flex;
       align-items: flex-end;
@@ -226,7 +237,9 @@ const buildDatasheetHTML = (product) => {
     /* Footer band */
     .cover-footer-band {
       position: absolute;
-      bottom: 0; left: 6px; right: 0;
+      bottom: 0;
+      left: 6px;
+      right: 0;
       height: 58px;
       background: rgba(0,0,0,0.50);
       border-top: 1px solid rgba(255,255,255,0.08);
@@ -256,13 +269,17 @@ const buildDatasheetHTML = (product) => {
        PAGE BREAK
     ============================ */
 
-    .page-break { page-break-before: always; }
+    .page-break {
+      page-break-before: always;
+    }
 
     /* ============================
        PAGE 2+ — CONTENT
     ============================ */
 
-    .page2 { padding: 80px; }
+    .page2 {
+      padding: 80px;
+    }
 
     .page2 h1 {
       font-family: 'Montserrat', sans-serif;
@@ -294,7 +311,9 @@ const buildDatasheetHTML = (product) => {
       line-height: 1.7;
     }
 
-    .spec-section { margin-bottom: 40px; }
+    .spec-section {
+      margin-bottom: 40px;
+    }
 
     .spec-section h2 {
       font-family: 'Montserrat', sans-serif;
@@ -304,7 +323,10 @@ const buildDatasheetHTML = (product) => {
       font-weight: 700;
     }
 
-    table { width: 100%; border-collapse: collapse; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
 
     td {
       border: 1px solid #e0e0e0;
@@ -320,9 +342,13 @@ const buildDatasheetHTML = (product) => {
       background: #f6f8f6;
     }
 
-    td:last-child { color: #444; }
+    td:last-child {
+      color: #444;
+    }
 
-    tr:nth-child(even) td:first-child { background: #eef2ee; }
+    tr:nth-child(even) td:first-child {
+      background: #eef2ee;
+    }
 
     /* ============================
        LAST PAGE — BACK COVER
@@ -338,8 +364,10 @@ const buildDatasheetHTML = (product) => {
 
     .last-bg {
       position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       object-fit: cover;
       object-position: center center;
       opacity: 0.20;
@@ -348,7 +376,10 @@ const buildDatasheetHTML = (product) => {
 
     .last-overlay {
       position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       background: linear-gradient(
         180deg,
         rgba(5,15,35,0.70) 0%,
@@ -360,15 +391,18 @@ const buildDatasheetHTML = (product) => {
 
     .last-accent-bar {
       position: absolute;
-      top: 0; left: 0;
-      width: 6px; height: 100%;
+      top: 0;
+      left: 0;
+      width: 6px;
+      height: 100%;
       background: linear-gradient(180deg, #1b7f4c 0%, #25a86a 50%, #1b7f4c 100%);
       z-index: 3;
     }
 
     .last-logo-wrap {
       position: absolute;
-      top: 50%; left: 50%;
+      top: 50%;
+      left: 50%;
       transform: translate(-50%, -58%);
       text-align: center;
       z-index: 4;
@@ -403,7 +437,8 @@ const buildDatasheetHTML = (product) => {
     }
 
     .last-divider-line {
-      width: 80px; height: 1px;
+      width: 80px;
+      height: 1px;
       background: linear-gradient(90deg, transparent, rgba(37,168,106,0.6));
     }
 
@@ -412,7 +447,8 @@ const buildDatasheetHTML = (product) => {
     }
 
     .last-divider-dot {
-      width: 6px; height: 6px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: #25a86a;
     }
@@ -420,7 +456,8 @@ const buildDatasheetHTML = (product) => {
     .address-section {
       position: absolute;
       bottom: 140px;
-      left: 6px; right: 0;
+      left: 6px;
+      right: 0;
       display: flex;
       justify-content: space-around;
       align-items: flex-start;
@@ -467,7 +504,9 @@ const buildDatasheetHTML = (product) => {
 
     .trademark-line {
       position: absolute;
-      bottom: 78px; left: 6px; right: 0;
+      bottom: 78px;
+      left: 6px;
+      right: 0;
       text-align: center;
       font-size: 10px;
       color: rgba(255,255,255,0.22);
@@ -477,7 +516,9 @@ const buildDatasheetHTML = (product) => {
 
     .last-footer-band {
       position: absolute;
-      bottom: 0; left: 6px; right: 0;
+      bottom: 0;
+      left: 6px;
+      right: 0;
       height: 56px;
       background: rgba(0,0,0,0.52);
       border-top: 1px solid rgba(255,255,255,0.07);
@@ -512,27 +553,21 @@ const buildDatasheetHTML = (product) => {
     <img class="bg" src="data:image/png;base64,${bg}" />
     <div class="cover-overlay"></div>
     <div class="cover-accent-bar"></div>
-
     <div class="cover-header">
       <img class="logo" src="data:image/jpeg;base64,${logo}" />
       <div class="cover-tagline">Communication Technology</div>
     </div>
-
     <div class="model-block">
       ${product.series ? `<div class="series-label">${product.series}</div>` : ""}
       <div class="model-name">${product.model || product.name}</div>
       ${product.description ? `<div class="model-sub">${product.description}</div>` : ""}
     </div>
-
     <div class="model-rule"></div>
-
     <img class="product" src="${product.image}" />
-
     <div class="desc-wrap">
       ${product.description ? `<div class="desc">${product.description}</div>` : "<div></div>"}
       <img class="india" src="data:image/png;base64,${makeIndia}" />
     </div>
-
     <div class="cover-footer-band">
       <div class="cover-footer">© 2024 AADONA Communication Pvt Ltd. All rights reserved</div>
       <div class="cover-footer-right">Product Datasheet</div>
@@ -555,18 +590,15 @@ const buildDatasheetHTML = (product) => {
     <img class="last-bg" src="data:image/png;base64,${bg}" />
     <div class="last-overlay"></div>
     <div class="last-accent-bar"></div>
-
     <div class="last-logo-wrap">
       <img class="last-logo" src="data:image/jpeg;base64,${logo}" alt="AADONA Logo" />
       <div class="last-logo-tagline">Communication Technology</div>
     </div>
-
     <div class="last-divider">
       <div class="last-divider-line"></div>
       <div class="last-divider-dot"></div>
       <div class="last-divider-line right"></div>
     </div>
-
     <div class="address-section">
       <div class="address-col">
         <div class="company-name">AADONA Communication Pvt Ltd</div>
@@ -588,11 +620,9 @@ const buildDatasheetHTML = (product) => {
         contact@aadona.com
       </div>
     </div>
-
     <div class="trademark-line">
       AADONA and AADONA logo are trademarks of AADONA Communication Pvt Ltd &nbsp;·&nbsp; Printed in India
     </div>
-
     <div class="last-footer-band">
       <div class="last-footer">© 2024 AADONA Communication Pvt Ltd. All rights reserved</div>
       <div class="last-footer-right">www.aadona.com</div>
