@@ -84,6 +84,7 @@ export default function Blogs({ blogs, reloadBlogs }) {
     date: "", readTime: "3 min read", image: "", blocks: [],
   });
   const [editingBlogId, setEditingBlogId] = useState(null);
+  const [editingIsDraft, setEditingIsDraft] = useState(false);
   const [drafts, setDrafts] = useState([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
   
@@ -165,7 +166,7 @@ export default function Blogs({ blogs, reloadBlogs }) {
       });
 
       if (res.ok) {
-        alert(saveAsDraft ? "Draft saved!" : editingBlogId && drafts.find(d => d._id === editingBlogId) ? "Blog published!" : editingBlogId ? "Blog updated!" : "Blog published!");
+        alert(saveAsDraft ? "Draft saved!" : editingIsDraft ? "Blog published!" : editingBlogId ? "Blog updated!" : "Blog published!");
         resetBlogForm();
         reloadBlogs();
         loadDrafts();
@@ -196,14 +197,16 @@ export default function Blogs({ blogs, reloadBlogs }) {
   const resetBlogForm = () => {
     setBlogForm({ title: "", excerpt: "", author: "Pinakii Chatterje", date: "", readTime: "3 min read", image: "", blocks: [] });
     setEditingBlogId(null);
+    setEditingIsDraft(false);
   };
 
-  const editBlog = (blog) => {
+  const editBlog = (blog, isDraft = false) => {
     setBlogForm({
       title: blog.title, excerpt: blog.excerpt, author: blog.author,
       date: blog.date, readTime: blog.readTime, image: blog.image, blocks: blog.blocks || [],
     });
     setEditingBlogId(blog._id);
+    setEditingIsDraft(isDraft);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -368,17 +371,17 @@ export default function Blogs({ blogs, reloadBlogs }) {
           <div className="flex gap-4 pt-6 border-t border-green-100">
             <button type="submit"
               className="bg-green-600 text-white px-10 py-3 rounded-full hover:bg-green-700 transition font-bold shadow-lg">
-              {editingBlogId && !drafts.find(d => d._id === editingBlogId) ? "Update Blog" : "Publish Blog"}
+              {editingBlogId && !editingIsDraft ? "Update Blog" : "Publish Blog"}
             </button>
-            {!editingBlogId || drafts.find(d => d._id === editingBlogId) ? (
-            <button
-              type="button"
-              onClick={(e) => handleBlogSubmit(e, true)}
-              className="bg-gray-100 text-gray-700 px-8 py-3 rounded-full hover:bg-gray-200 transition font-bold border border-gray-300"
-            >
-              💾 Save as Draft
-            </button>
-            ) : null}
+            {(!editingBlogId || editingIsDraft) && (
+              <button
+                type="button"
+                onClick={(e) => handleBlogSubmit(e, true)}
+                className="bg-gray-100 text-gray-700 px-8 py-3 rounded-full hover:bg-gray-200 transition font-bold border border-gray-300"
+              >
+                💾 Save as Draft
+              </button>
+            )}
             {editingBlogId && (
               <button type="button" onClick={resetBlogForm}
                 className="text-gray-400 font-medium hover:text-red-500 transition">
@@ -495,7 +498,7 @@ export default function Blogs({ blogs, reloadBlogs }) {
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   <button
-                    onClick={() => { editBlog(draft); }}
+                    onClick={() => editBlog(draft, true)}
                     className="p-2.5 bg-yellow-50 text-yellow-600 hover:bg-yellow-500 hover:text-white rounded-xl transition shadow-sm"
                     title="Edit & Publish"
                   >
