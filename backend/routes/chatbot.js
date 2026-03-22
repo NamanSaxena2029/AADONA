@@ -247,32 +247,38 @@ router.post('/chat', chatLimiter, async (req, res) => {
       return res.status(500).json({ success: false, error: 'AI service not configured.' });
     }
  
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 600,
-        system: buildSystemPrompt(userName || 'Guest', userPhone || ''),
-        messages: recentMessages,
-      }),
-    });
- 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      console.error('Anthropic API error:', response.status, errData);
-      return res.status(502).json({
+    const genAI = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        system_instruction: {
+            parts: [{ text: buildSystemPrompt(userName || 'Guest', userPhone || '') }]
+        },
+        contents: recentMessages.map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+        })),
+        generationConfig: {
+            maxOutputTokens: 600,
+            temperature: 0.7,
+        }
+        }),
+    }
+    );
+
+    if (!genAI.ok) {
+    const errData = await genAI.json().catch(() => ({}));
+    console.error('Gemini API error:', genAI.status, errData);
+    return res.status(502).json({
         success: false,
         error: 'AI service temporarily unavailable. Please try again.',
-      });
+    });
     }
- 
-    const data = await response.json();
-    const reply = data?.content?.[0]?.text;
+
+    const data = await genAI.json();
+    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
  
     if (!reply) {
       return res.status(502).json({
