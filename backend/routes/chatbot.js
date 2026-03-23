@@ -1,7 +1,8 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const router = express.Router();
- 
+const mongoose = require('mongoose');
+
 // ─── Rate limiter: 20 messages per 5 min per IP ────────────────────────────
 const chatLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
@@ -13,6 +14,18 @@ const chatLimiter = rateLimit({
     error: 'Too many messages. Please wait a moment before sending more.',
   },
 });
+
+const getProductsContext = async () => {
+  try {
+    const Product = mongoose.model('Product');
+    const products = await Product.find({}, 'name model category subCategory description features').limit(50);
+    if (!products.length) return '';
+    const list = products.map(p => 
+      `- ${p.fullName || p.name} (Model: ${p.model || 'N/A'}) | Category: ${p.category} > ${p.subCategory}\n  ${p.description?.slice(0, 100) || ''}`
+    ).join('\n');
+    return `\n\nLIVE PRODUCT DATABASE:\n${list}`;
+  } catch { return ''; }
+};
  
 // ─── AADONA System Prompt ──────────────────────────────────────────────────
 const buildSystemPrompt = (userName, userPhone) => `
@@ -21,11 +34,13 @@ You are AADONA's friendly and knowledgeable AI assistant. Your name is "AADONA A
 IMPORTANT INSTRUCTIONS:
 - Detect the user's language from their message and ALWAYS reply in the same language (Hindi or English).
 - If they write in Hindi/Hinglish, respond in Hindi/Hinglish. If English, respond in English.
-- Keep responses concise, warm, and helpful. Use **bold** for emphasis where appropriate.
-- Use line breaks to make responses readable.
-- Always address the user by their first name occasionally to keep it personal.
-- Never make up information not listed below. If unsure, say so and give contact details.
+- Keep responses concise, professional and helpful. Use **bold** for key info only.
+- STRICT LANGUAGE RULE: If user writes in Hindi/Hinglish → reply ONLY in Hindi. If English → reply ONLY in English. NEVER mix both in same response.
+- Never add irrelevant or made-up information. If you don't know something, say so and give contact details.
 - You are NOT a general AI — only answer AADONA-related queries.
+- For product queries, use the LIVE PRODUCT DATABASE provided. Give model numbers, categories accurately.
+- Keep responses short and to the point. No unnecessary filler sentences.
+- Address user by first name occasionally.
  
 USER INFO:
 - Name: ${userName}
@@ -247,6 +262,8 @@ router.post('/chat', chatLimiter, async (req, res) => {
       return res.status(500).json({ success: false, error: 'AI service not configured.' });
     }
  
+    const productsContext = await getProductsContext();
+
     const genAI = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -254,10 +271,10 @@ router.post('/chat', chatLimiter, async (req, res) => {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'llama-3.3-70b-versatile',
         max_tokens: 600,
         messages: [
-          { role: 'system', content: buildSystemPrompt(userName || 'Guest', userPhone || '') },
+          { role: 'system', content: buildSystemPrompt(userName || 'Guest', userPhone || '') + productsContext },
           ...recentMessages
         ],
       }),
