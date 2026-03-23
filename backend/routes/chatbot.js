@@ -271,7 +271,7 @@ router.post('/chat', chatLimiter, async (req, res) => {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama-3.1-8b-instant',
         max_tokens: 600,
         messages: [
           { role: 'system', content: buildSystemPrompt(userName || 'Guest', userPhone || '') + productsContext },
