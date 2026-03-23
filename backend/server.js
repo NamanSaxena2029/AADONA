@@ -270,6 +270,8 @@ app.use(
     origin: [
       "https://aadona.com",
       "https://www.aadona.com",
+      "https://aadona.online",
+      "https://www.aadona.online",
       "http://localhost:3000",
       "http://localhost:5173",
     ],
