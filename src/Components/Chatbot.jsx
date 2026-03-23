@@ -153,7 +153,7 @@ function RegistrationForm({ onStart }) {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                placeholder="e.g. Rahul Sharma"
+                placeholder=""
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent placeholder:text-slate-400 transition"
               />
             </div>
@@ -166,7 +166,7 @@ function RegistrationForm({ onStart }) {
                   value={phone}
                   onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                  placeholder="9876543210"
+                  placeholder=""
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent placeholder:text-slate-400 transition"
                 />
               </div>
