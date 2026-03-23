@@ -44,7 +44,7 @@ function ProductCard({ product }) {
         <p className="text-xs font-semibold text-slate-800 leading-tight">{product.name}</p>
         <p className="text-[10px] text-slate-500 mb-2">{product.model}</p>
         <a
-          href={`https://www.aadona.online/products/${product.slug}`}
+          href={`https://www.aadona.online/${product.category?.toLowerCase().replace(/\s+/g, '')}/${product.slug}`}
           target="_blank"
           rel="noopener noreferrer"
           className="block text-center text-[11px] font-semibold bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-1.5 rounded-lg hover:opacity-90 transition"

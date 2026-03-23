@@ -308,11 +308,12 @@ router.post('/chat', chatLimiter, async (req, res) => {
       success: true, 
       reply,
       productCard: mentionedProduct ? {
-        name: mentionedProduct.fullName || mentionedProduct.name,
-        model: mentionedProduct.model,
-        image: mentionedProduct.image,
-        slug: mentionedProduct.slug,
-      } : null
+      name: mentionedProduct.fullName || mentionedProduct.name,
+      model: mentionedProduct.model,
+      image: mentionedProduct.image,
+      slug: mentionedProduct.slug,
+      category: mentionedProduct.category,
+    } : null
     });
  
   } catch (err) {
