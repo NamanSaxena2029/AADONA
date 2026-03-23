@@ -264,25 +264,30 @@ router.post('/chat', chatLimiter, async (req, res) => {
  
     const { context: productsContext, products } = await getProductsContext();
 
-    const genAI = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        max_tokens: 600,
-        messages: [
-          { role: 'system', content: buildSystemPrompt(userName || 'Guest', userPhone || '') + productsContext },
-          ...recentMessages
-        ],
-      }),
-    });
+    const genAI = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: buildSystemPrompt(userName || 'Guest', userPhone || '') + productsContext }]
+          },
+          contents: recentMessages.map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+          })),
+          generationConfig: {
+            maxOutputTokens: 600,
+            temperature: 0.7,
+          }
+        }),
+      }
+    );
 
     if (!genAI.ok) {
       const errData = await genAI.json().catch(() => ({}));
-      console.error('Groq API error:', genAI.status, errData);
+      console.error('Gemini API error:', genAI.status, errData);
       return res.status(502).json({
         success: false,
         error: 'AI service temporarily unavailable. Please try again.',
@@ -290,7 +295,7 @@ router.post('/chat', chatLimiter, async (req, res) => {
     }
 
     const data = await genAI.json();
-    const reply = data?.choices?.[0]?.message?.content;
+    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
  
     if (!reply) {
       return res.status(502).json({
