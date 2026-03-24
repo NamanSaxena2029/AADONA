@@ -134,7 +134,7 @@ const ProductSupport = () => {
                       {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone <span className="text-red-500">*</span></label>
                       <input
                         type="tel" name="phone" value={formData.phone} onChange={handleChange}
                         placeholder="Enter your phone number"

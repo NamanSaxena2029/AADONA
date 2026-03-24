@@ -162,7 +162,7 @@ const WarrantyCheckButton = () => {
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <label className="text-green-700 font-semibold block text-lg">
-                      Upload Invoice (Max 15MB)
+                      Upload Invoice (Max 15MB) *
                     </label>
                     <div className={`relative flex items-center justify-between border rounded-xl px-4 py-3 mt-2 cursor-pointer transition-all ${
                       fileError ? 'border-red-400 bg-red-50' : 'border-green-300 hover:border-green-500'
@@ -206,7 +206,7 @@ const WarrantyCheckButton = () => {
 
                   <div>
                     <label className="text-green-700 font-semibold block text-lg">
-                      Invoice / Purchase Date (optional)
+                      Invoice / Purchase Date *
                     </label>
                     <input
                       type="date"
@@ -216,7 +216,7 @@ const WarrantyCheckButton = () => {
                       className={`mt-2 mb-3 ${inputClass}`}
                     />
                     <label className="text-green-700 font-semibold block text-lg mt-3">
-                      Place of Purchase (optional)
+                      Place of Purchase
                     </label>
                     <input
                       type="text"
@@ -244,7 +244,7 @@ const WarrantyCheckButton = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-green-700 font-semibold block text-lg">Phone (optional)</label>
+                    <label className="text-green-700 font-semibold block text-lg">Phone *</label>
                     <input
                       type="tel"
                       name="phone"

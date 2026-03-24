@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const STORAGE_KEY_USER = 'aadona_chat_user';
 const STORAGE_KEY_HISTORY = (phone) => `aadona_chat_history_${phone}`;
@@ -29,7 +28,6 @@ function getTime() {
   return new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 
-// ─── Product Card ─────────────────────────────────────────────────────────────
 function ProductCard({ product }) {
   if (!product) return null;
   const url = product.url || `https://aadona.online/${(product.category || 'products').toLowerCase().replace(/\s+/g, '-')}/${product.slug}`;
@@ -39,18 +37,16 @@ function ProductCard({ product }) {
         <img src={product.image} alt={product.name} className="w-full h-28 object-contain bg-slate-50 p-2" />
       ) : (
         <div className="w-full h-28 bg-slate-100 flex items-center justify-center">
-          <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" /></svg>
+          <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
+          </svg>
         </div>
       )}
       <div className="p-2.5">
         <p className="text-[11px] font-semibold text-slate-800 leading-tight line-clamp-2">{product.name}</p>
         {product.model && <p className="text-[10px] text-slate-400 mt-0.5 mb-2">{product.model}</p>}
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block text-center text-[10.5px] font-bold bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-1.5 rounded-lg hover:opacity-90 transition"
-        >
+        <a href={url} target="_blank" rel="noopener noreferrer"
+          className="block text-center text-[10.5px] font-bold bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-1.5 rounded-lg hover:opacity-90 transition">
           View Product →
         </a>
       </div>
@@ -58,19 +54,13 @@ function ProductCard({ product }) {
   );
 }
 
-// ─── Action Buttons ───────────────────────────────────────────────────────────
 function ActionButtons({ buttons }) {
   if (!buttons?.length) return null;
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
       {buttons.map((btn, i) => (
-        <a
-          key={i}
-          href={btn.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-full bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all duration-150 shadow-sm"
-        >
+        <a key={i} href={btn.url} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-full bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all duration-150 shadow-sm">
           {btn.label}
         </a>
       ))}
@@ -78,32 +68,23 @@ function ActionButtons({ buttons }) {
   );
 }
 
-// ─── Typing Dots ──────────────────────────────────────────────────────────────
 function TypingDots() {
   return (
-    <div className="flex items-end gap-2 animate-fadeIn">
-      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 mb-1 shadow">
-        <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-        </svg>
-      </div>
-      <div className="flex items-end gap-1 px-4 py-3 bg-white border border-slate-200 rounded-2xl rounded-tl-sm shadow-sm">
-        {[0, 1, 2].map((i) => (
-          <span key={i} className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce"
-            style={{ animationDelay: `${i * 0.15}s`, animationDuration: '0.8s' }} />
-        ))}
-      </div>
+    <div className="flex items-end gap-1 px-4 py-3 bg-white border border-slate-200 rounded-2xl rounded-tl-sm shadow-sm">
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce"
+          style={{ animationDelay: `${i * 0.15}s`, animationDuration: '0.8s' }} />
+      ))}
     </div>
   );
 }
 
-// ─── Bot Message ──────────────────────────────────────────────────────────────
 function BotMessage({ content, time, productCards, actionButtons }) {
   return (
     <div className="flex items-end gap-2 animate-fadeIn">
       <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 mb-1 shadow">
         <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
         </svg>
       </div>
       <div className="flex flex-col gap-1 max-w-[82%]">
@@ -119,24 +100,18 @@ function BotMessage({ content, time, productCards, actionButtons }) {
             </span>
           ))}
         </div>
-
-        {/* Multiple Product Cards — horizontal scroll */}
         {productCards?.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-1 pt-0.5" style={{ scrollbarWidth: 'none' }}>
             {productCards.map((p, i) => <ProductCard key={i} product={p} />)}
           </div>
         )}
-
-        {/* Action Buttons */}
         <ActionButtons buttons={actionButtons} />
-
         {time && <span className="text-[10px] text-slate-400 pl-1">{time}</span>}
       </div>
     </div>
   );
 }
 
-// ─── User Message ─────────────────────────────────────────────────────────────
 function UserMessage({ content, time }) {
   return (
     <div className="flex items-end justify-end gap-2 animate-fadeIn">
@@ -150,7 +125,6 @@ function UserMessage({ content, time }) {
   );
 }
 
-// ─── Quick Replies ────────────────────────────────────────────────────────────
 function QuickReplies({ options, onSelect }) {
   if (!options?.length) return null;
   return (
@@ -165,7 +139,6 @@ function QuickReplies({ options, onSelect }) {
   );
 }
 
-// ─── Registration Form ────────────────────────────────────────────────────────
 function RegistrationForm({ onStart }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -184,11 +157,11 @@ function RegistrationForm({ onStart }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-5">
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-5 flex-shrink-0">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
             </svg>
           </div>
           <div>
@@ -196,7 +169,7 @@ function RegistrationForm({ onStart }) {
             <p className="text-emerald-100 text-xs">Powered by AI · Always Online</p>
           </div>
         </div>
-        <p className="text-white/80 text-xs leading-relaxed">Get instant answers about products, support, partnerships & more.</p>
+        <p className="text-white/80 text-xs leading-relaxed">Get instant answers about products, support, partnerships &amp; more.</p>
       </div>
 
       <div className="flex-1 px-5 py-5 flex flex-col gap-4 bg-slate-50 overflow-y-auto">
@@ -225,7 +198,7 @@ function RegistrationForm({ onStart }) {
           {error && (
             <p className="mt-2 text-xs text-red-500 flex items-center gap-1">
               <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               {error}
             </p>
@@ -246,8 +219,8 @@ function RegistrationForm({ onStart }) {
           {loading ? (
             <>
               <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               Starting chat...
             </>
@@ -255,7 +228,7 @@ function RegistrationForm({ onStart }) {
             <>
               Start Chat
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </>
           )}
@@ -267,7 +240,6 @@ function RegistrationForm({ onStart }) {
   );
 }
 
-// ─── Main Chatbot Component ───────────────────────────────────────────────────
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
@@ -278,9 +250,17 @@ export default function Chatbot() {
   const [isLoading, setIsLoading] = useState(false);
   const [quickReplies, setQuickReplies] = useState(QUICK_REPLY_MAP.default);
   const [hasUnread, setHasUnread] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -345,7 +325,7 @@ export default function Chatbot() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, phone }),
-    }).catch(() => {});
+    }).catch(() => { });
     setUser(userData);
     setIsRegistered(true);
 
@@ -401,8 +381,6 @@ export default function Chatbot() {
       if (!response.ok) throw new Error(data.error || 'Server error');
 
       const reply = data.reply || 'Sorry, I could not get a response. Please try again.';
-
-      // Support both array (new) and single (old backward compat)
       const productCards = data.productCards || (data.productCard ? [data.productCard] : null);
       const actionButtons = data.actionButtons || null;
 
@@ -445,10 +423,19 @@ export default function Chatbot() {
   };
 
   const handleOpen = () => { setIsOpen(true); setHasUnread(false); };
-
+  const [showBubble, setShowBubble] = useState(false);
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    
   };
+  useEffect(() => {
+  const timer = setTimeout(() => setShowBubble(true), 5000);
+  return () => clearTimeout(timer);
+}, []);
+
+  const winHeight = isRegistered ? 560 : 500;
+  const winWidth = isMobile ? 'calc(100vw - 24px)' : '360px';
+  const winRight = isMobile ? '0px' : '0px';
 
   return (
     <>
@@ -460,172 +447,369 @@ export default function Chatbot() {
         .animate-fadeIn { animation: fadeIn 0.22s ease forwards; }
 
         @keyframes slideUp {
-          from { opacity: 0; transform: scale(0.92) translateY(16px); }
+          from { opacity: 0; transform: scale(0.95) translateY(20px); }
           to   { opacity: 1; transform: scale(1) translateY(0); }
         }
-        .chat-window-enter { animation: slideUp 0.28s cubic-bezier(0.34,1.26,0.64,1) forwards; }
-
-        @keyframes wiggle {
-          0%,100% { transform: rotate(0deg); }
-          20%     { transform: rotate(-10deg); }
-          40%     { transform: rotate(12deg); }
-          60%     { transform: rotate(-8deg); }
-          80%     { transform: rotate(6deg); }
-        }
-        .animate-wiggle { animation: wiggle 0.5s ease; }
+        .chat-window-enter { animation: slideUp 0.28s cubic-bezier(0.34,1.18,0.64,1) forwards; }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes notif-ping {
+          0%   { transform: scale(1);   opacity: 1; }
+          70%  { transform: scale(2.2); opacity: 0; }
+          100% { transform: scale(2.2); opacity: 0; }
+        }
+        @keyframes notif-pop {
+          0%   { transform: scale(0); opacity: 0; }
+          60%  { transform: scale(1.25); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes notif-glow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
+          50%       { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+        }
+        @keyframes notif-bubble-in {
+          0%   { opacity: 0; transform: translateX(-50%) scale(0.9); }
+          100% { opacity: 1; transform: translateX(-50%) scale(1); }
+        }
+        @keyframes notif-bubble-bounce {
+          0%,100% { transform: translateX(-50%) translateY(0); }
+          50%     { transform: translateX(-50%) translateY(-3px); }
+        }
+
+        .notif-badge {
+          position: absolute;
+          top: -6px;
+          right: -6px;
+          width: 20px;
+          height: 20px;
+          background: #ef4444;
+          border-radius: 50%;
+          border: 2px solid #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 9px;
+          font-weight: 800;
+          color: #fff;
+          z-index: 10;
+          animation: notif-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards,
+                     notif-glow 1.5s ease-in-out 0.4s infinite;
+        }
+        .notif-badge::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          background: #ef4444;
+          animation: notif-ping 1.5s ease-out infinite;
+          z-index: -1;
+        }
+
+        /* ── UPDATED: Bubble now top-center ── */
+        .notif-bubble {
+          position: absolute;
+          bottom: calc(100% + 10px);
+          left: 5%;
+          transform: translateX(-50%);
+          background: #1e293b;
+          color: #f8fafc;
+          font-size: 11px;
+          font-weight: 500;
+          padding: 7px 12px;
+          border-radius: 10px 10px 10px 10px;
+          white-space: nowrap;
+          pointer-events: none;
+          animation: notif-bubble-in 0.4s 0.6s ease both,
+                     notif-bubble-bounce 2s 1.2s ease-in-out infinite;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+          line-height: 1.4;
+        }
+        .notif-bubble::after {
+          content: '';
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          border: 6px solid transparent;
+          border-top-color: #1e293b;
+        }
+
+        /* ── Tooltip ── */
+        .ac-btn-wrap { position: relative; display: flex; }
+        .ac-tooltip {
+          position: absolute;
+          right: calc(100% + 10px);
+          top: 50%;
+          transform: translateY(-50%) translateX(4px);
+          background: #1e293b;
+          color: #f8fafc;
+          font-size: 11px;
+          font-weight: 500;
+          padding: 5px 11px;
+          border-radius: 8px;
+          white-space: nowrap;
+          pointer-events: none;
+          opacity: 0;
+          transition: opacity 0.18s ease, transform 0.18s ease;
+          z-index: 99999;
+          line-height: 1.4;
+        }
+        .ac-tooltip::after {
+          content: '';
+          position: absolute;
+          left: 100%;
+          top: 50%;
+          transform: translateY(-50%);
+          border: 5px solid transparent;
+          border-left-color: #1e293b;
+        }
+        .ac-btn-wrap:hover .ac-tooltip {
+          opacity: 1;
+          transform: translateY(-50%) translateX(0);
+        }
       `}</style>
 
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+      {/* ── Root fixed container ── */}
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '16px',
+        zIndex: 99999,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: '12px',
+      }}>
 
         {/* ── Chat Window ── */}
         {isOpen && (
-          <div
-            className="chat-window-enter w-[360px] bg-white rounded-2xl shadow-2xl shadow-slate-300/60 border border-slate-200 flex flex-col overflow-hidden"
-            style={{ height: isRegistered ? '560px' : '500px' }}
-          >
-            {isRegistered ? (
-              <>
-                {/* Header */}
-                <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 flex items-center gap-3 flex-shrink-0">
-                  <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-bold text-sm truncate">AADONA Assistant</h3>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse flex-shrink-0" />
-                      <span className="text-emerald-100 text-xs truncate">Chatting as {user?.name}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {/* Call button in header */}
-                    <a href={`tel:${TOLL_FREE}`} title={`Call ${TOLL_FREE_DISPLAY}`}
-                      className="p-1.5 rounded-lg hover:bg-white/20 transition text-white/80 hover:text-white">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.11-.21c1.21.49 2.53.76 3.88.76a1 1 0 011 1V20a1 1 0 01-1 1C10.18 21 3 13.82 3 5a1 1 0 011-1h3.5a1 1 0 011 1c0 1.36.27 2.67.76 3.88a1 1 0 01-.23 1.12l-2.41 1.79z"/>
-                      </svg>
-                    </a>
-                    {/* Clear history */}
-                    <button onClick={handleClearHistory} title="Clear chat"
-                      className="p-1.5 rounded-lg hover:bg-white/20 transition text-white/70 hover:text-white">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                      </svg>
-                    </button>
-                    {/* Close */}
-                    <button onClick={() => setIsOpen(false)}
-                      className="p-1.5 rounded-lg hover:bg-white/20 transition text-white/70 hover:text-white">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+          <div style={{ position: 'relative' }}>
+            {/* Floating × close button */}
+            <button
+              onClick={() => setIsOpen(false)}
+              title="Close"
+              style={{
+                position: 'absolute',
+                top: '-11px',
+                right: '-11px',
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                background: '#ef4444',
+                border: '2.5px solid #fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: 20,
+                boxShadow: '0 2px 10px rgba(239,68,68,0.55)',
+                transition: 'transform 0.15s, background 0.15s',
+                outline: 'none',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.18)'; e.currentTarget.style.background = '#dc2626'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)';    e.currentTarget.style.background = '#ef4444'; }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3.5} strokeLinecap="round">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
 
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3 bg-slate-50/80 scroll-smooth no-scrollbar">
-                  {messages.map((msg, i) =>
-                    msg.role === 'bot'
-                      ? <BotMessage key={i} content={msg.content} time={msg.time}
-                          productCards={msg.productCards} actionButtons={msg.actionButtons} />
-                      : <UserMessage key={i} content={msg.content} time={msg.time} />
-                  )}
-                  {isLoading && (
-                    <div className="flex items-end gap-2">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 mb-1 shadow">
-                        <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-                        </svg>
+            <div
+              className="chat-window-enter bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
+              style={{
+                width: winWidth,
+                right: winRight,
+                maxHeight: 'calc(100dvh - 110px)',
+                height: `min(${winHeight}px, calc(100dvh - 110px))`,
+              }}
+            >
+              {isRegistered ? (
+                <>
+                  {/* Header */}
+                  <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 flex items-center gap-3 flex-shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-white font-bold text-sm truncate">AADONA Assistant</h3>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse flex-shrink-0" />
+                        <span className="text-emerald-100 text-xs truncate">Chatting as {user?.name}</span>
                       </div>
-                      <TypingDots />
                     </div>
+                    <div className="flex items-center gap-1">
+                      <a href={`tel:${TOLL_FREE}`} title={`Call ${TOLL_FREE_DISPLAY}`}
+                        className="p-1.5 rounded-lg hover:bg-white/20 transition text-white/80 hover:text-white">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.11-.21c1.21.49 2.53.76 3.88.76a1 1 0 011 1V20a1 1 0 01-1 1C10.18 21 3 13.82 3 5a1 1 0 011-1h3.5a1 1 0 011 1c0 1.36.27 2.67.76 3.88a1 1 0 01-.23 1.12l-2.41 1.79z" />
+                        </svg>
+                      </a>
+                      <button onClick={handleClearHistory} title="Clear chat"
+                        className="p-1.5 rounded-lg hover:bg-white/20 transition text-white/70 hover:text-white">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                      <button onClick={() => setIsOpen(false)}
+                        className="p-1.5 rounded-lg hover:bg-white/20 transition text-white/70 hover:text-white">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3 bg-slate-50/80 no-scrollbar">
+                    {messages.map((msg, i) =>
+                      msg.role === 'bot'
+                        ? <BotMessage key={i} content={msg.content} time={msg.time}
+                          productCards={msg.productCards} actionButtons={msg.actionButtons} />
+                        : <UserMessage key={i} content={msg.content} time={msg.time} />
+                    )}
+                    {isLoading && (
+                      <div className="flex items-end gap-2 animate-fadeIn">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 mb-1 shadow">
+                          <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+                          </svg>
+                        </div>
+                        <TypingDots />
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Quick Replies */}
+                  {!isLoading && quickReplies.length > 0 && (
+                    <QuickReplies options={quickReplies} onSelect={(opt) => { setQuickReplies([]); sendMessage(opt); }} />
                   )}
-                  <div ref={messagesEndRef} />
-                </div>
 
-                {/* Quick Replies */}
-                {!isLoading && quickReplies.length > 0 && (
-                  <QuickReplies options={quickReplies} onSelect={(opt) => { setQuickReplies([]); sendMessage(opt); }} />
-                )}
+                  {/* Input */}
+                  <div className="flex items-end gap-2 px-3 py-3 bg-white border-t border-slate-100 flex-shrink-0">
+                    <textarea ref={inputRef} value={input}
+                      onChange={e => {
+                        setInput(e.target.value);
+                        e.target.style.height = 'auto';
+                        e.target.style.height = Math.min(e.target.scrollHeight, 90) + 'px';
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Ask anything about AADONA..."
+                      rows={1}
+                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent placeholder:text-slate-400 transition leading-snug"
+                      style={{ minHeight: '40px', maxHeight: '90px', overflow: 'hidden' }}
+                      disabled={isLoading}
+                    />
+                    <button onClick={() => sendMessage()} disabled={!input.trim() || isLoading}
+                      className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-emerald-200 hover:shadow-emerald-300 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                      </svg>
+                    </button>
+                  </div>
 
-                {/* Input */}
-                <div className="flex items-end gap-2 px-3 py-3 bg-white border-t border-slate-100 flex-shrink-0">
-                  <textarea ref={inputRef} value={input}
-                    onChange={e => {
-                      setInput(e.target.value);
-                      e.target.style.height = 'auto';
-                      e.target.style.height = Math.min(e.target.scrollHeight, 90) + 'px';
-                    }}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask anything about AADONA..."
-                    rows={1}
-                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent placeholder:text-slate-400 transition leading-snug"
-                    style={{ minHeight: '40px', maxHeight: '90px', overflow: 'hidden' }}
-                    disabled={isLoading}
-                  />
-                  <button onClick={() => sendMessage()} disabled={!input.trim() || isLoading}
-                    className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-emerald-200 hover:shadow-emerald-300 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none">
-                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Footer */}
-                <div className="text-center py-1.5 bg-white border-t border-slate-100">
-                  <span className="text-[9.5px] text-slate-400 tracking-wide">
-                    AADONA Communication · {TOLL_FREE_DISPLAY} · contact@aadona.com
-                  </span>
-                </div>
-              </>
-            ) : (
-              <RegistrationForm onStart={handleStart} />
-            )}
+                  {/* Footer */}
+                  <div className="text-center py-1.5 bg-white border-t border-slate-100 flex-shrink-0">
+                    <span className="text-[9.5px] text-slate-400 tracking-wide">
+                      AADONA Communication · {TOLL_FREE_DISPLAY} · contact@aadona.com
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <RegistrationForm onStart={handleStart} />
+              )}
+            </div>
           </div>
         )}
 
-        {/* ── Launcher Bar — Phone + Chat ── */}
-        <div className="flex items-center gap-2">
+        {/* ── Launcher Cylinder ── */}
+        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-          {/* Phone Button */}
-          <a
-            href={`tel:${TOLL_FREE}`}
-            title={`Call Toll Free: ${TOLL_FREE_DISPLAY}`}
-            className="flex items-center gap-2 bg-white text-emerald-700 border border-emerald-200 px-4 py-3 rounded-full shadow-lg shadow-slate-200/60 hover:shadow-emerald-200/70 hover:bg-emerald-50 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-150 font-semibold text-sm group"
-          >
-            {/* Phone icon */}
-            <svg className="w-4 h-4 flex-shrink-0 group-hover:animate-wiggle" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.11-.21c1.21.49 2.53.76 3.88.76a1 1 0 011 1V20a1 1 0 01-1 1C10.18 21 3 13.82 3 5a1 1 0 011-1h3.5a1 1 0 011 1c0 1.36.27 2.67.76 3.88a1 1 0 01-.23 1.12l-2.41 1.79z"/>
-            </svg>
-            <span className="leading-none">{TOLL_FREE_DISPLAY}</span>
-          </a>
-
-          {/* Chat Button */}
-          {isOpen ? (
-            <button onClick={() => setIsOpen(false)}
-              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-3 rounded-full shadow-lg shadow-emerald-300/50 hover:shadow-emerald-400/60 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-150 font-semibold text-sm">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
-              </svg>
-              Minimise
-            </button>
-          ) : (
-            <button onClick={handleOpen}
-              className="relative flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-3 rounded-full shadow-lg shadow-emerald-300/50 hover:shadow-emerald-400/60 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-sm group">
-              {hasUnread && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[9px] text-white font-bold animate-pulse border-2 border-white">1</span>
-              )}
-              <svg className="w-4 h-4 group-hover:animate-wiggle" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-              </svg>
-              Chat with Us
-            </button>
+          {/* ── Notification badge + bubble ── */}
+         {!isOpen && hasUnread && showBubble && (            <>
+              {/* Floating speech bubble — now TOP CENTER */}
+              <div className="notif-bubble">
+                👋 Hi! Got a question?
+              </div>
+              {/* Red pulsing dot */}
+              <span className="notif-badge">1</span>
+            </>
           )}
+
+          {/* Pill container */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            borderRadius: '9999px',
+            overflow: 'visible',
+            border: '1px solid rgba(5,150,105,0.3)',
+            boxShadow: '0 4px 20px rgba(16,185,129,0.35)',
+            width: '56px',
+          }}>
+
+            {/* Chat button */}
+            <div className="ac-btn-wrap" style={{ borderRadius: '9999px 9999px 0 0', overflow: 'visible' }}>
+              <span className="ac-tooltip">{isOpen ? 'Minimise' : 'Chat with us'}</span>
+              <button
+                onClick={isOpen ? () => setIsOpen(false) : handleOpen}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  height: '56px', width: '56px',
+                  background: isOpen
+                    ? 'linear-gradient(135deg,#059669,#047857)'
+                    : 'linear-gradient(135deg,#10b981,#059669)',
+                  border: 'none', cursor: 'pointer',
+                  transition: 'background 0.15s',
+                  outline: 'none',
+                  borderRadius: '9999px 9999px 0 0',
+                  overflow: 'hidden',
+                }}
+              >
+                {isOpen ? (
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                ) : (
+                  <svg width="20" height="20" fill="#fff" viewBox="0 0 24 24">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: '1px', background: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+
+            {/* Call button */}
+            <div className="ac-btn-wrap" style={{ borderRadius: '0 0 9999px 9999px', overflow: 'visible' }}>
+              <span className="ac-tooltip">
+                📞 {TOLL_FREE_DISPLAY}
+              </span>
+              <a
+                href={`tel:${TOLL_FREE}`}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  height: '56px', width: '56px',
+                  background: 'linear-gradient(135deg,#0d9488,#0f766e)',
+                  transition: 'background 0.15s',
+                  textDecoration: 'none',
+                  borderRadius: '0 0 9999px 9999px',
+                  overflow: 'hidden',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'linear-gradient(135deg,#0f766e,#115e59)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(135deg,#0d9488,#0f766e)'}
+              >
+                <svg width="20" height="20" fill="#fff" viewBox="0 0 24 24">
+                  <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.11-.21c1.21.49 2.53.76 3.88.76a1 1 0 011 1V20a1 1 0 01-1 1C10.18 21 3 13.82 3 5a1 1 0 011-1h3.5a1 1 0 011 1c0 1.36.27 2.67.76 3.88a1 1 0 01-.23 1.12l-2.41 1.79z" />
+                </svg>
+              </a>
+            </div>
+
+          </div>
         </div>
 
       </div>
