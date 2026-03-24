@@ -391,7 +391,7 @@ export default function CategoryProductsPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
             {detailContent[activeDetail].title}
           </h2>
-          <p className="text-gray-600 italic leading-relaxed">
+          <p className="text-gray-600 italic leading-relaxed text-justify">
             {detailContent[activeDetail].para}
           </p>
         </div>
