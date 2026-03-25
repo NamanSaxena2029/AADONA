@@ -156,7 +156,7 @@ const buildDatasheetHTML = (product) => {
           <div style="font-size:42px;font-weight:900;color:#ffffff;line-height:1.05;letter-spacing:-1px;">${product.model || product.name}</div>
           ${product.description ? `<div style="font-size:14px;color:rgba(255,255,255,0.45);margin-top:10px;line-height:1.5;text-align:justify;">${product.description}</div>` : ""}
           <div style="display:flex;align-items:center;gap:10px;margin-top:18px;">
-            <div style="width:40px;height:2.5px;background:#25a86a;border-radius:2px;"></div>
+            <div style="width:40px;height:2.5pzx;background:#25a86a;border-radius:2px;"></div>
             <div style="width:10px;height:2.5px;background:rgba(37,168,106,0.4);border-radius:2px;"></div>
             <div style="width:5px;height:2.5px;background:rgba(37,168,106,0.2);border-radius:2px;"></div>
           </div>
@@ -168,7 +168,7 @@ const buildDatasheetHTML = (product) => {
     <!-- ROW 2: Product Image -->
     <div style="display:table-row;height:100%;">
       <div style="display:table-cell;vertical-align:middle;text-align:center;padding:10px 40px;">
-        <img src="${product.image}" style="max-width:500px;max-height:380px;object-fit:contain;" loading="lazy"/>
+        <img src="${product.image}" style="max-width:500px;max-height:380px;width:auto;height:auto;object-fit:contain;" />
       </div>
     </div>
 

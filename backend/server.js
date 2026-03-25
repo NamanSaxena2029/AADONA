@@ -12,7 +12,6 @@ require("dotenv").config();
 const { BetaAnalyticsDataClient } = require("@google-analytics/data");
 const analyticsClient = new BetaAnalyticsDataClient();
 const buildDatasheetHTML = require("./pdf/buildDatasheet");
-const helmet = require("helmet");
 
 let browserInstance = null;
 
@@ -182,9 +181,6 @@ const getBrowser = async () => {
 
 const generateAndUploadDatasheet = async (product) => {
   try {
-    if (product.datasheet) {
-      return product.datasheet;
-    }
     // Check in-memory cache first
     const cached = pdfCache.get(product.slug);
     if (cached && Date.now() - cached.generatedAt < PDF_CACHE_TTL_MS) {
@@ -209,24 +205,21 @@ const generateAndUploadDatasheet = async (product) => {
       height: "1123px",
       printBackground: true,
       margin: { top: 0, right: 0, bottom: 0, left: 0 },
-      preferCSSPageSize: true,
-      displayHeaderFooter: false,
     });
 
     await page.close();
 
     const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
-    const fileName = `datasheets/${product.slug}.pdf`;
+    const fileName = `datasheets/${product.slug}-${Date.now()}.pdf`;
     const fileUpload = bucket.file(fileName);
 
     await fileUpload.save(pdfBuffer, {
       metadata: {
         contentType: "application/pdf",
-        cacheControl: "public, max-age=31536000", // 1 year
+        cacheControl: "public, max-age=86400",
       },
     });
     await fileUpload.makePublic();
-    console.log("PDF Size:", (pdfBuffer.length / 1024).toFixed(2), "KB");
 
     const url = `https://firebasestorage.googleapis.com/v0/b/${process.env.FIREBASE_STORAGE_BUCKET}/o/${encodeURIComponent(fileName)}?alt=media`;
     console.log("Datasheet uploaded to Firebase:", url);
@@ -1008,8 +1001,8 @@ app.get("/products/:slug/datasheet", pdfLimiter, async (req, res) => {
 
     // If product already has a stored datasheet URL, redirect to it
     if (product.datasheet) {
-      console.log("Using existing PDF:", product.slug);
-      return res.redirect(product.datasheet);
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      return res.redirect(302, product.datasheet);
     }
 
     // Fallback: generate on the fly
