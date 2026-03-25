@@ -228,9 +228,9 @@ const ProductRegistration = () => {
                       style={{ backgroundImage: `url(${bg})` }}
                     >
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 -mt-8">
-          <main className="grow pt-4 pb-16 px-4 md:px-8 lg:px-16">
-            <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <main className="grow pb-16 px-4 md:px-8 lg:px-16 ">
+            <div className="max-w-4xl mx-auto rounded-lg border-2 border-green-200">
 
               {isSubmitted && (
                 <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg shadow-sm">

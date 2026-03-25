@@ -10,6 +10,7 @@ import {
   Download
 } from "lucide-react";
 import bg from "../../assets/bg.jpg";
+import warrantybanner from '../../assets/WarrantyBanner.png'
 
 /** Scroll-reveal Component */
 const Reveal = ({ children, className = "" }) => {
@@ -82,19 +83,22 @@ const handleDownload = (docName) => {
     <div className="min-h-screen">
       <Navbar />
 
-     
-        <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">
-                Warranty
-              </h1>
-              <p className="mt-6 text-xl text-green-100 max-w-3xl mx-auto">
-                Standard terms, claim process, and extended coverage.
-              </p>
-            </div>
-          </div>
-        </div>
+
+<div
+  className="pt-32 pb-16 bg-cover bg-center bg-no-repeat"
+  style={{ backgroundImage: `url(${warrantybanner})` }}
+>
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="text-center">
+      <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">
+        Warranty
+      </h1>
+      <p className="mt-6 text-xl text-white max-w-3xl mx-auto">
+        Standard terms, claim process, and extended coverage.
+      </p>
+    </div>
+  </div>
+</div>
 
           <div
                       className="bg-cover bg-fixed py-16"

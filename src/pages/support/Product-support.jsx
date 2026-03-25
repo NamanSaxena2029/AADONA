@@ -108,7 +108,7 @@ const ProductSupport = () => {
                 </div>
               )}
 
-              <div className="bg-white rounded-xl shadow-lg p-8 md:p-10">
+              <div className="bg-white rounded-xl shadow-md border-2 border-green-200 p-8 md:p-10">
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div>

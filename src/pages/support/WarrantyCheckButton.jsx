@@ -3,6 +3,8 @@ import Navbar from "../../Components/Navbar";
 import Footer from "../../Components/Footer";
 import { X, UploadCloud, Send } from "lucide-react";
 import bg from "../../assets/bg.jpg";
+import warrantybanner from '../../assets/WarrantyBanner.png'
+
 
 const WarrantyCheckButton = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -115,22 +117,26 @@ const WarrantyCheckButton = () => {
         className="min-h-screen bg-cover bg-center"
         style={{ backgroundImage: `url(${bg})`, backgroundSize: "cover", backgroundRepeat: "no-repeat", backgroundPosition: "center" }}
       >
-        <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">
-                Enter Details of Your Product
-              </h1>
-              <p className="mt-6 text-xl text-green-100 max-w-3xl mx-auto">
-                Please provide the serial number and invoice to check your warranty status.
-              </p>
-            </div>
-          </div>
-        </div>
+       
+       <div
+         className="pt-32 pb-16 bg-cover bg-center bg-no-repeat"
+         style={{ backgroundImage: `url(${warrantybanner})` }}
+       >
+         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+           <div className="text-center">
+             <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">
+               Warranty
+             </h1>
+             <p className="mt-6 text-xl text-white max-w-3xl mx-auto">
+               Please provide the serial number and invoice to check your warranty status.
+             </p>
+           </div>
+         </div>
+       </div>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 -mt-10">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 mt-1">
           <div
-            className="rounded-3xl p-8 shadow-xl border border-white/20"
+            className="rounded-3xl p-8 shadow-xl border-3 border-green-100"
             style={{ background: "rgba(255,255,255,0.65)", backdropFilter: "saturate(120%) blur(6px)" }}
           >
             {/* ✅ Success Message */}
