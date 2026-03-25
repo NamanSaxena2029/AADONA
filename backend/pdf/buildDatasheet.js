@@ -168,7 +168,7 @@ const buildDatasheetHTML = (product) => {
     <!-- ROW 2: Product Image -->
     <div style="display:table-row;height:100%;">
       <div style="display:table-cell;vertical-align:middle;text-align:center;padding:10px 40px;">
-        <img src="${product.image}" style="max-width:500px;max-height:380px;width:auto;height:auto;object-fit:contain;" />
+        <img src="${product.image}" style="max-width:500px;max-height:380px;object-fit:contain;" loading="lazy"/>
       </div>
     </div>
 
