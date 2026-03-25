@@ -1,8 +1,9 @@
-import {React,useEffect} from "react";
+import { React, useEffect } from "react";
 import Navbar from "../../Components/Navbar";
 import Footer from "../../Components/Footer";
 import { Link } from "react-router-dom";
 import bg from "../../assets/bg.jpg";
+import { Helmet } from "react-helmet-async"; // ✅ ADDED
 
 /* -------- Hover Lift Card Style (same as Warranty/Partner) -------- */
 const liftCard =
@@ -12,38 +13,63 @@ const liftCard =
 const Csr = () => {
 
   useEffect(() => {
-        window.scrollTo(0, 0);
-      }, []);
-      
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <>
+      {/* ✅ SEO ADDED */}
+      <Helmet>
+        <title>Corporate Social Responsibility | AADONA</title>
+
+        <meta
+          name="description"
+          content="AADONA supports Indian Army veterans and martyrs' families through CSR initiatives like Bharat Ke Veer. Join us in making a difference."
+        />
+
+        <meta
+          name="keywords"
+          content="AADONA CSR, Bharat Ke Veer, army support India, corporate social responsibility"
+        />
+
+        <meta property="og:title" content="CSR | AADONA" />
+        <meta
+          property="og:description"
+          content="Supporting our heroes through AADONA CSR initiatives."
+        />
+        <meta property="og:type" content="website" />
+      </Helmet>
+
       <Navbar />
 
-      
-        {/* HERO */}
-        <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">
-                Corporate Social Responsibility
-              </h1>
-              <p className="mt-6 text-xl text-green-100 max-w-3xl mx-auto">
-                Supporting Our Heroes: AADONA's Commitment to Social
-                Responsibility
-              </p>
-            </div>
+      {/* HERO */}
+      <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">
+              Corporate Social Responsibility
+            </h1>
+            <p
+              className="mt-6 text-xl text-green-100 max-w-3xl mx-auto"
+              aria-label="CSR description"
+            >
+              Supporting Our Heroes: AADONA's Commitment to Social
+              Responsibility
+            </p>
           </div>
         </div>
+      </div>
 
-          <div
-                      className="bg-cover bg-fixed py-16"
-                      style={{ backgroundImage: `url(${bg})` }}
-                    >
+      <div
+        className="bg-cover bg-fixed py-16"
+        style={{ backgroundImage: `url(${bg})` }}
+      >
 
         {/* MAIN CONTENT */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="grid gap-12 lg:grid-cols-12">
-            {/* LEFT THEORY CONTENT */}
+
+            {/* LEFT CONTENT */}
             <div className="lg:col-span-8 space-y-8">
 
               {/* CARD 1 */}
@@ -87,7 +113,7 @@ const Csr = () => {
                   <a
                     href="https://bharatkeveer.gov.in"
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel="noopener noreferrer external"  // ✅ improved security
                     className="text-green-700 hover:text-green-900 font-medium"
                   >
                     bharatkeveer.gov.in
@@ -99,7 +125,7 @@ const Csr = () => {
               </div>
             </div>
 
-            {/* RIGHT SIDE IMPACT CARD */}
+            {/* RIGHT SIDE */}
             <div className="lg:col-span-4">
               <div className="bg-white rounded-2xl shadow-md p-6 sticky top-24 border border-green-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -120,6 +146,7 @@ const Csr = () => {
                     </p>
                     <Link
                       to="/contactus"
+                      aria-label="Contact AADONA for CSR initiatives" // ✅ added
                       className="mt-4 w-full inline-flex justify-center items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
                     >
                       Contact Us
@@ -128,10 +155,10 @@ const Csr = () => {
                 </div>
               </div>
             </div>
+
           </div>
         </div>
       </div>
-
 
       <Footer />
     </>
