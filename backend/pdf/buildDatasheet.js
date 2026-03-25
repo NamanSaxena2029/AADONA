@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const buildDatasheetHTML = (product) => {
+const buildDatasheetHTML = async (product) => {
 
   const logo = fs.readFileSync(
     path.resolve(__dirname, "../assets/logo.png")
@@ -14,6 +14,23 @@ const buildDatasheetHTML = (product) => {
   const makeIndia = fs.readFileSync(
     path.resolve(__dirname, "../assets/MakeIndia.png")
   ).toString("base64");
+
+  const fetchImageAsBase64 = async (imageUrl) => {
+    try {
+      const response = await fetch(imageUrl);
+      const buffer = await response.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString("base64");
+      const mimeType = response.headers.get("content-type") || "image/jpeg";
+      return `data:${mimeType};base64,${base64}`;
+    } catch (err) {
+      console.error("Product image fetch failed:", err);
+      return "";
+    }
+  };
+
+  const productImageBase64 = product.image
+    ? await fetchImageAsBase64(product.image)
+    : "";
 
   const highlightsHTML = (product.highlights || [])
     .map(h => `
@@ -168,7 +185,7 @@ const buildDatasheetHTML = (product) => {
     <!-- ROW 2: Product Image -->
     <div style="display:table-row;height:100%;">
       <div style="display:table-cell;vertical-align:middle;text-align:center;padding:10px 40px;">
-        <img src="${product.image}" style="max-width:500px;max-height:380px;width:auto;height:auto;object-fit:contain;" />
+        <img src="${productImageBase64}" style="max-width:500px;max-height:380px;width:auto;height:auto;object-fit:contain;" />
       </div>
     </div>
 

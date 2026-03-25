@@ -188,7 +188,7 @@ const generateAndUploadDatasheet = async (product) => {
       return cached.url;
     }
 
-    const html = buildDatasheetHTML(product);
+    const html = await buildDatasheetHTML(product);
     const browser = await getBrowser();
     const page = await browser.newPage();
 
@@ -1006,7 +1006,7 @@ app.get("/products/:slug/datasheet", pdfLimiter, async (req, res) => {
     }
 
     // Fallback: generate on the fly
-    const html = buildDatasheetHTML(product);
+    const html = await buildDatasheetHTML(product);
     const browser = await getBrowser();
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 900 });
