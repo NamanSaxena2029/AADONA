@@ -651,8 +651,8 @@ export default function Products({ products, setProducts, allCategories, reloadP
                       <X size={18} />
                     </button>
                   </div>
-                  {Object.entries(specs).map(([key, value]) => (
-                    <div key={key} className="flex gap-2 mb-2">
+                  {Object.entries(specs).map(([key, value], idx) => (
+                      <div key={idx} className="flex gap-2 mb-2">
                       <input className="w-5/12 border border-gray-200 bg-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
                         placeholder="Key" value={key}
                         onChange={(e) => {
