@@ -38,7 +38,7 @@ function Card({ card, priority = false }) {
       <img
         src={card.image}
         alt={`${card.name} – AADONA IT Solutions for ${card.tag} sector`}
-        loading={priority ? "eager" : "lazy"}
+        loading="lazy"
         decoding="async"
         draggable="false"
         className={`w-full h-full object-cover transition-transform duration-700 ease-out
