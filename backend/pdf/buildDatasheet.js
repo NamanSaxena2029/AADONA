@@ -32,13 +32,29 @@ const buildDatasheetHTML = async (product) => {
     ? await fetchImageAsBase64(product.image)
     : "";
 
-  const highlightsHTML = (product.highlights || [])
+  const highlightsHTML = (product.features || [])
     .map(h => `
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
         <div style="width:7px;height:7px;min-width:7px;background:#25a86a;border-radius:50%;margin-top:5px;flex-shrink:0;"></div>
         <div style="font-size:13px;color:#444;line-height:1.7;text-align:justify;">${h}</div>
       </div>`)
     .join("");
+
+  const featuresDetailHTML = (product.featuresDetail || [])
+    .map(item => {
+      if (item._type === "subheading" || item.title) {
+        return `
+          <div style="margin-bottom:10px;">
+            <div style="font-size:13px;font-weight:700;color:#1b7f4c;border-left:3px solid #25a86a;padding-left:10px;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">${item.title}</div>
+            ${item.description ? `<div style="font-size:13px;color:#444;line-height:1.7;padding-left:13px;text-align:justify;">${item.description}</div>` : ""}
+          </div>`;
+      }
+      return `
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">
+          <div style="width:7px;height:7px;min-width:7px;background:#25a86a;border-radius:50%;margin-top:5px;flex-shrink:0;"></div>
+          <div style="font-size:13px;color:#444;line-height:1.7;text-align:justify;">${item.description || ""}</div>
+        </div>`;
+    }).join("");
 
   const specsHTML = Object.entries(product.specifications || {})
     .map(([section, specs]) => {
@@ -214,7 +230,7 @@ const buildDatasheetHTML = async (product) => {
       <div style="font-size:13.5px;line-height:1.9;color:#444;padding-left:14px;border-left:2px solid #d8ead8;text-align:justify;">${product.overview.content}</div>
     </div>` : ""}
 
-    ${(product.highlights || []).length ? `
+    ${(product.features || []).length ? `
     <div style="margin-bottom:32px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
         <div style="width:4px;height:20px;min-width:4px;background:#25a86a;border-radius:2px;"></div>
@@ -222,6 +238,15 @@ const buildDatasheetHTML = async (product) => {
       </div>
       <div style="padding-left:14px;">${highlightsHTML}</div>
     </div>` : ""}
+
+    ${(product.featuresDetail || []).length ? `
+      <div style="margin-bottom:32px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <div style="width:4px;height:20px;min-width:4px;background:#25a86a;border-radius:2px;"></div>
+          <div style="font-size:16px;font-weight:800;color:#1b7f4c;">Features</div>
+        </div>
+        <div style="padding-left:14px;">${featuresDetailHTML}</div>
+      </div>` : ""}
 
     ${Object.keys(product.specifications || {}).length ? `
     <div>
