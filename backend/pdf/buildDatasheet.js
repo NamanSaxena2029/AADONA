@@ -236,7 +236,7 @@ const buildDatasheetHTML = async (product) => {
 
   <!-- Bottom green bar with breathing room above it -->
   <div style="height:40px;"></div>
-  <div style="height:5px;background:#25a86a;"></div>
+  
 
 </div>
 
