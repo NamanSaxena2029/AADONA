@@ -77,7 +77,7 @@ const CertCard = ({ cert = {}, index = 0, priority = false }) => {
       <img
         src={certUrl}
         alt={`${certName} – AADONA`}
-        loading={priority ? "eager" : "lazy"}
+        loading= "lazy"
         fetchPriority={priority ? "high" : "low"}   // FIX 2: camelCase — React 18+ correct prop
         decoding="async"
         draggable="false"
