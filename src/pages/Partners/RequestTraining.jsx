@@ -1,223 +1,636 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Helmet } from 'react-helmet-async';
 import Navbar from '../../Components/Navbar';
 import Footer from '../../Components/Footer';
 import bg from '../../assets/bg.jpg';
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const COUNTRIES = [
+  "Afghanistan","Aland Islands","Albania","Algeria","American Samoa","Andorra","Angola","Anguilla","Antarctica",
+  "Antigua and Barbuda","Argentina","Armenia","Aruba","Australia","Austria","Azerbaijan","Bahamas","Bahrain",
+  "Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bermuda","Bhutan","Bolivia","Bosnia and Herzegovina",
+  "Botswana","Brazil","Brunei","Bulgaria","Cambodia","Cameroon","Canada","Chile","China","Colombia","Costa Rica",
+  "Croatia","Cuba","Cyprus","Czech Republic","Denmark","Dominican Republic","Ecuador","Egypt","El Salvador","Estonia",
+  "Ethiopia","Finland","France","Germany","Ghana","Greece","Greenland","Guatemala","Hong Kong","Hungary","Iceland",
+  "India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kuwait",
+  "Latvia","Lebanon","Lesotho","Liberia","Libya","Lithuania","Luxembourg","Madagascar","Malaysia","Maldives","Mali",
+  "Malta","Mexico","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nepal","Netherlands",
+  "New Zealand","Nicaragua","Niger","Nigeria","North Korea","Norway","Oman","Pakistan","Panama","Paraguay","Peru",
+  "Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saudi Arabia","Senegal","Serbia","Seychelles",
+  "Singapore","Slovakia","Slovenia","South Africa","South Korea","Spain","Sri Lanka","Sudan","Suriname","Sweden",
+  "Switzerland","Syria","Taiwan","Tanzania","Thailand","Togo","Trinidad and Tobago","Tunisia","Turkey","Uganda",
+  "Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Venezuela","Vietnam",
+  "Yemen","Zambia","Zimbabwe"
+];
+
+const CUSTOMER_TYPES = [
+  { value: "endCustomer", label: "End Customer" },
+  { value: "siPartner",   label: "SI Partner (Systems Integrator)" },
+  { value: "distributor", label: "Distributor / Reseller" },
+];
+
+const RATE_LIMIT_MS   = 60_000;
+const MAX_FIELD_LEN   = 300;
+const MAX_COMMENT_LEN = 2000;
+const MAX_PARTICIPANTS = 10000;
+
+const emptyForm = {
+  firstName: '', lastName: '', email: '', streetAddress: '',
+  streetAddress2: '', phone: '', numberOfParticipants: '', city: '',
+  regionStateProvince: '', company: '', postalZipCode: '', country: '',
+  customerType: [], comment: '',
+  _honeypot: ''
+};
+
+// ─── Sanitization ─────────────────────────────────────────────────────────────
+
+const sanitize = (str) =>
+  String(str)
+    .replace(/<[^>]*>/g, '')
+    .replace(/[<>"'`\\]/g, '')
+    .trim()
+    .slice(0, MAX_FIELD_LEN);
+
+const sanitizeComment = (str) =>
+  String(str)
+    .replace(/<[^>]*>/g, '')
+    .replace(/[<>"'`\\]/g, '')
+    .trim()
+    .slice(0, MAX_COMMENT_LEN);
+
+// ─── Validation ───────────────────────────────────────────────────────────────
+
+const EMAIL_RE  = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
+const PHONE_RE  = /^\+?[\d\s\-().]{7,20}$/;
+const POSTAL_RE = /^[a-zA-Z0-9\s\-]{3,12}$/;
+
+const validate = (data) => {
+  const errors = {};
+  if (!data.firstName.trim())              errors.firstName           = "First name is required.";
+  if (!data.lastName.trim())               errors.lastName            = "Last name is required.";
+  if (!EMAIL_RE.test(data.email))          errors.email               = "Enter a valid work email address.";
+  if (!PHONE_RE.test(data.phone))          errors.phone               = "Enter a valid phone number (7–20 digits).";
+  if (!data.streetAddress.trim())          errors.streetAddress       = "Street address is required.";
+  if (!data.city.trim())                   errors.city                = "City is required.";
+  if (!data.regionStateProvince.trim())    errors.regionStateProvince = "State / Region is required.";
+  if (!POSTAL_RE.test(data.postalZipCode)) errors.postalZipCode       = "Enter a valid postal / zip code.";
+  if (!data.country)                       errors.country             = "Please select a country.";
+  if (
+    data.numberOfParticipants !== '' &&
+    (isNaN(Number(data.numberOfParticipants)) ||
+     Number(data.numberOfParticipants) < 1 ||
+     Number(data.numberOfParticipants) > MAX_PARTICIPANTS)
+  ) {
+    errors.numberOfParticipants = `Enter a number between 1 and ${MAX_PARTICIPANTS}.`;
+  }
+  return errors;
+};
+
+// ─── JSON-LD Structured Data ──────────────────────────────────────────────────
+
+const JSON_LD = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  "name": "Request Training",
+  "description":
+    "Submit your details to schedule a comprehensive, customized training session with our expert team.",
+  "url": typeof window !== "undefined" ? window.location.href : "",
+});
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 const RequestTraining = () => {
-  const COUNTRIES = [
-    "Afghanistan","Aland Islands","Albania","Algeria","American Samoa","Andorra","Angola","Anguilla","Antarctica",
-    "Antigua and Barbuda","Argentina","Armenia","Aruba","Australia","Austria","Azerbaijan","Bahamas","Bahrain",
-    "Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bermuda","Bhutan","Bolivia","Bosnia and Herzegovina",
-    "Botswana","Brazil","Brunei","Bulgaria","Cambodia","Cameroon","Canada","Chile","China","Colombia","Costa Rica",
-    "Croatia","Cuba","Cyprus","Czech Republic","Denmark","Dominican Republic","Ecuador","Egypt","El Salvador","Estonia",
-    "Ethiopia","Finland","France","Germany","Ghana","Greece","Greenland","Guatemala","Hong Kong","Hungary","Iceland",
-    "India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kuwait",
-    "Latvia","Lebanon","Lesotho","Liberia","Libya","Lithuania","Luxembourg","Madagascar","Malaysia","Maldives","Mali",
-    "Malta","Mexico","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nepal","Netherlands",
-    "New Zealand","Nicaragua","Niger","Nigeria","North Korea","Norway","Oman","Pakistan","Panama","Paraguay","Peru",
-    "Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saudi Arabia","Senegal","Serbia","Seychelles",
-    "Singapore","Slovakia","Slovenia","South Africa","South Korea","Spain","Sri Lanka","Sudan","Suriname","Sweden",
-    "Switzerland","Syria","Taiwan","Tanzania","Thailand","Togo","Trinidad and Tobago","Tunisia","Turkey","Uganda",
-    "Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Venezuela","Vietnam",
-    "Yemen","Zambia","Zimbabwe"
-  ];
-
-  const emptyForm = {
-    firstName: '', lastName: '', email: '', streetAddress: '',
-    streetAddress2: '', phone: '', numberOfParticipants: '', city: '',
-    regionStateProvince: '', company: '', postalZipCode: '', country: '',
-    customerType: [], comment: ''
-  };
-
-  const [formData, setFormData] = useState(emptyForm);
+  const [formData,   setFormData]   = useState(emptyForm);
+  const [errors,     setErrors]     = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted,  setSubmitted]  = useState(false);
+  const [submitErr,  setSubmitErr]  = useState('');
+  const lastSubmit   = useRef(0);
 
-  const handleChange = (e) => {
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, []);
+
+  // ── Change handler ──────────────────────────────────────────────────────────
+  const handleChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
-    if (type === 'checkbox') {
-      setFormData(prev => ({
+
+    if (type === 'checkbox' && name === 'customerType') {
+      setFormData((prev) => ({
         ...prev,
         customerType: checked
           ? [...prev.customerType, value]
-          : prev.customerType.filter(item => item !== value)
+          : prev.customerType.filter((item) => item !== value),
       }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      return;
     }
-  };
 
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => { const e = { ...prev }; delete e[name]; return e; });
+  }, [errors]);
+
+  // ── Submit handler ──────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitErr('');
+
+    // 🍯 Honeypot
+    if (formData._honeypot) return;
+
+    // ⏱ Rate limiting
+    const now = Date.now();
+    if (now - lastSubmit.current < RATE_LIMIT_MS) {
+      setSubmitErr('Please wait a moment before submitting again.');
+      return;
+    }
+
+    // 🔍 Validate
+    const validationErrors = validate(formData);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      document.getElementById(Object.keys(validationErrors)[0])?.focus();
+      return;
+    }
+
     setSubmitting(true);
+    lastSubmit.current = now;
+
+    // 🧼 Sanitize payload
+    const payload = {
+      firstName:            sanitize(formData.firstName),
+      lastName:             sanitize(formData.lastName),
+      email:                sanitize(formData.email).toLowerCase(),
+      phone:                sanitize(formData.phone),
+      company:              sanitize(formData.company),
+      numberOfParticipants: formData.numberOfParticipants === ''
+                              ? null
+                              : Math.min(Math.max(parseInt(formData.numberOfParticipants, 10), 1), MAX_PARTICIPANTS),
+      streetAddress:        sanitize(formData.streetAddress),
+      streetAddress2:       sanitize(formData.streetAddress2),
+      city:                 sanitize(formData.city),
+      regionStateProvince:  sanitize(formData.regionStateProvince),
+      postalZipCode:        sanitize(formData.postalZipCode),
+      country:              sanitize(formData.country),
+      customerType:         formData.customerType.filter((v) =>
+                              CUSTOMER_TYPES.map((t) => t.value).includes(v)),
+      comment:              sanitizeComment(formData.comment),
+    };
 
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/submit-training`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(document.querySelector('meta[name="csrf-token"]')
+            ? { 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content }
+            : {}),
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get('content-type') || '';
+      const data = contentType.includes('application/json') ? await res.json() : {};
 
       if (res.ok) {
         setSubmitted(true);
         setFormData(emptyForm);
+        setErrors({});
+      } else if (res.status === 429) {
+        setSubmitErr('Too many requests. Please try again in a few minutes.');
       } else {
-        alert(data.message || "Something went wrong. Please try again.");
+        setSubmitErr(
+          typeof data.message === 'string' && data.message.length < 200
+            ? data.message
+            : 'Something went wrong. Please try again.'
+        );
       }
     } catch (err) {
-      console.error(err);
-      alert("Server error. Please try again.");
+      console.error('[RequestTraining] Submit error:', err);
+      setSubmitErr('Network error. Please check your connection and try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const inputClasses = "py-3 px-4 rounded-lg border border-gray-300 bg-white text-base text-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 placeholder:text-gray-400 shadow-sm w-full";
-  const labelClasses = "text-sm font-medium text-gray-700 mb-1 block";
+  // ── Styles ──────────────────────────────────────────────────────────────────
+  const inputBase =
+    'py-3 px-4 rounded-lg border bg-white text-base text-gray-800 transition-all duration-200 ' +
+    'focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ' +
+    'placeholder:text-gray-400 shadow-sm w-full';
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  const inputClass = (field) =>
+    `${inputBase} ${errors[field] ? 'border-red-500 focus:ring-red-400' : 'border-gray-300'}`;
 
+  const labelClass = 'text-sm font-medium text-gray-700 mb-1 block';
+
+  const FieldError = ({ field }) =>
+    errors[field]
+      ? <p role="alert" className="mt-1 text-xs text-red-600">{errors[field]}</p>
+      : null;
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <>
+      {/* ─── SEO ──────────────────────────────────────────────────────────── */}
+      <Helmet>
+        <title>Request Training | Your Company Name</title>
+        <meta
+          name="description"
+          content="Schedule a comprehensive, customized training session with our expert team. Submit your details and we'll tailor the program to your organization's needs."
+        />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href={typeof window !== "undefined" ? window.location.href : ""} />
+
+        <meta property="og:type"        content="website" />
+        <meta property="og:title"       content="Request Training | Your Company Name" />
+        <meta property="og:description" content="Schedule a customized training session with our expert team." />
+        <meta property="og:url"         content={typeof window !== "undefined" ? window.location.href : ""} />
+
+        <meta name="twitter:card"        content="summary" />
+        <meta name="twitter:title"       content="Request Training | Your Company Name" />
+        <meta name="twitter:description" content="Schedule a customized training session with our expert team." />
+
+        <script type="application/ld+json">{JSON_LD}</script>
+      </Helmet>
+
       <Navbar />
 
-     
-        <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">Request Training</h1>
-            <p className="mt-6 text-xl text-green-100 max-w-3xl mx-auto">
-              Submit your details below to schedule a comprehensive, customized training session with our expert team.
-            </p>
-          </div>
+      {/* ─── Hero ─────────────────────────────────────────────────────────── */}
+      <header className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-16" role="banner">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">Request Training</h1>
+          <p className="mt-6 text-xl text-green-100 max-w-3xl mx-auto">
+            Submit your details below to schedule a comprehensive, customized training session
+            with our expert team.
+          </p>
         </div>
+      </header>
 
-          <div
-                      className="bg-cover bg-fixed py-16"
-                      style={{ backgroundImage: `url(${bg})` }}
-                    >
-
-        <main className="flex justify-center py-16 px-5">
+      {/* ─── Main ─────────────────────────────────────────────────────────── */}
+      <div className="bg-cover bg-fixed py-16" style={{ backgroundImage: `url(${bg})` }}>
+        <main
+          id="main-content"
+          className="flex justify-center py-16 px-5"
+          aria-label="Training request form"
+        >
           <div className="relative bg-white w-full max-w-5xl rounded-xl p-10 md:p-14 lg:p-16 shadow-2xl">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-green-600 rounded-t-xl"></div>
+            <div
+              aria-hidden="true"
+              className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-green-600 rounded-t-xl"
+            />
 
-            {/* ✅ Success Message */}
+            {/* ── Success state ──────────────────────────────────────────────── */}
             {submitted && (
-              <div className="bg-green-50 border border-green-300 text-green-800 rounded-xl px-6 py-5 text-center font-semibold text-lg mb-6">
-                ✅ Training request submitted successfully! Our team will contact you soon.
-              </div>
+              <section
+                role="status"
+                aria-live="polite"
+                className="bg-green-50 border border-green-300 text-green-800 rounded-xl px-6 py-8 text-center"
+              >
+                <svg
+                  className="mx-auto mb-4 h-12 w-12 text-green-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="font-semibold text-lg">Training request submitted successfully!</p>
+                <p className="mt-2 text-sm text-green-700">Our team will contact you shortly.</p>
+              </section>
             )}
 
+            {/* ── Form ───────────────────────────────────────────────────────── */}
             {!submitted && (
-              <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                <h3 className="text-xl font-semibold text-emerald-700 border-b pb-2 mb-4">Contact Information</h3>
+              <form
+                onSubmit={handleSubmit}
+                noValidate
+                aria-label="Request training"
+                className="flex flex-col gap-6"
+              >
+                {/* Global error */}
+                {submitErr && (
+                  <div
+                    role="alert"
+                    aria-live="assertive"
+                    className="bg-red-50 border border-red-300 text-red-700 rounded-lg px-4 py-3 text-sm"
+                  >
+                    {submitErr}
+                  </div>
+                )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="flex flex-col">
-                    <label className={labelClasses}>First Name <span className="text-red-500">*</span></label>
-                    <input type="text" name="firstName" placeholder="Enter your first name" value={formData.firstName} onChange={handleChange} required className={inputClasses} />
-                  </div>
-                  <div className="flex flex-col">
-                    <label className={labelClasses}>Last Name <span className="text-red-500">*</span></label>
-                    <input type="text" name="lastName" placeholder="Enter your last name" value={formData.lastName} onChange={handleChange} required className={inputClasses} />
-                  </div>
-                  <div className="flex flex-col">
-                    <label className={labelClasses}>Work Email <span className="text-red-500">*</span></label>
-                    <input type="email" name="email" placeholder="Enter your work email address" value={formData.email} onChange={handleChange} required className={inputClasses} />
-                  </div>
+                {/* 🍯 Honeypot */}
+                <div aria-hidden="true" className="hidden" tabIndex={-1}>
+                  <label htmlFor="_honeypot">Leave this field empty</label>
+                  <input
+                    id="_honeypot"
+                    name="_honeypot"
+                    type="text"
+                    autoComplete="off"
+                    tabIndex={-1}
+                    value={formData._honeypot}
+                    onChange={handleChange}
+                  />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="flex flex-col">
-                    <label className={labelClasses}>Phone Number <span className="text-red-500">*</span></label>
-                    <input type="tel" name="phone" placeholder="Enter your phone number" value={formData.phone} onChange={handleChange} required className={inputClasses} />
-                  </div>
-                  <div className="flex flex-col">
-                    <label className={labelClasses}>Company / Organization</label>
-                    <input type="text" name="company" placeholder="Enter your company name" value={formData.company} onChange={handleChange} className={inputClasses} />
-                  </div>
-                  <div className="flex flex-col">
-                    <label className={labelClasses}>Number of Participants</label>
-                    <input type="number" name="numberOfParticipants" placeholder="e.g., 10" value={formData.numberOfParticipants} onChange={handleChange} className={inputClasses} min="1" />
-                  </div>
-                </div>
+                {/* ── Section: Contact ───────────────────────────────────────── */}
+                <h2 className="text-xl font-semibold text-emerald-700 border-b pb-2 mb-2">
+                  Contact Information
+                </h2>
 
-                <h3 className="text-xl font-semibold text-emerald-700 border-b pb-2 pt-4 mb-4">Training Location</h3>
+                <fieldset className="contents" aria-label="Contact information">
+                  <legend className="sr-only">Contact Information</legend>
 
-                <div className="flex flex-col">
-                  <label className={labelClasses}>Street Address Line 1 <span className="text-red-500">*</span></label>
-                  <input type="text" name="streetAddress" placeholder="Enter street address line 1" value={formData.streetAddress} onChange={handleChange} required className={inputClasses} />
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="flex flex-col">
+                      <label htmlFor="firstName" className={labelClass}>
+                        First Name <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="firstName" name="firstName" type="text"
+                        placeholder="Enter your first name"
+                        required autoComplete="given-name"
+                        aria-required="true"
+                        className={inputClass('firstName')}
+                        value={formData.firstName}
+                        onChange={handleChange}
+                        maxLength={MAX_FIELD_LEN}
+                      />
+                      <FieldError field="firstName" />
+                    </div>
 
-                <div className="flex flex-col">
-                  <label className={labelClasses}>Street Address Line 2 (Apt, Suite, etc.)</label>
-                  <input type="text" name="streetAddress2" placeholder="Apartment, Suite, Unit, etc. (optional)" value={formData.streetAddress2} onChange={handleChange} className={inputClasses} />
-                </div>
+                    <div className="flex flex-col">
+                      <label htmlFor="lastName" className={labelClass}>
+                        Last Name <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="lastName" name="lastName" type="text"
+                        placeholder="Enter your last name"
+                        required autoComplete="family-name"
+                        aria-required="true"
+                        className={inputClass('lastName')}
+                        value={formData.lastName}
+                        onChange={handleChange}
+                        maxLength={MAX_FIELD_LEN}
+                      />
+                      <FieldError field="lastName" />
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="flex flex-col">
-                    <label className={labelClasses}>City <span className="text-red-500">*</span></label>
-                    <input type="text" name="city" placeholder="Enter your city" value={formData.city} onChange={handleChange} required className={inputClasses} />
+                    <div className="flex flex-col">
+                      <label htmlFor="email" className={labelClass}>
+                        Work Email <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="email" name="email" type="email"
+                        placeholder="Enter your work email address"
+                        required autoComplete="email" inputMode="email"
+                        aria-required="true"
+                        className={inputClass('email')}
+                        value={formData.email}
+                        onChange={handleChange}
+                        maxLength={254}
+                      />
+                      <FieldError field="email" />
+                    </div>
                   </div>
-                  <div className="flex flex-col">
-                    <label className={labelClasses}>State / Region / Province <span className="text-red-500">*</span></label>
-                    <input type="text" name="regionStateProvince" placeholder="Enter state, region, or province" value={formData.regionStateProvince} onChange={handleChange} required className={inputClasses} />
-                  </div>
-                  <div className="flex flex-col">
-                    <label className={labelClasses}>Postal / Zip code <span className="text-red-500">*</span></label>
-                    <input type="text" name="postalZipCode" placeholder="Enter postal or zip code" value={formData.postalZipCode} onChange={handleChange} required className={inputClasses} />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="flex flex-col">
-                    <label className={labelClasses}>Country <span className="text-red-500">*</span></label>
-                    <select name="country" value={formData.country} onChange={handleChange} required className={inputClasses + " cursor-pointer"}>
-                      <option value="" disabled>Select Country *</option>
-                      {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="flex flex-col">
+                      <label htmlFor="phone" className={labelClass}>
+                        Phone Number <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="phone" name="phone" type="tel"
+                        placeholder="e.g. +91 98765 43210"
+                        required autoComplete="tel" inputMode="tel"
+                        aria-required="true"
+                        className={inputClass('phone')}
+                        value={formData.phone}
+                        onChange={handleChange}
+                        maxLength={20}
+                      />
+                      <FieldError field="phone" />
+                    </div>
+
+                    <div className="flex flex-col">
+                      <label htmlFor="company" className={labelClass}>Company / Organization</label>
+                      <input
+                        id="company" name="company" type="text"
+                        placeholder="Enter your company name"
+                        autoComplete="organization"
+                        className={inputClass('company')}
+                        value={formData.company}
+                        onChange={handleChange}
+                        maxLength={MAX_FIELD_LEN}
+                      />
+                    </div>
+
+                    <div className="flex flex-col">
+                      <label htmlFor="numberOfParticipants" className={labelClass}>
+                        Number of Participants
+                      </label>
+                      <input
+                        id="numberOfParticipants" name="numberOfParticipants" type="number"
+                        placeholder="e.g. 10"
+                        inputMode="numeric"
+                        min="1" max={MAX_PARTICIPANTS}
+                        className={inputClass('numberOfParticipants')}
+                        value={formData.numberOfParticipants}
+                        onChange={handleChange}
+                      />
+                      <FieldError field="numberOfParticipants" />
+                    </div>
                   </div>
-                </div>
+                </fieldset>
 
-                <h3 className="text-xl font-semibold text-emerald-700 border-b pb-2 pt-4 mb-4">Additional Details</h3>
+                {/* ── Section: Location ──────────────────────────────────────── */}
+                <h2 className="text-xl font-semibold text-emerald-700 border-b pb-2 pt-4 mb-2">
+                  Training Location
+                </h2>
 
-                <div className="flex flex-col">
-                  <label className={labelClasses}>I am an <span className="text-red-500">*</span></label>
+                <fieldset className="contents" aria-label="Training location">
+                  <legend className="sr-only">Training Location</legend>
+
+                  <div className="flex flex-col">
+                    <label htmlFor="streetAddress" className={labelClass}>
+                      Street Address Line 1 <span className="text-red-500" aria-hidden="true">*</span>
+                    </label>
+                    <input
+                      id="streetAddress" name="streetAddress" type="text"
+                      placeholder="Enter street address line 1"
+                      required autoComplete="address-line1"
+                      aria-required="true"
+                      className={inputClass('streetAddress')}
+                      value={formData.streetAddress}
+                      onChange={handleChange}
+                      maxLength={MAX_FIELD_LEN}
+                    />
+                    <FieldError field="streetAddress" />
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label htmlFor="streetAddress2" className={labelClass}>
+                      Street Address Line 2 (Apt, Suite, etc.)
+                    </label>
+                    <input
+                      id="streetAddress2" name="streetAddress2" type="text"
+                      placeholder="Apartment, Suite, Unit, etc. (optional)"
+                      autoComplete="address-line2"
+                      className={inputClass('streetAddress2')}
+                      value={formData.streetAddress2}
+                      onChange={handleChange}
+                      maxLength={MAX_FIELD_LEN}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="flex flex-col">
+                      <label htmlFor="city" className={labelClass}>
+                        City <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="city" name="city" type="text"
+                        placeholder="Enter your city"
+                        required autoComplete="address-level2"
+                        aria-required="true"
+                        className={inputClass('city')}
+                        value={formData.city}
+                        onChange={handleChange}
+                        maxLength={MAX_FIELD_LEN}
+                      />
+                      <FieldError field="city" />
+                    </div>
+
+                    <div className="flex flex-col">
+                      <label htmlFor="regionStateProvince" className={labelClass}>
+                        State / Region / Province <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="regionStateProvince" name="regionStateProvince" type="text"
+                        placeholder="Enter state, region, or province"
+                        required autoComplete="address-level1"
+                        aria-required="true"
+                        className={inputClass('regionStateProvince')}
+                        value={formData.regionStateProvince}
+                        onChange={handleChange}
+                        maxLength={MAX_FIELD_LEN}
+                      />
+                      <FieldError field="regionStateProvince" />
+                    </div>
+
+                    <div className="flex flex-col">
+                      <label htmlFor="postalZipCode" className={labelClass}>
+                        Postal / Zip Code <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="postalZipCode" name="postalZipCode" type="text"
+                        placeholder="Enter postal or zip code"
+                        required autoComplete="postal-code" inputMode="numeric"
+                        aria-required="true"
+                        className={inputClass('postalZipCode')}
+                        value={formData.postalZipCode}
+                        onChange={handleChange}
+                        maxLength={12}
+                      />
+                      <FieldError field="postalZipCode" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="flex flex-col">
+                      <label htmlFor="country" className={labelClass}>
+                        Country <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <select
+                        id="country" name="country"
+                        required autoComplete="country-name"
+                        aria-required="true"
+                        className={inputClass('country') + ' cursor-pointer'}
+                        value={formData.country}
+                        onChange={handleChange}
+                      >
+                        <option value="" disabled>Select Country</option>
+                        {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <FieldError field="country" />
+                    </div>
+                  </div>
+                </fieldset>
+
+                {/* ── Section: Additional ────────────────────────────────────── */}
+                <h2 className="text-xl font-semibold text-emerald-700 border-b pb-2 pt-4 mb-2">
+                  Additional Details
+                </h2>
+
+                <fieldset aria-label="Customer type">
+                  <legend className={labelClass}>
+                    I am an <span className="text-red-500" aria-hidden="true">*</span>
+                  </legend>
                   <div className="flex gap-8 flex-wrap py-2">
-                    <label className="flex items-center gap-2 font-normal text-gray-700 text-base cursor-pointer">
-                      <input type="checkbox" name="customerType" value="endCustomer" checked={formData.customerType.includes('endCustomer')} onChange={handleChange} className="accent-emerald-600 w-4 h-4 cursor-pointer" />
-                      <span>End Customer</span>
-                    </label>
-                    <label className="flex items-center gap-2 font-normal text-gray-700 text-base cursor-pointer">
-                      <input type="checkbox" name="customerType" value="siPartner" checked={formData.customerType.includes('siPartner')} onChange={handleChange} className="accent-emerald-600 w-4 h-4 cursor-pointer" />
-                      <span>SI Partner (Systems Integrator)</span>
-                    </label>
-                    <label className="flex items-center gap-2 font-normal text-gray-700 text-base cursor-pointer">
-                      <input type="checkbox" name="customerType" value="distributor" checked={formData.customerType.includes('distributor')} onChange={handleChange} className="accent-emerald-600 w-4 h-4 cursor-pointer" />
-                      <span>Distributor / Reseller</span>
-                    </label>
+                    {CUSTOMER_TYPES.map(({ value, label }) => (
+                      <label
+                        key={value}
+                        className="flex items-center gap-2 font-normal text-gray-700 text-base cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          name="customerType"
+                          value={value}
+                          checked={formData.customerType.includes(value)}
+                          onChange={handleChange}
+                          className="accent-emerald-600 w-4 h-4 cursor-pointer"
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
                   </div>
-                </div>
+                </fieldset>
 
                 <div className="flex flex-col">
-                  <label className={labelClasses}>Comments or Specific Training Needs</label>
-                  <textarea name="comment" placeholder="Tell us about your organization's specific training requirements, preferred dates, or any other important details here." rows="5" value={formData.comment} onChange={handleChange} className={inputClasses + " resize-y min-h-[8rem]"}></textarea>
+                  <label htmlFor="comment" className={labelClass}>
+                    Comments or Specific Training Needs
+                  </label>
+                  <textarea
+                    id="comment" name="comment"
+                    placeholder="Tell us about your organization's specific training requirements, preferred dates, or any other important details here."
+                    rows={5}
+                    className={inputClass('comment') + ' resize-y min-h-[8rem]'}
+                    value={formData.comment}
+                    onChange={handleChange}
+                    maxLength={MAX_COMMENT_LEN}
+                    aria-describedby="comment-count"
+                  />
+                  <p id="comment-count" className="mt-1 text-xs text-gray-400 text-right">
+                    {formData.comment.length} / {MAX_COMMENT_LEN}
+                  </p>
                 </div>
 
+                {/* ── Submit ─────────────────────────────────────────────────── */}
                 <div className="flex justify-center pt-4">
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="bg-emerald-600 text-white font-semibold tracking-wider uppercase px-12 py-4 rounded-lg text-lg transition-all duration-300 shadow-md hover:bg-emerald-700 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-emerald-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-busy={submitting}
+                    className="bg-emerald-600 text-white font-semibold tracking-wider uppercase px-12 py-4 rounded-lg text-lg
+                               transition-all duration-300 shadow-md hover:bg-emerald-700 hover:shadow-lg
+                               focus:outline-none focus:ring-4 focus:ring-emerald-500 focus:ring-opacity-50
+                               disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {submitting ? "Submitting..." : "Submit Training Request"}
+                    {submitting ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Submitting…
+                      </span>
+                    ) : 'Submit Training Request'}
                   </button>
                 </div>
 
-                <p className="text-center text-sm text-gray-500 mt-4">
+                <p className="text-center text-sm text-gray-500 mt-2">
                   Fields marked with <span className="text-red-500">*</span> are required.
                 </p>
               </form>
