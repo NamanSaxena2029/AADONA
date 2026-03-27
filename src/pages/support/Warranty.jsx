@@ -11,7 +11,7 @@ import {
   Download,
 } from "lucide-react";
 import bg from "../../assets/bg.jpg";
-import warrantybanner from "../../assets/WarrantyBanner.png";
+import warrantybanner from "../../assets/WarrantyBanner.jpeg";
 
 // ─── Scroll-reveal ────────────────────────────────────────────────────────────
 

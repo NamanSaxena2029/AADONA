@@ -8,7 +8,7 @@ import {
   Mail, Phone, MapPin, UploadCloud, Send, X,
 } from "lucide-react";
 import bg from "../../assets/bg.jpg";
-import tsbanner from "../../assets/TechSquadBanner.png";
+import tsbanner from "../../assets/TechSquadBanner.jpeg";
 
 // ─── Security Helpers ────────────────────────────────────────────────────────
 

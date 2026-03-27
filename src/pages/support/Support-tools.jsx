@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import Navbar from "../../Components/Navbar";
 import Footer from "../../Components/Footer";
 import bg from "../../assets/bg.jpg";
-import stbanner from "../../assets/SupportToolsBanner.png";
+import stbanner from "../../assets/SupportToolsBanner.jpeg";
 
 // ─── Tool Data (centralized — easy to maintain) ───────────────────────────────
 
