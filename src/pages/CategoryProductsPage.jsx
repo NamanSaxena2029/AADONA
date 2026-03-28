@@ -301,7 +301,8 @@ export default function CategoryProductsPage() {
   }, [activeSubCategory, products, orderedExtraCategories]);
 
   useEffect(() => {
-    if (!actualCategoryName) return;
+    console.log("Related fetch trigger:", actualCategoryName, activeSubCategory, activeDetail);
+    if (!actualCategoryName || loading) return;
 
     const controller = new AbortController();
     const params = new URLSearchParams({ category: actualCategoryName });
@@ -318,7 +319,7 @@ export default function CategoryProductsPage() {
       .catch(err => { if (err.name !== "AbortError") setRelatedProducts([]); });
 
     return () => controller.abort();
-  }, [actualCategoryName, activeSubCategory, activeDetail]);
+  }, [actualCategoryName, activeSubCategory, activeDetail, loading]);
 
   const detailOptions = (() => {
     const subDoc = orderedExtraCategories.find(s => s.name === activeSubCategory);
