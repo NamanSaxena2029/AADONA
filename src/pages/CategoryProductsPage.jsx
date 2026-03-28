@@ -301,7 +301,7 @@ export default function CategoryProductsPage() {
   }, [activeSubCategory, products, orderedExtraCategories]);
 
   useEffect(() => {
-    if (!actualCategoryName || !activeSubCategory) return;
+    if (!actualCategoryName) return;
 
     const controller = new AbortController();
     const params = new URLSearchParams({ category: actualCategoryName });
