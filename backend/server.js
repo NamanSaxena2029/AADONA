@@ -1299,7 +1299,7 @@ app.post("/save-related-products", verifyToken, async (req, res) => {
 
     const filter = {
       category,
-      subCategory,
+      subCategory: subCategory || null,
       extraCategory: extraCategory || null,
       type: type || null,
     };
@@ -1313,7 +1313,7 @@ app.post("/save-related-products", verifyToken, async (req, res) => {
         $set: {
           type: type || null,
           category,
-          subCategory,
+          subCategory: subCategory || null,
           extraCategory: extraCategory || null,
         },
         $addToSet: { relatedProducts: { $each: relatedProducts } },
@@ -1398,7 +1398,7 @@ app.put("/related-products/remove", verifyToken, async (req, res) => {
 
     const filter = {
       category,
-      subCategory,
+      subCategory: subCategory || null,
       extraCategory: extraCategory || null,
       type: type || null,
     };
