@@ -1352,7 +1352,7 @@ app.get("/related-products", async (req, res) => {
   try {
     const { category, subCategory, extraCategory, type } = req.query;
     const query = { category };
-    if (subCategory) query.subCategory = subCategory;
+    if (subCategory && subCategory !== "null") query.subCategory = subCategory;
     else query.subCategory = null;
 
     const related = await RelatedProduct.findOne(query);

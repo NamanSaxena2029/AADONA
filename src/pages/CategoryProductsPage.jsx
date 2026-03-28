@@ -334,7 +334,9 @@ export default function CategoryProductsPage() {
   })();
 
   const filteredProducts = products.filter((p) => {
-    const matchesSub = p.subCategory === activeSubCategory;
+    const matchesSub = activeSubCategory
+      ? p.subCategory === activeSubCategory
+      : !p.subCategory;
     if (detailOptions.length > 0) return matchesSub && p.extraCategory === activeDetail;
     return matchesSub;
   });
