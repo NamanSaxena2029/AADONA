@@ -1279,7 +1279,7 @@ app.delete("/delete-admin/:uid", verifyToken, async (req, res) => {
 });
 
 /* =============================
-   RELATED PRODUCTS ROUTES
+   RELATED PRODUCTS ROUTES 
 ============================= */
 
 app.post("/save-related-products", verifyToken, async (req, res) => {
