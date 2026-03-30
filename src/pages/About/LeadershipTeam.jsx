@@ -156,7 +156,7 @@ const LeadershipTeam = () => {
                      </div>
                    </header>
 
-      {/* ── MAIN ── */}
+      {/* ── MAIN ── */} 
       <main
         className="bg-cover bg-fixed py-16"
         style={{ backgroundImage: `url(${bg})` }}
@@ -226,3 +226,4 @@ const LeadershipTeam = () => {
 };
 
 export default LeadershipTeam;
+ {/* ── END── */}
