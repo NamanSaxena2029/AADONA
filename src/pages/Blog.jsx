@@ -211,7 +211,7 @@ const BlogPage = () => {
 
   <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
     
-    <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl animate-fade-in-down">
+    <h1 className="text-5xl font-bold text-white sm:text-5xl md:text-6xl animate-fade-in-down">
       Our Blog
     </h1>
 
