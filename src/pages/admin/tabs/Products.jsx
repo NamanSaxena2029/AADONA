@@ -643,18 +643,20 @@ export default function Products({ products, setProducts, allCategories, reloadP
             {/* Specifications */}
             <div className="mb-6">
               <label className="block text-sm font-semibold text-green-700 mb-4">Specifications</label>
-              {Object.entries(form.specifications || {}).map(([category, specs]) => (
-                <div key={category} className="mb-6 border border-green-200 p-5 rounded-xl bg-green-50/60">
+              {Object.entries(form.specifications || {}).map(([category, specs], catIndex) => (
+                <div key={catIndex} className="mb-6 border border-green-200 p-5 rounded-xl bg-green-50/60">
                   <div className="flex items-center gap-3 mb-4">
                     <input
                       className="flex-1 font-bold text-green-800 bg-white border border-green-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-green-300"
-                      value={category} placeholder="Category Name"
-                      onChange={(e) => {
-                        const newSpecs = { ...form.specifications };
-                        const val = newSpecs[category];
-                        delete newSpecs[category];
-                        newSpecs[e.target.value] = val;
-                        setForm({ ...form, specifications: newSpecs });
+                      defaultValue={category}        // ← value की जगह defaultValue
+                      placeholder="Category Name"
+                      onBlur={(e) => {               // ← onChange की जगह onBlur
+                        const entries = Object.entries(form.specifications || {});
+                        const rebuilt = {};
+                        entries.forEach(([k, v]) => {
+                          rebuilt[k === category ? e.target.value : k] = v;
+                        });
+                        setForm({ ...form, specifications: rebuilt });
                       }}
                     />
                     <button type="button" className="text-red-400 hover:text-red-600 transition"
