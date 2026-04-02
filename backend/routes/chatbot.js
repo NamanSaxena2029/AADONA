@@ -251,31 +251,34 @@ router.post('/chat', chatLimiter, async (req, res) => {
     const recentMessages = sanitized.slice(-10);
     const lastUserMessage = [...sanitized].reverse().find(m => m.role === 'user')?.content || '';
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
-      console.error('GEMINI_API_KEY not set');
+      console.error('OPENROUTER_API_KEY not set');
       return res.status(500).json({ success: false, error: 'AI service not configured.' });
     }
 
     const { context: productsContext, products } = await getProductsContext();
 
     const genAI = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,      {
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
         body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: buildSystemPrompt(userName || 'Guest', userPhone || '') + productsContext }],
-          },
-          contents: recentMessages.map(m => ({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: m.content }],
-          })),
-          generationConfig: { maxOutputTokens: 700, temperature: 0.7 },
+          model: 'google/gemini-2.0-flash-001',
+          messages: [
+            { role: 'system', content: buildSystemPrompt(userName || 'Guest', userPhone || '') + productsContext },
+            ...recentMessages,
+          ],
+          max_tokens: 700,
+          temperature: 0.7,
         }),
       }
     );
-
+    
     if (!genAI.ok) {
       const errData = await genAI.json().catch(() => ({}));
       console.error('Gemini API error:', genAI.status, errData);
