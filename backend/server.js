@@ -976,6 +976,16 @@ app.get("/products", async (req, res) => {
   }
 });
 
+app.get("/products/models-list", async (req, res) => {
+  try {
+    const products = await Product.find({}, { name: 1, model: 1, _id: 0 })
+      .sort({ order: 1 });
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/products/:slug", async (req, res) => {
   try {
     const product = await Product.findOne({ slug: req.params.slug });

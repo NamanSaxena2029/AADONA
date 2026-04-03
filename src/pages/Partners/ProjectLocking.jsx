@@ -1,14 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import Navbar from "../../Components/Navbar";
 import Footer from "../../Components/Footer";
 import bg from "../../assets/bg.jpg";
 import plbanner from "../../assets/ProjectLockBanner.jpeg";
-
-const MODEL_NAMES = [
-  "DMS-8GP-2F", "ODR-16F-16", "ODR-8F-14", "ODR-4F-14",
-  "ONVR-16F1-6", "ONVR-08F1-6", "OFL-3T-A", "OHD-2T-A", "OHD-2B-A"
-];
 
 const COUNTRIES = [
   "Afghanistan","Aland Islands","Albania","Algeria","American Samoa","Andorra","Angola","Anguilla","Antarctica",
@@ -60,9 +55,49 @@ export default function ProjectLocking() {
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState({});
 
+  // ── NEW: Product dropdown state ──
+  const [products, setProducts] = useState([]);
+  const [modelSearch, setModelSearch] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // ── NEW: Fetch products from DB ──
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/products/models-list`);
+        const data = await res.json();
+        setProducts(data);
+      } catch (err) {
+        console.error("Failed to fetch products:", err);
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  // ── NEW: Close dropdown on outside click ──
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ── NEW: Filtered products based on search ──
+  const filteredProducts = products.filter((p) => {
+    const search = modelSearch.toLowerCase();
+    return (
+      (p.name && p.name.toLowerCase().includes(search)) ||
+      (p.model && p.model.toLowerCase().includes(search))
+    );
+  });
 
   const handleChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
@@ -107,6 +142,7 @@ export default function ProjectLocking() {
         setSubmitted(true);
         setForm(emptyForm);
         setErrors({});
+        setModelSearch("");
       } else {
         alert(data.message || "Something went wrong. Please try again.");
       }
@@ -370,21 +406,88 @@ export default function ProjectLocking() {
                 </h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                  {/* ── NEW: Searchable Model Dropdown ── */}
                   <div className="flex flex-col">
-                    <label htmlFor="modelName" className={labelClasses}>
+                    <label htmlFor="modelSearch" className={labelClasses}>
                       Select Model <span className="text-red-500" aria-hidden="true">*</span>
                     </label>
-                    <select
-                      id="modelName" name="modelName"
-                      value={form.modelName} onChange={handleChange}
-                      required className={inputClasses + " cursor-pointer"}
-                      aria-required="true" aria-describedby={errors.modelName ? "model-error" : undefined}
-                    >
-                      <option value="">Select Model *</option>
-                      {MODEL_NAMES.map((m) => <option key={m} value={m}>{m}</option>)}
-                    </select>
+                    <div className="relative" ref={dropdownRef}>
+                      <input
+                        id="modelSearch"
+                        type="text"
+                        placeholder={form.modelName ? form.modelName : "Search or select model..."}
+                        value={modelSearch}
+                        onChange={(e) => {
+                          setModelSearch(e.target.value);
+                          setShowDropdown(true);
+                          if (form.modelName) {
+                            setForm((prev) => ({ ...prev, modelName: "" }));
+                            setErrors((prev) => ({ ...prev, modelName: undefined }));
+                          }
+                        }}
+                        onFocus={() => setShowDropdown(true)}
+                        className={inputClasses + " cursor-text"}
+                        autoComplete="off"
+                        aria-autocomplete="list"
+                        aria-expanded={showDropdown}
+                        aria-describedby={errors.modelName ? "model-error" : undefined}
+                      />
+                      {/* Hidden input to hold selected value for validation */}
+                      <input
+                        type="text"
+                        name="modelName"
+                        value={form.modelName}
+                        required
+                        readOnly
+                        className="sr-only"
+                        aria-hidden="true"
+                      />
+
+                      {/* Selected checkmark badge */}
+                      {form.modelName && !showDropdown && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 text-lg">✓</span>
+                      )}
+
+                      {/* Dropdown list */}
+                      {showDropdown && (
+                        <ul className="absolute z-50 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-56 overflow-y-auto mt-1">
+                          {products.length === 0 ? (
+                            <li className="px-4 py-3 text-gray-400 text-sm">Loading products...</li>
+                          ) : filteredProducts.length === 0 ? (
+                            <li className="px-4 py-3 text-gray-400 text-sm">No products found</li>
+                          ) : (
+                            filteredProducts.map((p, i) => {
+                              const label = p.model
+                                ? `${p.model} — ${p.name}`
+                                : p.name;
+                              const value = p.model || p.name;
+                              return (
+                                <li
+                                  key={i}
+                                  onClick={() => {
+                                    setForm((prev) => ({ ...prev, modelName: value }));
+                                    setModelSearch(value);
+                                    setShowDropdown(false);
+                                    setErrors((prev) => ({ ...prev, modelName: undefined }));
+                                  }}
+                                  className={`px-4 py-2 text-sm cursor-pointer border-b last:border-0 transition-colors ${
+                                    form.modelName === value
+                                      ? "bg-emerald-50 text-emerald-700 font-medium"
+                                      : "text-gray-700 hover:bg-emerald-50"
+                                  }`}
+                                >
+                                  {label}
+                                </li>
+                              );
+                            })
+                          )}
+                        </ul>
+                      )}
+                    </div>
                     {errors.modelName && <p id="model-error" className={errorClasses}>{errors.modelName}</p>}
                   </div>
+
                   <div className="flex flex-col">
                     <label htmlFor="quantity" className={labelClasses}>
                       Quantity <span className="text-red-500" aria-hidden="true">*</span>
