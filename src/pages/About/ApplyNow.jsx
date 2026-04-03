@@ -103,7 +103,6 @@ const ApplyNow = () => {
       const data = await res.json();
 
       if (res.ok) {
-        alert("Application submitted successfully!");
         setForm(emptyForm);
         setResumeFile(null);
         const fileInput = document.getElementById('resumeFileInput');
@@ -168,7 +167,7 @@ const ApplyNow = () => {
 
           {submitted && (
             <div className="bg-green-50 border border-green-300 text-green-800 rounded-xl px-6 py-5 text-center font-semibold text-lg mb-6 flex flex-col items-center">
-              <span>✅ Application submitted successfully! We'll get back to you soon.</span>
+              <span>Application submitted successfully! We'll get back to you soon.</span>
               <button 
                 onClick={() => setSubmitted(false)} 
                 className="mt-2 text-sm text-green-700 underline"
