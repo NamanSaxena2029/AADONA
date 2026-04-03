@@ -18,7 +18,8 @@ const emptyForm = {
   lastName: "",
   email: "",
   phone: "",
-  applicationType: [],
+  applicationType: "",
+  availability: "",
   about: "",
 };
 
@@ -34,16 +35,9 @@ const ApplyNow = () => {
   }, []);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    if (type === "checkbox") {
-      setForm((prev) => ({
-        ...prev,
-        applicationType: checked
-          ? [...prev.applicationType, value]
-          : prev.applicationType.filter((d) => d !== value),
-      }));
-    } else if (name === "phone") {
-      // ✅ Allow only numbers and restrict to exactly 10 digits
+    const { name, value } = e.target;
+
+    if (name === "phone") {
       const onlyNums = value.replace(/[^0-9]/g, "");
       if (onlyNums.length <= 10) {
         setForm((prev) => ({ ...prev, [name]: onlyNums }));
@@ -92,9 +86,7 @@ const ApplyNow = () => {
       const formDataToSend = new FormData();
 
       Object.keys(form).forEach(key => {
-        if (key === 'applicationType') {
-          formDataToSend.append(key, JSON.stringify(form[key]));
-        } else if (form[key]) {
+        if (form[key]) {
           formDataToSend.append(key, form[key]);
         }
       });
@@ -132,31 +124,30 @@ const ApplyNow = () => {
     <>
       <Navbar />
 
-         <header
-                      className="pt-32 pb-16 bg-cover bg-center bg-no-repeat"
-                      style={{ backgroundImage: `url(${careerbanner})` }}
-                      aria-label="Career herbanner"
-                    >
-                      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                        <h1 className="text-5xl font-bold text-gray-100 sm:text-5xl md:text-6xl">
-                          Careers
-                        </h1>
-                        <p className="mt-6 text-md text-gray-100 max-w-3xl mx-auto">
-              Join our growing team — fill in your details and attach your resume below.
-                              </p>
-                      </div>
-                    </header>
+      <header
+        className="pt-32 pb-16 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${careerbanner})` }}
+        aria-label="Career herbanner"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-5xl font-bold text-gray-100 sm:text-5xl md:text-6xl">
+            Careers
+          </h1>
+          <p className="mt-6 text-md text-gray-100 max-w-3xl mx-auto">
+            Join our growing team — fill in your details and attach your resume below.
+          </p>
+        </div>
+      </header>
 
-          <div
-                      className="bg-cover bg-fixed py-16"
-                      style={{ backgroundImage: `url(${bg})` }}
-                    >
-          
+      <div
+        className="bg-cover bg-fixed py-16"
+        style={{ backgroundImage: `url(${bg})` }}
+      >
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 -mt-8">
           
           <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">
             <div className="mt-0.5">
-               <InfoIcon />
+              <InfoIcon />
             </div>
             <div>
               <p className="text-sm text-blue-800 leading-relaxed">
@@ -274,6 +265,7 @@ const ApplyNow = () => {
                 </div>
               </div>
 
+              {/* ✅ Applying As → Single Select Radio */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Applying as:
@@ -282,13 +274,41 @@ const ApplyNow = () => {
                   {["Experienced", "Fresher", "Internship"].map((type) => (
                     <label key={type} className="flex items-center gap-2 text-gray-700 bg-white/50 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-white transition">
                       <input
-                        type="checkbox"
+                        type="radio"
+                        name="applicationType"
                         value={type}
-                        checked={form.applicationType.includes(type)}
+                        checked={form.applicationType === type}
                         onChange={handleChange}
-                        className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-400"
+                        className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-400"
                       />
                       <span className="text-sm">{type}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* ✅ Availability → NEW FIELD */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Availability:
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    "Immediate",
+                    "Within 1 Week",
+                    "Within 15 Days",
+                    "Within 1 Month",
+                  ].map((opt) => (
+                    <label key={opt} className="flex items-center gap-2 text-gray-700 bg-white/50 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-white transition">
+                      <input
+                        type="radio"
+                        name="availability"
+                        value={opt}
+                        checked={form.availability === opt}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-400"
+                      />
+                      <span className="text-sm">{opt}</span>
                     </label>
                   ))}
                 </div>

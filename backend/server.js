@@ -1946,24 +1946,49 @@ app.post("/submit-partner", formLimiter, async (req, res) => {
       to: process.env.COMPANY_EMAIL,
       subject: `New Partner Application - ${form.companyName || "Unknown"}`,
       html: `
-        <h2 style="color:#166534">New Partner Application</h2>
-        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
-          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
-          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
-          <tr><td><b>Company</b></td><td>${form.companyName || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Website</b></td><td>${form.websiteAddress || "-"}</td></tr>
-          <tr><td><b>Address</b></td><td>${form.companyAddress || "-"}, ${form.companyCity || ""}, ${form.regionStateProvince || ""}, ${form.postalZip || ""}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Country</b></td><td>${form.country || "-"}</td></tr>
-          <tr><td><b>Primary Interest</b></td><td>${form.primaryInterest || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Geographies Served</b></td><td>${form.geographiesServed || "-"}</td></tr>
-          <tr><td><b>Annual Revenue</b></td><td>${form.revenueAnnual || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Verticals</b></td><td>${form.verticals || "-"}</td></tr>
-          <tr><td><b>Revenue - Private Projects</b></td><td>${form.revenuePrivateProjects || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Revenue - Government</b></td><td>${form.revenueFromGovt || "-"}</td></tr>
-          <tr><td><b>Best Describe You</b></td><td>${form.bestDescribeYou || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Details</b></td><td>${form.details || "-"}</td></tr>
-        </table>
+      <h2 style="color:#166534">New Partner Application</h2>
+
+      <table border="1" cellpadding="8" cellspacing="0" 
+      style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+
+      <tr><td><b>First Name</b></td><td>${form.firstName || "-"}</td></tr>
+      <tr style="background:#f0fdf4"><td><b>Last Name</b></td><td>${form.lastName || "-"}</td></tr>
+      <tr><td><b>Email</b></td><td>${form.email || "-"}</td></tr>
+      <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
+
+      <tr><td><b>Primary Interest</b></td><td>${form.primaryInterest || "-"}</td></tr>
+
+      <tr style="background:#f0fdf4"><td><b>Company Name</b></td><td>${form.companyName || "-"}</td></tr>
+      <tr><td><b>Company Address</b></td><td>${form.companyAddress || "-"}</td></tr>
+      <tr style="background:#f0fdf4"><td><b>Company City</b></td><td>${form.companyCity || "-"}</td></tr>
+      <tr><td><b>State / Region</b></td><td>${form.regionStateProvince || "-"}</td></tr>
+      <tr style="background:#f0fdf4"><td><b>Postal Code</b></td><td>${form.postalZip || "-"}</td></tr>
+      <tr><td><b>Country</b></td><td>${form.country || "-"}</td></tr>
+
+      <tr style="background:#f0fdf4"><td><b>Geographies Served</b></td><td>${form.geographiesServed || "-"}</td></tr>
+      <tr><td><b>Website</b></td><td>${form.websiteAddress || "-"}</td></tr>
+
+      <tr style="background:#f0fdf4"><td><b>Annual Revenue</b></td><td>${form.revenueAnnual || "-"}</td></tr>
+      <tr><td><b>Verticals</b></td><td>${form.verticals || "-"}</td></tr>
+
+      <tr style="background:#f0fdf4"><td><b>Revenue - Private Projects</b></td><td>${form.revenuePrivateProjects || "-"}</td></tr>
+      <tr><td><b>Revenue - Government</b></td><td>${form.revenueFromGovt || "-"}</td></tr>
+      <tr style="background:#f0fdf4"><td><b>Revenue - Direct End Customer</b></td><td>${form.revenueFromDirectEnd || "-"}</td></tr>
+
+      <tr><td><b>Sales Team Strength</b></td><td>${form.strengthSalesTeam || "-"}</td></tr>
+      <tr style="background:#f0fdf4"><td><b>Technical Sales Team</b></td><td>${form.strengthTechnicalSalesTeam || "-"}</td></tr>
+
+      <tr><td><b>Revenue - Retail / Trading</b></td><td>${form.revenueRetailTrading || "-"}</td></tr>
+
+      <tr style="background:#f0fdf4"><td><b>Market Segment Expertise</b></td><td>${form.marketSegmentExpertise || "-"}</td></tr>
+      <tr><td><b>WLAN / LAN Expertise</b></td><td>${form.wlanLanExpertise || "-"}</td></tr>
+
+      <tr style="background:#f0fdf4"><td><b>Brands You Sell</b></td><td>${form.brandsYouSell || "-"}</td></tr>
+
+      <tr><td><b>Other Comments</b></td><td>${form.otherComments || "-"}</td></tr>
+      <tr style="background:#f0fdf4"><td><b>Additional Notes</b></td><td>${form.additionalNotes || "-"}</td></tr>
+
+      </table>
       `,
     });
 
@@ -2290,51 +2315,152 @@ app.post("/submit-product-support", formLimiter, async (req, res) => {
 app.post("/submit-product-registration", formLimiter, upload.single("invoiceFile"), async (req, res) => {
   const form = req.body;
   const emailValid = await isEmailDomainValid(form.email);
-  if (!emailValid)
-    return res
-      .status(400)
-      .json({ success: false, message: "Invalid email address. Please enter a real email." });
+    if (!emailValid) {
+      return res.status(400).json({ success: false, message: "Invalid email address. Please enter a real email.",
+      });
+    }
+    try {
+      // Parse arrays
+      const models = JSON.parse(form.models || "[]");
+      const serialNumbers = JSON.parse(form.serialNumbers || "[]");
 
-  try {
-    const attachmentUrl = await uploadToFirebase(req.file, "registrations");
-    await Inquiry.create({
-      formType: "Product Registration",
-      customerName: `${form.firstName} ${form.lastName}`,
-      customerEmail: form.email,
-      formData: { ...form, attachmentUrl },
-    });
+      // Upload file
+      const attachmentUrl = await uploadToFirebase(req.file, "registrations");
 
-    const mailOptions = {
-      from: `"${form.firstName} ${form.lastName}" <${process.env.EMAIL_USER}>`,
-      replyTo: form.email,
-      to: process.env.COMPANY_EMAIL,
-      subject: `New Product Registration - Serial: ${form.serialNumber || "Unknown"}`,
-      html: `
-        <h2 style="color:#166534">New Product Registration</h2>
-        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
-          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
-          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
-          <tr><td><b>City</b></td><td>${form.companyCity || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Region/State</b></td><td>${form.regionStateProvince || "-"}</td></tr>
-          <tr><td><b>Postal Code</b></td><td>${form.postalZipCode || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Country</b></td><td>${form.country || "-"}</td></tr>
-          <tr><td><b>Serial Number</b></td><td>${form.serialNumber || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Invoice Number</b></td><td>${form.invoiceNumber || "-"}</td></tr>
-          <tr><td><b>Purchased From</b></td><td>${form.purchasedFrom || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Purchase Date</b></td><td>${form.purchaseDate || "-"}</td></tr>
-        </table>
-      `,
-    };
-    if (req.file)
-      mailOptions.attachments = [
-        { filename: req.file.originalname, content: req.file.buffer },
-      ];
+      // Save in DB
+      await Inquiry.create({
+        formType: "Product Registration",
+        customerName: `${form.firstName} ${form.lastName}`,
+        customerEmail: form.email,
+        formData: { ...form, models, serialNumbers, attachmentUrl },
+      });
 
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true, message: "Product registered successfully" });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to send email" });
+      // Mail template
+      const mailOptions = {
+        from: `"${form.firstName} ${form.lastName}" <${process.env.EMAIL_USER}>`,
+        replyTo: form.email,
+        to: process.env.COMPANY_EMAIL,
+        subject: `New Product Registration - ${serialNumbers[0] || "No Serial"}`,
+
+        html: `
+          <h2 style="color:#166534">New Product Registration</h2>
+
+          <table border="1" cellpadding="8" cellspacing="0" 
+          style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+
+          <tr style="background:#f0fdf4">
+            <td><b>Name</b></td>
+            <td>${form.firstName} ${form.lastName}</td>
+          </tr>
+
+          <tr>
+            <td><b>Email</b></td>
+            <td>${form.email}</td>
+          </tr>
+
+          <tr style="background:#f0fdf4">
+            <td><b>Phone</b></td>
+            <td>${form.phone || "-"}</td>
+          </tr>
+
+          <tr>
+            <td><b>City</b></td>
+            <td>${form.companyCity || "-"}</td>
+          </tr>
+
+          <tr style="background:#f0fdf4">
+            <td><b>State / Region</b></td>
+            <td>${form.regionStateProvince || "-"}</td>
+          </tr>
+
+          <tr>
+            <td><b>Postal Code</b></td>
+            <td>${form.postalZipCode || "-"}</td>
+          </tr>
+
+          <tr style="background:#f0fdf4">
+            <td><b>Country</b></td>
+            <td>${form.country || "-"}</td>
+          </tr>
+
+          <!-- MULTIPLE MODELS -->
+          <tr>
+            <td><b>Models</b></td>
+            <td>
+              ${
+                models.length
+                  ? models.map((m, i) => `${i + 1}. ${m}`).join("<br>")
+                  : "-"
+              }
+            </td>
+          </tr>
+
+          <!-- MULTIPLE SERIAL NUMBERS -->
+          <tr style="background:#f0fdf4">
+            <td><b>Serial Numbers</b></td>
+            <td>
+              ${
+                serialNumbers.length
+                  ? serialNumbers.map((s, i) => `${i + 1}. ${s}`).join("<br>")
+                  : "-"
+              }
+            </td>
+          </tr>
+
+          <tr>
+            <td><b>Invoice Number</b></td>
+            <td>${form.invoiceNumber || "-"}</td>
+          </tr>
+
+          <tr style="background:#f0fdf4">
+            <td><b>Purchased From</b></td>
+            <td>${form.purchasedFrom || "-"}</td>
+          </tr>
+
+          <tr>
+            <td><b>Purchase Date</b></td>
+            <td>${form.purchaseDate || "-"}</td>
+          </tr>
+
+          <!-- FILE LINK -->
+          <tr style="background:#f0fdf4">
+            <td><b>Invoice File (Firebase)</b></td>
+            <td>
+              ${
+                attachmentUrl
+                  ? `<a href="${attachmentUrl}" target="_blank">View File</a>`
+                  : "Not uploaded"
+              }
+            </td>
+          </tr>
+
+          </table>
+        `,
+      };
+
+      // Attach original file
+      if (req.file) {
+        mailOptions.attachments = [
+          {
+            filename: req.file.originalname,
+            content: req.file.buffer,
+          },
+        ];
+      }
+
+      // Send mail
+      await transporter.sendMail(mailOptions);
+
+      res.json({
+        success: true,
+        message: "Product registered successfully",
+      });
+    } catch (err) {
+      console.error("PRODUCT REG ERROR:", err);
+      res.status(500).json({
+        success: false,
+        message: "Failed to send email",
+      });
   }
 });
 
@@ -2401,14 +2527,42 @@ app.post("/submit-apply", formLimiter, upload.single("resumeFile"), async (req, 
       to: process.env.COMPANY_EMAIL,
       subject: `New Job Application - ${form.firstName} ${form.lastName}`,
       html: `
-        <h2 style="color:#166534">New Job Application</h2>
-        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
-          <tr style="background:#f0fdf4"><td><b>Name</b></td><td>${form.firstName} ${form.lastName}</td></tr>
-          <tr><td><b>Email</b></td><td>${form.email}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>Phone</b></td><td>${form.phone || "-"}</td></tr>
-          <tr><td><b>Availability</b></td><td>${(form.availability || []).join(", ") || "-"}</td></tr>
-          <tr style="background:#f0fdf4"><td><b>About</b></td><td>${form.about || "-"}</td></tr>
-        </table>
+      <h2 style="color:#166534">New Job Application</h2>
+
+      <table border="1" cellpadding="8" cellspacing="0" 
+      style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif">
+
+      <tr style="background:#f0fdf4">
+        <td><b>Name</b></td>
+        <td>${form.firstName} ${form.lastName}</td>
+      </tr>
+
+      <tr>
+        <td><b>Email</b></td>
+        <td>${form.email}</td>
+      </tr>
+
+      <tr style="background:#f0fdf4">
+        <td><b>Phone</b></td>
+        <td>${form.phone || "-"}</td>
+      </tr>
+
+      <tr>
+        <td><b>Applying As</b></td>
+        <td>${form.applicationType || "-"}</td>
+      </tr>
+
+      <tr style="background:#f0fdf4">
+        <td><b>Availability</b></td>
+        <td>${form.availability || "-"}</td>
+      </tr>
+
+      <tr>
+        <td><b>About</b></td>
+        <td>${form.about || "-"}</td>
+      </tr>
+
+      </table>
       `,
     };
     if (req.file)
