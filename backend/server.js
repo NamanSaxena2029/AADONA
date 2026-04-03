@@ -2643,7 +2643,7 @@ const SubscriberSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    status: { 
+    status: {
       type: String, 
       enum: ["active", "unsubscribed"], 
       default: "active",
@@ -2752,59 +2752,168 @@ app.delete("/subscribers/:id", verifyToken, async (req, res) => {
 });
 
 // ── BROADCAST EMAIL (Admin) ────────────────────────────────────────
-app.post("/subscribers/broadcast", verifyToken, adminLimiter, async (req, res) => {
-  const { subject, html, selectedIds } = req.body;
+app.post(
+  "/subscribers/broadcast",
+  verifyToken,
+  adminLimiter,
+  upload.fields([
+    { name: "bannerImage", maxCount: 1 },
+    { name: "pdfAttachment", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    const { subject, selectedIds, heading, bodyText, buttonText, buttonUrl, footerText } = req.body;
 
-  if (!subject?.trim() || !html?.trim())
-    return res.status(400).json({ message: "Subject and content are required" });
+    if (!subject?.trim() || !bodyText?.trim())
+      return res.status(400).json({ message: "Subject and content are required" });
 
-  try {
-    // selectedIds array aaya toh sirf unhe, nahi toh sab active ko
-    const query = selectedIds?.length
-      ? { _id: { $in: selectedIds }, status: "active" }
-      : { status: "active" };
+    try {
+      // Banner image → Firebase upload
+      let bannerUrl = null;
+      if (req.files?.bannerImage?.[0]) {
+        bannerUrl = await uploadToFirebase(req.files.bannerImage[0], "newsletter-banners");
+      }
 
-    const subscribers = await Subscriber.find(query);
-    if (subscribers.length === 0)
-      return res.status(400).json({ message: "No active subscribers found" });
+      // Build professional HTML email
+      const emailHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+        <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 0">
+            <tr><td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+                
+                <!-- Header -->
+                <tr>
+                  <td style="background:linear-gradient(135deg,#166534,#16a34a);padding:32px;text-align:center">
+                    <h1 style="color:#ffffff;margin:0;font-size:26px;font-weight:800;letter-spacing:-0.5px">AADONA Communication</h1>
+                    <p style="color:#bbf7d0;margin:6px 0 0;font-size:13px">Your trusted networking partner</p>
+                  </td>
+                </tr>
 
-    // Batch mein bhejo — 50 ek baar (Gmail limit safe)
-    const BATCH_SIZE = 50;
-    let sent = 0;
-    let failed = 0;
+                <!-- Banner Image -->
+                ${bannerUrl ? `
+                <tr>
+                  <td style="padding:0">
+                    <img src="${bannerUrl}" alt="Newsletter Banner" width="600"
+                      style="width:100%;max-width:600px;display:block;object-fit:cover"/>
+                  </td>
+                </tr>` : ""}
 
-    for (let i = 0; i < subscribers.length; i += BATCH_SIZE) {
-      const batch = subscribers.slice(i, i + BATCH_SIZE);
-      const bccList = batch.map((s) => s.email).join(",");
-      try {
-        await transporter.sendMail({
+                <!-- Heading -->
+                ${heading?.trim() ? `
+                <tr>
+                  <td style="padding:32px 40px 0">
+                    <h2 style="color:#166534;font-size:22px;font-weight:700;margin:0">${heading}</h2>
+                  </td>
+                </tr>` : ""}
+
+                <!-- Body -->
+                <tr>
+                  <td style="padding:20px 40px 28px;color:#374151;font-size:15px;line-height:1.75">
+                    ${bodyText.replace(/\n/g, "<br/>")}
+                  </td>
+                </tr>
+
+                <!-- CTA Button -->
+                ${buttonText?.trim() && buttonUrl?.trim() ? `
+                <tr>
+                  <td style="padding:0 40px 32px;text-align:center">
+                    <a href="${buttonUrl}" target="_blank"
+                      style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;
+                        font-weight:700;font-size:15px;padding:14px 36px;border-radius:10px;
+                        box-shadow:0 4px 12px rgba(22,163,74,0.35)">
+                      ${buttonText}
+                    </a>
+                  </td>
+                </tr>` : ""}
+
+                <!-- Divider -->
+                <tr>
+                  <td style="padding:0 40px">
+                    <hr style="border:none;border-top:1px solid #e5e7eb;margin:0"/>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="padding:24px 40px;text-align:center">
+                    <p style="color:#6b7280;font-size:12px;margin:0;line-height:1.6">
+                      ${footerText?.trim() || "© 2025 AADONA Communication. All rights reserved."}<br/>
+                      <span style="color:#9ca3af">You received this email because you subscribed to AADONA updates.</span>
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+            </td></tr>
+          </table>
+        </body>
+        </html>
+      `;
+
+      // Selected subscribers
+      const parsedIds = req.body.selectedIds
+        ? JSON.parse(req.body.selectedIds)
+        : [];
+
+      const query = parsedIds.length
+        ? { _id: { $in: parsedIds }, status: "active" }
+        : { status: "active" };
+
+      const subscribers = await Subscriber.find(query);
+      if (subscribers.length === 0)
+        return res.status(400).json({ message: "No active subscribers found" });
+
+      const BATCH_SIZE = 50;
+      let sent = 0;
+      let failed = 0;
+
+      for (let i = 0; i < subscribers.length; i += BATCH_SIZE) {
+        const batch = subscribers.slice(i, i + BATCH_SIZE);
+        const bccList = batch.map((s) => s.email).join(",");
+
+        const mailOptions = {
           from: `"AADONA Communication" <${process.env.EMAIL_USER}>`,
-          to: process.env.EMAIL_USER, // to: apna hi email, bcc mein sab
+          to: process.env.EMAIL_USER,
           bcc: bccList,
           subject: subject.trim(),
-          html: html,
-        });
-        sent += batch.length;
-      } catch (err) {
-        console.error(`Batch ${i / BATCH_SIZE + 1} failed:`, err.message);
-        failed += batch.length;
+          html: emailHtml,
+        };
+
+        // PDF attachment
+        if (req.files?.pdfAttachment?.[0]) {
+          mailOptions.attachments = [{
+            filename: req.files.pdfAttachment[0].originalname,
+            content: req.files.pdfAttachment[0].buffer,
+            contentType: "application/pdf",
+          }];
+        }
+
+        try {
+          await transporter.sendMail(mailOptions);
+          sent += batch.length;
+        } catch (err) {
+          console.error(`Batch ${i / BATCH_SIZE + 1} failed:`, err.message);
+          failed += batch.length;
+        }
       }
+
+      logAction(req.user.email, "BROADCAST", "Newsletter", subject, {
+        changes: { sent: { new: sent }, failed: { new: failed } },
+      });
+
+      res.json({
+        success: true,
+        message: `Newsletter sent to ${sent} subscribers${failed > 0 ? `, ${failed} failed` : ""}.`,
+      });
+
+    } catch (err) {
+      console.error("[Broadcast]", err.message);
+      res.status(500).json({ error: err.message });
     }
-
-    logAction(req.user.email, "BROADCAST", "Newsletter", subject, {
-      changes: { sent: { new: sent }, failed: { new: failed } },
-    });
-
-    res.json({ 
-      success: true, 
-      message: `Newsletter sent to ${sent} subscribers${failed > 0 ? `, ${failed} failed` : ""}.` 
-    });
-
-  } catch (err) {
-    console.error("[Broadcast]", err.message);
-    res.status(500).json({ error: err.message });
   }
-});
+);
 
 /* =============================
    GRACEFUL SHUTDOWN
