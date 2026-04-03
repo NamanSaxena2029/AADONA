@@ -2,7 +2,9 @@
   {
     "origin": [
       "https://aadona.online",
-      "https://www.aadona.online"
+      "https://www.aadona.online",
+      "https://aadona.com",
+      "https://www.aadona.com"
     ],
     "method": ["GET", "POST", "PUT", "DELETE"],
     "responseHeader": ["Content-Type", "Authorization"],
