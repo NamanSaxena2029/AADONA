@@ -38,8 +38,6 @@ const getStaticPages = async () => {
 
   console.log("🖼️ Page1 base64 length:", page1?.base64?.length ?? "UNDEFINED/NULL");
   console.log("🖼️ Page2 base64 length:", page2?.base64?.length ?? "UNDEFINED/NULL");
-  console.log("📦 Page1 keys:", Object.keys(page1 || {}));
-  console.log("📦 Page2 keys:", Object.keys(page2 || {}));
 
   cachedCoverBase64 = page1.base64;
   cachedBackBase64  = page2.base64;
@@ -75,8 +73,7 @@ const buildDatasheetHTML = async (product) => {
     ? await fetchImageAsBase64(product.image)
     : "";
 
-  // ─── Reusable page header HTML ─────────────────────────────────────────
-  // border-top = green bar (5px), no separate div needed — zero gap guaranteed
+  // ─── Reusable header HTML — sirf content pages pe manually lagayenge ───
   const pageHeaderHTML = `
     <div style="width:794px;background:#f4f9f4;border-bottom:1px solid #d8ead8;
       border-top:5px solid #25a86a;display:flex;align-items:center;
@@ -161,7 +158,6 @@ const buildDatasheetHTML = async (product) => {
 <head>
 <meta charset="utf-8"/>
 <style>
-  /* @page margin: 0 for cover/back, aur content pages ke liye top margin = header height */
   @page        { size: 794px 1123px; margin: 0; }
   @page cover  { margin: 0; }
   @page back   { margin: 0; }
@@ -170,18 +166,6 @@ const buildDatasheetHTML = async (product) => {
       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   html, body { width: 794px; margin: 0; padding: 0;
                font-family: Arial, sans-serif; background: #fff; }
-
-  /* Fixed header — har page ke top pe automatically repeat hoga */
-  .page-header-fixed {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 794px;
-    z-index: 100;
-  }
-
-  /* Cover aur back pe header nahi dikhna chahiye */
-  .page-fixed .page-header-fixed { display: none; }
 
   .page-fixed {
     display: block;
@@ -201,7 +185,7 @@ const buildDatasheetHTML = async (product) => {
     break-after: avoid;
   }
 
-  /* Content page — top padding = header height (5px green + 52px header = 57px) */
+  /* Content page — auto height */
   .page-content {
     display: block;
     width: 794px;
@@ -209,8 +193,6 @@ const buildDatasheetHTML = async (product) => {
     position: relative;
     overflow: visible;
     background: #ffffff;
-    /* First page ke liye padding — baaki pages pe browser automatically handle karta hai fixed header se */
-    padding-top: 57px;
   }
 
   .page-bg {
@@ -221,29 +203,29 @@ const buildDatasheetHTML = async (product) => {
     object-fit: cover;
     display: block;
   }
+
+  /* 
+    Puppeteer mein content jo ek page se zyada ho jaye toh
+    nayi page pe header repeat karne ke liye — 
+    header ko table thead trick se repeat karte hain 
+  */
+  table.repeating-header {
+    width: 794px;
+    border-collapse: collapse;
+  }
+  table.repeating-header thead {
+    display: table-header-group;
+  }
+  table.repeating-header tbody {
+    display: table-row-group;
+  }
 </style>
 </head>
 <body>
 
 
-<!-- ═══ FIXED HEADER — har content page pe dikhega ═══ -->
-<div class="page-header-fixed">
-  <div style="width:794px;background:#f4f9f4;border-bottom:1px solid #d8ead8;
-    border-top:5px solid #25a86a;display:flex;align-items:center;
-    padding:12px 64px;box-sizing:border-box;">
-    <div style="flex:1;">
-      <img src="data:image/png;base64,${logo}" style="height:28px;width:auto;opacity:0.85;" />
-    </div>
-    <div style="font-size:9px;font-weight:700;letter-spacing:2px;
-      color:#1b7f4c;text-transform:uppercase;">
-      ${product.model || product.name}
-    </div>
-  </div>
-</div>
-
-
 <!-- ═══════════════════════════════════════
-     PAGE 1 — COVER (Static PDF background)
+     PAGE 1 — COVER
 ═══════════════════════════════════════ -->
 <div class="page-fixed cover-page">
 
@@ -286,60 +268,89 @@ const buildDatasheetHTML = async (product) => {
 
 
 <!-- ═══════════════════════════════════════
-     CONTENT PAGE
+     CONTENT — Table thead trick for repeating header
+     thead automatically repeats on every new page in Puppeteer
 ═══════════════════════════════════════ -->
-<div class="page-content">
+<table class="repeating-header">
 
-  <div style="padding:32px 64px 60px 64px;">
+  <!-- HEADER — repeats on every page automatically -->
+  <thead>
+    <tr>
+      <td style="padding:0;">
+        <div style="width:794px;background:#f4f9f4;border-bottom:1px solid #d8ead8;
+          border-top:5px solid #25a86a;display:flex;align-items:center;
+          padding:12px 64px;box-sizing:border-box;">
+          <div style="flex:1;">
+            <img src="data:image/png;base64,${logo}" style="height:28px;width:auto;opacity:0.85;" />
+          </div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:2px;
+            color:#1b7f4c;text-transform:uppercase;">
+            ${product.model || product.name}
+          </div>
+        </div>
+      </td>
+    </tr>
+  </thead>
 
-    ${product.overview?.content ? `
-    <div style="margin-bottom:32px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-        <div style="width:4px;height:20px;min-width:4px;background:#25a86a;border-radius:2px;"></div>
-        <div style="font-size:16px;font-weight:800;color:#1b7f4c;">Product Overview</div>
-      </div>
-      <div style="font-size:13.5px;line-height:1.9;color:#444;padding-left:14px;
-        border-left:2px solid #d8ead8;text-align:justify;">
-        ${product.overview.content}
-      </div>
-    </div>` : ""}
+  <!-- BODY — actual content -->
+  <tbody>
+    <tr>
+      <td style="padding:0;">
 
-    ${(product.features || []).length ? `
-    <div style="margin-bottom:32px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-        <div style="width:4px;height:20px;min-width:4px;background:#25a86a;border-radius:2px;"></div>
-        <div style="font-size:16px;font-weight:800;color:#1b7f4c;">Key Features</div>
-      </div>
-      <div style="padding-left:14px;">${highlightsHTML}</div>
-    </div>` : ""}
+        <div style="padding:32px 64px 60px 64px;background:#fff;">
 
-    ${(product.featuresDetail || []).length ? `
-    <div style="margin-bottom:32px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-        <div style="width:4px;height:20px;min-width:4px;background:#25a86a;border-radius:2px;"></div>
-        <div style="font-size:16px;font-weight:800;color:#1b7f4c;">Features</div>
-      </div>
-      <div style="padding-left:14px;">${featuresDetailHTML}</div>
-    </div>` : ""}
+          ${product.overview?.content ? `
+          <div style="margin-bottom:32px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <div style="width:4px;height:20px;min-width:4px;background:#25a86a;border-radius:2px;"></div>
+              <div style="font-size:16px;font-weight:800;color:#1b7f4c;">Product Overview</div>
+            </div>
+            <div style="font-size:13.5px;line-height:1.9;color:#444;padding-left:14px;
+              border-left:2px solid #d8ead8;text-align:justify;">
+              ${product.overview.content}
+            </div>
+          </div>` : ""}
 
-    ${Object.keys(product.specifications || {}).length ? `
-    <div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-        <div style="width:4px;height:20px;min-width:4px;background:#25a86a;border-radius:2px;"></div>
-        <div style="font-size:16px;font-weight:800;color:#1b7f4c;">Technical Specifications</div>
-      </div>
-      ${specsHTML}
-    </div>` : ""}
+          ${(product.features || []).length ? `
+          <div style="margin-bottom:32px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <div style="width:4px;height:20px;min-width:4px;background:#25a86a;border-radius:2px;"></div>
+              <div style="font-size:16px;font-weight:800;color:#1b7f4c;">Key Features</div>
+            </div>
+            <div style="padding-left:14px;">${highlightsHTML}</div>
+          </div>` : ""}
 
-  </div>
+          ${(product.featuresDetail || []).length ? `
+          <div style="margin-bottom:32px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <div style="width:4px;height:20px;min-width:4px;background:#25a86a;border-radius:2px;"></div>
+              <div style="font-size:16px;font-weight:800;color:#1b7f4c;">Features</div>
+            </div>
+            <div style="padding-left:14px;">${featuresDetailHTML}</div>
+          </div>` : ""}
 
-  <div style="height:40px;"></div>
+          ${Object.keys(product.specifications || {}).length ? `
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+              <div style="width:4px;height:20px;min-width:4px;background:#25a86a;border-radius:2px;"></div>
+              <div style="font-size:16px;font-weight:800;color:#1b7f4c;">Technical Specifications</div>
+            </div>
+            ${specsHTML}
+          </div>` : ""}
 
-</div>
+        </div>
+
+        <div style="height:40px;"></div>
+
+      </td>
+    </tr>
+  </tbody>
+
+</table>
 
 
 <!-- ═══════════════════════════════════════
-     LAST PAGE — BACK COVER (Static PDF background)
+     LAST PAGE — BACK COVER
 ═══════════════════════════════════════ -->
 <div class="page-fixed back-cover">
   <img class="page-bg" src="data:image/png;base64,${backBase64}" />
