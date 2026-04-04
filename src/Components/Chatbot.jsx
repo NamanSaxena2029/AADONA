@@ -449,6 +449,7 @@ export default function Chatbot() {
       setMessages(prev => { const updated = [...prev]; if (updated[botIndex]) updated[botIndex] = { ...updated[botIndex], content: `Something went wrong. Please call **${TOLL_FREE_DISPLAY}** (Toll Free) or email contact@aadona.com`, isStreaming: false }; return updated; });
       setQuickReplies(QUICK_REPLY_MAP.default);
     } finally {
+      setIsLoading(false); // FIX
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [input, messages, apiHistory, isLoading, user, saveHistory]);
