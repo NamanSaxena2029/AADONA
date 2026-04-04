@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import bg from '../assets/bg.jpg';
+import ppbanner from '../assets/privacypolicy.webp';
 
 const liftCard =
   "rounded-2xl bg-white p-8 shadow-md hover:shadow-2xl hover:shadow-green-200/60 " +
@@ -29,16 +30,22 @@ const WhistleBlower = () => {
         }}
       >
         {/* Hero Section */}
-        <div className="bg-gradient-to-r from-green-700 to-green-900 pt-32 pb-20">
-          <div className="max-w-7xl mx-auto px-6 text-center">
-            <h1 className="text-4xl font-bold text-white sm:text-5xl md:text-6xl">
+        <header
+          className="pt-32 pb-16 bg-cover bg-no-repeat bg-right sm:bg-center sm:bg-none"
+            style={{
+              backgroundImage: `linear-gradient(to right, rgba(0,0,0,0.6), transparent), url(${ppbanner})` }}
+          aria-label="Privacy Policy hero banner"
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 className="text-5xl font-bold text-white sm:text-5xl md:text-6xl">
               Privacy Policy
             </h1>
-            <p className="mt-6 text-xl text-green-100 max-w-3xl mx-auto">
-Privacy Policy — How we collect, use, and protect your information
+            <p className="mt-6 text-md text-white max-w-3xl mx-auto">
+              Privacy Policy — How we collect, use, and protect your information
+
             </p>
           </div>
-        </div>
+        </header>
 
         {/* CONTENT */}
         <div className="max-w-5xl mx-auto px-6 sm:px-8 py-20 space-y-12">

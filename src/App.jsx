@@ -23,7 +23,7 @@ import CustomersPage from "./Components/CustomersPage";
 import Chatbot from "./Components/Chatbot";
 import TechSquad from "./pages/support/Tech_Squad";
 import Warranty from "./pages/support/Warranty";
-import RequestDda from "./pages/support/Request_DOA";
+import RequestDoa from "./pages/support/Request_DOA";
 import WarrantyCheck from "./pages/support/WarrantyCheckButton";
 import WhistleBlowerButton from "./pages/About/WhistleBlowerButton";
 import ApplyNow from "./pages/About/ApplyNow";
@@ -90,7 +90,7 @@ const App = () => {
         <Route path="/productSupport" element={<ProductSupport />} />
         <Route path="/supportTools" element={<SupportTools />} />
         <Route path="/warrantyRegistration" element={<WarrantyRegistration />} />
-        <Route path="/requestDda" element={<RequestDda />} />
+        <Route path="/requestDoa" element={<RequestDoa />} />
         <Route path="/techSquad" element={<TechSquad />} />
         <Route path="/warranty" element={<Warranty />} />
         <Route path="/warranty/check-Warranty" element={<WarrantyCheck />} />

@@ -50,7 +50,7 @@ const PARTNER_LINKS = [
 const SUPPORT_LINKS = [
   { to: "/warranty", label: "Warranty" },
   { to: "/techSquad", label: "Tech Squad" },
-  { to: "/requestDda", label: "Request DOA" },
+  { to: "/requestDoa", label: "Request DOA" },
   { to: "/supportTools", label: "Support Tools" },
   { to: "/productSupport", label: "Product Support" },
   { to: "/warrantyRegistration", label: "Warranty Registration" },
@@ -159,7 +159,7 @@ const Navbar = () => {
     const { signal } = abortRef.current;
 
     // 8-second timeout
-    const timeoutId = setTimeout(() => abortRef.current?.abort(), 8000);
+    const timeoutId = setTimeout(() => abortRef.current?.abort(), 2000);
 
     fetch(CATEGORY_API, {
       signal,
