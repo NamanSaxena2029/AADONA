@@ -34,13 +34,43 @@ const getProductsContext = async () => {
   } catch { return { context: '', products: [] }; }
 };
 
+const getCategoryMap = async () => {
+  try {
+    const Category = mongoose.model('Category');
+    const categories = await Category.find({}, 'name');
+
+    const map = categories.map(c => ({
+      name: c.name,
+      slug: c.name.toLowerCase().replace(/\s+/g, '-')
+    }));
+
+    return map;
+  } catch {
+    return [];
+  }
+};
+
 // ─── Smart Intent Detection ────────────────────────────────────────────────
-const detectActionButtons = (userMessage, aiReply, products) => {
+const detectActionButtons = (userMessage, aiReply, products, categories) => {
   const msg = (userMessage + ' ' + aiReply).toLowerCase();
   const buttons = [];
 
   // Confusion Detection
   const isConfused = /not understand|confuse|samajh nahi|kya karu|help|issue|problem|kaise|how|unable|nahi ho raha|error|fail/.test(msg);
+
+  if (!isConfused) {
+    for (const cat of categories) {
+      const name = cat.name.toLowerCase();
+
+      if (msg.includes(name)) {
+        buttons.push({
+          label: `Go to ${cat.name}`,
+          url: `${BASE_URL}/${cat.slug}`
+        });
+        break;
+      }
+    }
+  }
 
   // ONLY show buttons if confused
   if (isConfused && /warranty|वारंटी/.test(msg))
@@ -391,7 +421,8 @@ router.post('/chat', chatLimiter, async (req, res) => {
      fullReply = fullReply.replace(/https?:\/\/[^\s]+/g, '');
 
     const productCards = detectProductCards(fullReply, products);
-    const actionButtons = detectActionButtons(lastUserMessage, fullReply, products);
+    const categories = await getCategoryMap();
+    const actionButtons = detectActionButtons(lastUserMessage, fullReply, products, categories);
 
     res.write(`data: ${JSON.stringify({
       done: true,
