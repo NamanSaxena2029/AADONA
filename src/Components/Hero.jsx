@@ -121,7 +121,7 @@ const Hero = () => {
     </div>
     <div className="flex flex-col">
       <span className="text-white/50 text-[9px] sm:text-[10px] md:text-xs uppercase tracking-widest leading-none mb-1">
-        Available on GeM
+        Available on 
       </span>
       <span className="text-white text-[14px] sm:text-sm md:text-base font-semibold leading-tight">
          GeM
