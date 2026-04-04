@@ -251,42 +251,53 @@ router.post('/chat', chatLimiter, async (req, res) => {
     const recentMessages = sanitized.slice(-10);
     const lastUserMessage = [...sanitized].reverse().find(m => m.role === 'user')?.content || '';
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error('OPENROUTER_API_KEY not set');
+      console.error('GEMINI_API_KEY not set');
       return res.status(500).json({ success: false, error: 'AI service not configured.' });
     }
 
-    const { context: productsContext, products } = await getProductsContext();
+    // System prompt + product context ko first user message ke saath inject karte hain
+    const systemContent = buildSystemPrompt(userName || 'Guest', userPhone || '') + productsContext;
+
+    // Gemini ka message format — system role support nahi karta directly,
+    // toh system prompt ko pehle user message ke saath prepend karte hain
+    const geminiMessages = recentMessages.map((m, i) => {
+      if (i === 0 && m.role === 'user') {
+        return { role: 'user', parts: [{ text: systemContent + '\n\nUser: ' + m.content }] };
+      }
+      return {
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      };
+    });
 
     const genAI = await fetch(
-      'https://openrouter.ai/api/v1/chat/completions',
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-001',
-          messages: [
-            { role: 'system', content: buildSystemPrompt(userName || 'Guest', userPhone || '') + productsContext },
-            ...recentMessages,
-          ],
-          max_tokens: 700,
-          temperature: 0.7,
+          contents: geminiMessages,
+          generationConfig: {
+            maxOutputTokens: 700,
+            temperature: 0.7,
+          },
+          systemInstruction: {
+            parts: [{ text: systemContent }]
+          }
         }),
       }
     );
-    
+
     if (!genAI.ok) {
       const errData = await genAI.json().catch(() => ({}));
-      console.error('OpenRouter API error:', genAI.status, errData);
+      console.error('Gemini API error:', genAI.status, errData);
       return res.status(502).json({ success: false, error: 'AI service temporarily unavailable. Please try again.' });
     }
 
     const data = await genAI.json();
-    const reply = data?.choices?.[0]?.message?.content;
+    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!reply)
       return res.status(502).json({ success: false, error: 'Empty response from AI service.' });
