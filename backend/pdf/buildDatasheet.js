@@ -105,7 +105,7 @@ const buildDatasheetHTML = async (product) => {
 <head>
 <meta charset="utf-8"/>
 <style>
-  @page        { size: 794px 1123px; margin: 0; }
+  @page        { size: 794px 1123px; margin: 40px 0; }
   @page cover  { margin: 0; }
   @page back   { margin: 0; }
 
@@ -168,21 +168,21 @@ const buildDatasheetHTML = async (product) => {
   </div>` : ""}
 
   <div style="position:absolute;top:${product.series ? "262px" : "240px"};left:58px;right:60px;">
-    <div style="font-size:28px;font-weight:800;color:#1b7f4c;
+    <div style="font-size:34px;font-weight:900;color:#1b7f4c;
       line-height:1.05;letter-spacing:-1px;">
       ${product.model || product.name}
     </div>
 
     ${product.description ? `
-    <div style="font-size:13px;color:#2d4a2d;margin-top:10px;
+    <div style="font-size:14.5px;color:#2d4a2d;margin-top:10px;
       line-height:1.6;max-width:520px;">
       ${product.description}
     </div>` : ""}
 
     <div style="display:flex;align-items:center;gap:10px;margin-top:16px;">
-      <div style="width:40px;height:2.5px;background:#25a86a;border-radius:2px;"></div>
-      <div style="width:10px;height:2.5px;background:rgba(37,168,106,0.4);border-radius:2px;"></div>
-      <div style="width:5px;height:2.5px;background:rgba(37,168,106,0.2);border-radius:2px;"></div>
+      <div style="width:52px;height:3px;background:#25a86a;border-radius:2px;"></div>
+      <div style="width:14px;height:3px;background:rgba(37,168,106,0.4);border-radius:2px;"></div>
+      <div style="width:7px;height:3px;background:rgba(37,168,106,0.2);border-radius:2px;"></div>
     </div>
   </div>
 
@@ -244,8 +244,6 @@ const buildDatasheetHTML = async (product) => {
   <!-- Bottom green bar with breathing room above it -->
   <div style="height:40px;"></div>
 </div>
-
-
 
 <!-- ═══════════════════════════════════════
      LAST PAGE — BACK COVER
