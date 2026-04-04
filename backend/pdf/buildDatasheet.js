@@ -6,16 +6,21 @@ const os = require("os");
 // ─── Static PDF path ───────────────────────────────────────────────────────
 const STATIC_PDF_PATH = path.resolve(__dirname, "../assets/Datasheet background.pdf");
 
-// ─── In-memory cache — convert sirf ek baar hoga per server restart ────────
+// ─── In-memory cache ────────────────────────────────────────────────────────
 let cachedCoverBase64 = null;
 let cachedBackBase64  = null;
 
 const getStaticPages = async () => {
   if (cachedCoverBase64 && cachedBackBase64) {
+    console.log("✅ Cache hit — returning cached pages");
     return { cover: cachedCoverBase64, back: cachedBackBase64 };
   }
 
   const tmpDir = os.tmpdir();
+
+  console.log("📄 PDF Path:", STATIC_PDF_PATH);
+  console.log("📁 PDF exists:", fs.existsSync(STATIC_PDF_PATH));
+  console.log("📂 TmpDir:", tmpDir);
 
   const converter = fromPath(STATIC_PDF_PATH, {
     density: 150,
@@ -31,6 +36,11 @@ const getStaticPages = async () => {
     converter(2, { responseType: "base64" }),
   ]);
 
+  console.log("🖼️ Page1 base64 length:", page1?.base64?.length ?? "UNDEFINED/NULL");
+  console.log("🖼️ Page2 base64 length:", page2?.base64?.length ?? "UNDEFINED/NULL");
+  console.log("📦 Page1 keys:", Object.keys(page1 || {}));
+  console.log("📦 Page2 keys:", Object.keys(page2 || {}));
+
   cachedCoverBase64 = page1.base64;
   cachedBackBase64  = page2.base64;
 
@@ -42,15 +52,12 @@ const getStaticPages = async () => {
 // ──────────────────────────────────────────────────────────────────────────
 const buildDatasheetHTML = async (product) => {
 
-  // 1. Static PDF pages (cover + back)
   const { cover: coverBase64, back: backBase64 } = await getStaticPages();
 
-  // 2. Logo — sirf content page ke liye
   const logo = fs.readFileSync(
     path.resolve(__dirname, "../assets/logo.png")
   ).toString("base64");
 
-  // 3. Product image fetch
   const fetchImageAsBase64 = async (imageUrl) => {
     try {
       const response = await fetch(imageUrl);
@@ -67,6 +74,21 @@ const buildDatasheetHTML = async (product) => {
   const productImageBase64 = product.image
     ? await fetchImageAsBase64(product.image)
     : "";
+
+  // ─── Reusable page header HTML ─────────────────────────────────────────
+  // border-top = green bar (5px), no separate div needed — zero gap guaranteed
+  const pageHeaderHTML = `
+    <div style="width:794px;background:#f4f9f4;border-bottom:1px solid #d8ead8;
+      border-top:5px solid #25a86a;display:flex;align-items:center;
+      padding:12px 64px;box-sizing:border-box;">
+      <div style="flex:1;">
+        <img src="data:image/png;base64,${logo}" style="height:28px;width:auto;opacity:0.85;" />
+      </div>
+      <div style="font-size:9px;font-weight:700;letter-spacing:2px;
+        color:#1b7f4c;text-transform:uppercase;">
+        ${product.model || product.name}
+      </div>
+    </div>`;
 
   // ─── Highlights HTML ───────────────────────────────────────────────────
   const highlightsHTML = (product.features || [])
@@ -134,19 +156,32 @@ const buildDatasheetHTML = async (product) => {
     }).join("");
 
   // ══════════════════════════════════════════════════════════════════════
-  //  HTML OUTPUT
-  // ══════════════════════════════════════════════════════════════════════
   return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8"/>
 <style>
-  @page        { size: 794px 1123px; margin: 40px 0; }
+  /* @page margin: 0 for cover/back, aur content pages ke liye top margin = header height */
+  @page        { size: 794px 1123px; margin: 0; }
   @page cover  { margin: 0; }
   @page back   { margin: 0; }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  html, body { width: 794px; margin: 0; padding: 0; font-family: Arial, sans-serif; background: #fff; }
+  * { box-sizing: border-box; margin: 0; padding: 0;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { width: 794px; margin: 0; padding: 0;
+               font-family: Arial, sans-serif; background: #fff; }
+
+  /* Fixed header — har page ke top pe automatically repeat hoga */
+  .page-header-fixed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 794px;
+    z-index: 100;
+  }
+
+  /* Cover aur back pe header nahi dikhna chahiye */
+  .page-fixed .page-header-fixed { display: none; }
 
   .page-fixed {
     display: block;
@@ -166,6 +201,7 @@ const buildDatasheetHTML = async (product) => {
     break-after: avoid;
   }
 
+  /* Content page — top padding = header height (5px green + 52px header = 57px) */
   .page-content {
     display: block;
     width: 794px;
@@ -173,6 +209,8 @@ const buildDatasheetHTML = async (product) => {
     position: relative;
     overflow: visible;
     background: #ffffff;
+    /* First page ke liye padding — baaki pages pe browser automatically handle karta hai fixed header se */
+    padding-top: 57px;
   }
 
   .page-bg {
@@ -188,15 +226,29 @@ const buildDatasheetHTML = async (product) => {
 <body>
 
 
+<!-- ═══ FIXED HEADER — har content page pe dikhega ═══ -->
+<div class="page-header-fixed">
+  <div style="width:794px;background:#f4f9f4;border-bottom:1px solid #d8ead8;
+    border-top:5px solid #25a86a;display:flex;align-items:center;
+    padding:12px 64px;box-sizing:border-box;">
+    <div style="flex:1;">
+      <img src="data:image/png;base64,${logo}" style="height:28px;width:auto;opacity:0.85;" />
+    </div>
+    <div style="font-size:9px;font-weight:700;letter-spacing:2px;
+      color:#1b7f4c;text-transform:uppercase;">
+      ${product.model || product.name}
+    </div>
+  </div>
+</div>
+
+
 <!-- ═══════════════════════════════════════
      PAGE 1 — COVER (Static PDF background)
 ═══════════════════════════════════════ -->
 <div class="page-fixed cover-page">
 
-  <!-- Static PDF page 1 as background -->
   <img class="page-bg" src="data:image/png;base64,${coverBase64}" />
 
-  <!-- Series label -->
   ${product.series ? `
   <div style="position:absolute;top:155px;left:58px;right:60px;">
     <div style="font-size:11px;font-weight:700;letter-spacing:4px;
@@ -205,7 +257,6 @@ const buildDatasheetHTML = async (product) => {
     </div>
   </div>` : ""}
 
-  <!-- Model name + description -->
   <div style="position:absolute;top:${product.series ? "178px" : "155px"};left:58px;right:60px;">
     <div style="font-size:38px;font-weight:900;color:#1a3a2a;
       line-height:1.05;letter-spacing:-1px;">
@@ -218,7 +269,6 @@ const buildDatasheetHTML = async (product) => {
       ${product.description}
     </div>` : ""}
 
-    <!-- Green accent line -->
     <div style="display:flex;align-items:center;gap:10px;margin-top:16px;">
       <div style="width:40px;height:2.5px;background:#25a86a;border-radius:2px;"></div>
       <div style="width:10px;height:2.5px;background:rgba(37,168,106,0.4);border-radius:2px;"></div>
@@ -226,7 +276,6 @@ const buildDatasheetHTML = async (product) => {
     </div>
   </div>
 
-  <!-- Product image — centred in middle band -->
   <div style="position:absolute;top:320px;left:0;right:0;bottom:140px;
     display:flex;align-items:center;justify-content:center;">
     <img src="${productImageBase64}"
@@ -237,24 +286,11 @@ const buildDatasheetHTML = async (product) => {
 
 
 <!-- ═══════════════════════════════════════
-     PAGE 2 — CONTENT
+     CONTENT PAGE
 ═══════════════════════════════════════ -->
 <div class="page-content">
 
-  <div style="height:5px;background:#25a86a;"></div>
-
-  <!-- Sub-header -->
-  <div style="width:794px;height:52px;background:#f4f9f4;border-bottom:1px solid #d8ead8;
-    display:flex;align-items:center;padding:0 64px;">
-    <div style="flex:1;">
-      <img src="data:image/png;base64,${logo}" style="height:28px;width:auto;opacity:0.85;" />
-    </div>
-    <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#1b7f4c;text-transform:uppercase;">
-      ${product.model || product.name}
-    </div>
-  </div>
-
-  <div style="padding:40px 64px 60px 64px;">
+  <div style="padding:32px 64px 60px 64px;">
 
     ${product.overview?.content ? `
     <div style="margin-bottom:32px;">
@@ -306,10 +342,7 @@ const buildDatasheetHTML = async (product) => {
      LAST PAGE — BACK COVER (Static PDF background)
 ═══════════════════════════════════════ -->
 <div class="page-fixed back-cover">
-
-  <!-- Static PDF page 2 as background — kuch overlay nahi -->
   <img class="page-bg" src="data:image/png;base64,${backBase64}" />
-
 </div>
 
 
