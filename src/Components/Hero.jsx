@@ -64,7 +64,7 @@ const Hero = () => {
             {/* Eyebrow */}
             <div className="inline-flex items-center gap-2 mb-3 sm:mb-4">
               <span className="block w-5 h-px bg-orange-400" />
-              <span className="text-orange-400 text-[10px] sm:text-xs font-semibold tracking-[0.2em] uppercase">
+              <span className="text-orange-400 text-[14px] sm:text-xl font-semibold tracking-[0.2em] uppercase">
                 Truly Indian Brand
               </span>
             </div>
@@ -87,19 +87,8 @@ const Hero = () => {
 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 md:gap-5">
 
   {/* Badge 1 — Made in India */}
-  <div className="group flex items-center gap-2 sm:gap-3 md:gap-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-3 py-2.5 sm:px-5 sm:py-3 md:px-6 md:py-4 transition-all duration-300 hover:bg-white/18 hover:border-white/35">
-    <div className="
-      w-14 h-14
-      sm:w-20 sm:h-20
-      md:w-24 md:h-24
-      lg:w-28 lg:h-28
-      rounded-full overflow-hidden flex-shrink-0
-      border-2 border-white/50
-      ring-1 ring-orange-400/40
-      transition-all duration-300
-      group-hover:ring-orange-400/80 group-hover:border-white/70
-    ">
-      <img
+  <div className="group flex items-center gap-3 w-[220px] sm:w-auto bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-3 py-3 sm:px-5 sm:py-3 md:px-6 md:py-4 transition-all duration-300 hover:bg-white/18 hover:border-white/35">
+<div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 rounded-full overflow-hidden flex-shrink-0 border-2 border-white/50 ring-1 ring-orange-400/40 transition-all duration-300 group-hover:ring-orange-400/80 group-hover:border-white/70">      <img
         src={madeinindia}
         alt="Made in India"
         className="w-full h-full object-cover"
@@ -107,7 +96,7 @@ const Hero = () => {
         onContextMenu={(e) => e.preventDefault()}
       />
     </div>
-    <div className="flex flex-col min-w-0">
+    <div className="flex flex-col">
       <span className="text-white/50 text-[8px] sm:text-[10px] md:text-xs uppercase tracking-widest leading-none mb-1">
         Registered
       </span>
@@ -121,19 +110,8 @@ const Hero = () => {
   <div className="hidden sm:block h-12 md:h-16 w-px bg-white/20 flex-shrink-0" />
 
   {/* Badge 2 — GeM */}
-  <div className="group flex items-center gap-2 sm:gap-3 md:gap-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-3 py-2.5 sm:px-5 sm:py-3 md:px-6 md:py-4 transition-all duration-300 hover:bg-white/18 hover:border-white/35">
-    <div className="
-      w-14 h-14
-      sm:w-20 sm:h-20
-      md:w-24 md:h-24
-      lg:w-28 lg:h-28
-      rounded-full overflow-hidden flex-shrink-0
-      border-2 border-white/50
-      ring-1 ring-orange-400/40
-      transition-all duration-300
-      group-hover:ring-orange-400/80 group-hover:border-white/70
-    ">
-      <img
+  <div className="group flex items-center gap-3 w-[220px] sm:w-auto bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-3 py-3 sm:px-5 sm:py-3 md:px-6 md:py-4 transition-all duration-300 hover:bg-white/18 hover:border-white/35">
+<div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 rounded-full overflow-hidden flex-shrink-0 border-2 border-white/50 ring-1 ring-orange-400/40 transition-all duration-300 group-hover:ring-orange-400/80 group-hover:border-white/70">      <img
         src={govmarketplace}
         alt="Government e-Marketplace"
         className="w-full h-full object-cover"
@@ -141,7 +119,7 @@ const Hero = () => {
         onContextMenu={(e) => e.preventDefault()}
       />
     </div>
-    <div className="flex flex-col min-w-0">
+    <div className="flex flex-col">
       <span className="text-white/50 text-[8px] sm:text-[10px] md:text-xs uppercase tracking-widest leading-none mb-1">
         Certified
       </span>
