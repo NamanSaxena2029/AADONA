@@ -29,18 +29,22 @@ const getStaticPages = async () => {
     format: "png",
     width: 794,
     height: 1123,
+    quality: 100,
   });
 
-  const [page1, page2] = await Promise.all([
+  const results = await Promise.allSettled([
     converter(1, { responseType: "base64" }),
     converter(2, { responseType: "base64" }),
   ]);
 
+  const page1 = results[0].status === "fulfilled" ? results[0].value : null;
+  const page2 = results[1].status === "fulfilled" ? results[1].value : null;
+
   console.log("🖼️ Page1 base64 length:", page1?.base64?.length ?? "UNDEFINED/NULL");
   console.log("🖼️ Page2 base64 length:", page2?.base64?.length ?? "UNDEFINED/NULL");
 
-  cachedCoverBase64 = page1.base64;
-  cachedBackBase64  = page2.base64;
+  cachedCoverBase64 = page1?.base64 || "";
+  cachedBackBase64  = page2?.base64 || page1?.base64 || "";
 
   console.log("✅ Static PDF pages converted and cached");
 
