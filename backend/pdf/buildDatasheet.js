@@ -351,4 +351,3 @@ const buildDatasheetHTML = async (product) => {
 };
 
 module.exports = buildDatasheetHTML;
-/* */
