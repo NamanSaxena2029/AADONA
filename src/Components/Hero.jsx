@@ -97,10 +97,10 @@ const Hero = () => {
       />
     </div>
     <div className="flex flex-col">
-      <span className="text-white/50 text-[8px] sm:text-[10px] md:text-xs uppercase tracking-widest leading-none mb-1">
+      <span className="text-white/50 text-[9px] sm:text-[10px] md:text-xs uppercase tracking-widest leading-none mb-1">
         Registered
       </span>
-      <span className="text-white text-[11px] sm:text-sm md:text-base font-semibold leading-tight">
+      <span className="text-white text-[14px] sm:text-sm md:text-base font-semibold leading-tight">
         Made in India
       </span>
     </div>
@@ -120,11 +120,11 @@ const Hero = () => {
       />
     </div>
     <div className="flex flex-col">
-      <span className="text-white/50 text-[8px] sm:text-[10px] md:text-xs uppercase tracking-widest leading-none mb-1">
-        Certified
-      </span>
-      <span className="text-white text-[11px] sm:text-sm md:text-base font-semibold leading-tight">
+      <span className="text-white/50 text-[9px] sm:text-[10px] md:text-xs uppercase tracking-widest leading-none mb-1">
         Available on GeM
+      </span>
+      <span className="text-white text-[14px] sm:text-sm md:text-base font-semibold leading-tight">
+         GeM
       </span>
     </div>
   </div>
