@@ -278,7 +278,8 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ limit: "20mb", extended: true }));
 app.use("/assets", express.static("assets"));
 
 // Chatbot route
@@ -2004,6 +2005,7 @@ app.post("/submit-partner", formLimiter, async (req, res) => {
 
     res.json({ success: true, message: "Application submitted successfully" });
   } catch (err) {
+    console.log("MAIL ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2053,6 +2055,7 @@ app.post("/submit-project-locking", formLimiter, async (req, res) => {
 
     res.json({ success: true, message: "Application submitted successfully" });
   } catch (err) {
+    console.log("MAIL ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2095,6 +2098,7 @@ app.post("/submit-demo", formLimiter, async (req, res) => {
 
     res.json({ success: true, message: "Demo request submitted successfully" });
   } catch (err) {
+    console.log("MAIL ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2138,6 +2142,7 @@ app.post("/submit-training", formLimiter, async (req, res) => {
 
     res.json({ success: true, message: "Training request submitted successfully" });
   } catch (err) {
+    console.log("MAIL ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2183,6 +2188,7 @@ app.post("/submit-warranty", formLimiter, upload.single("invoiceFile"), async (r
     await transporter.sendMail(mailOptions);
     res.json({ success: true, message: "Warranty check submitted successfully" });
   } catch (err) {
+    console.log("MAIL ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2230,6 +2236,7 @@ app.post("/submit-techsquad", formLimiter, upload.single("invoiceFile"), async (
     await transporter.sendMail(mailOptions);
     res.json({ success: true, message: "Tech Squad request submitted successfully" });
   } catch (err) {
+    console.log("MAIL ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2280,6 +2287,7 @@ app.post("/submit-doa", formLimiter, upload.single("invoiceFile"), async (req, r
     await transporter.sendMail(mailOptions);
     res.json({ success: true, message: "DOA request submitted successfully" });
   } catch (err) {
+    console.log("MAIL ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2318,6 +2326,7 @@ app.post("/submit-product-support", formLimiter, async (req, res) => {
 
     res.json({ success: true, message: "Support request submitted successfully" });
   } catch (err) {
+    console.log("MAIL ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2510,6 +2519,7 @@ app.post("/submit-contact", formLimiter, async (req, res) => {
 
     res.json({ success: true, message: "Message sent successfully" });
   } catch (err) {
+    console.log("MAIL ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2583,6 +2593,7 @@ app.post("/submit-apply", formLimiter, upload.single("resumeFile"), async (req, 
     await transporter.sendMail(mailOptions);
     res.json({ success: true, message: "Application submitted successfully" });
   } catch (err) {
+    console.log("MAIL ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2628,6 +2639,7 @@ app.post("/submit-whistleblower", formLimiter, upload.single("attachmentFile"), 
     await transporter.sendMail(mailOptions);
     res.json({ success: true, message: "Report submitted successfully" });
   } catch (err) {
+    console.log("MAIL ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
@@ -2914,6 +2926,22 @@ app.post(
     }
   }
 );
+
+app.get("/test-mail", async (req, res) => {
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER,
+      subject: "Test Mail",
+      text: "Working",
+    });
+
+    res.send("MAIL SENT ✅");
+  } catch (err) {
+    console.log("MAIL ERROR:", err);
+    res.status(500).send(err.message);
+  }
+});
 
 /* =============================
    GRACEFUL SHUTDOWN
