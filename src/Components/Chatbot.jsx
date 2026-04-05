@@ -449,7 +449,7 @@ export default function Chatbot() {
       setMessages(prev => { const updated = [...prev]; if (updated[botIndex]) updated[botIndex] = { ...updated[botIndex], content: `Something went wrong. Please call **${TOLL_FREE_DISPLAY}** (Toll Free) or email contact@aadona.com`, isStreaming: false }; return updated; });
       setQuickReplies(QUICK_REPLY_MAP.default);
     } finally {
-      setIsLoading(false); // FIX
+      setIsLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [input, messages, apiHistory, isLoading, user, saveHistory]);
@@ -478,12 +478,14 @@ export default function Chatbot() {
         .chat-window-enter { animation: slideUp 0.28s cubic-bezier(0.34,1.18,0.64,1) forwards; }
         .no-scrollbar::-webkit-scrollbar { display:none; }
         .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-        @keyframes notif-bubble-in { 0% { opacity:0; transform:translateX(-50%) scale(0.9); } 100% { opacity:1; transform:translateX(-50%) scale(1); } }
-        @keyframes notif-bubble-bounce { 0%,100% { transform:translateX(-50%) translateY(0); } 50% { transform:translateX(-50%) translateY(-3px); } }
+
+        @keyframes notif-bubble-in { 0% { opacity:0; transform:translateX(-70%) scale(0.9); } 100% { opacity:1; transform:translateX(-70%) scale(1); } }
+        @keyframes notif-bubble-bounce { 0%,100% { transform:translateX(-70%) translateY(0); } 50% { transform:translateX(-70%) translateY(-3px); } }
+
         @keyframes drawerSlideUp { from { opacity:0; transform:translateY(8px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
         .call-drawer-enter { animation: drawerSlideUp 0.2s cubic-bezier(0.34,1.18,0.64,1) forwards; }
         .notif-bubble {
-          position:absolute; bottom:calc(100% + 10px); left:50%; transform:translateX(-50%);
+          position:absolute; bottom:calc(100% + 10px); left:50%; transform:translateX(-70%);
           background:#1e293b; color:#f8fafc; font-family:'DM Sans',sans-serif;
           font-size:11px; font-weight:500; padding:7px 12px; border-radius:10px;
           white-space:nowrap; pointer-events:none;
@@ -503,7 +505,17 @@ export default function Chatbot() {
         .ac-btn-wrap { position:relative; display:flex; }
         .call-number-row { display:flex; align-items:center; gap:9px; background:#f0fdf4; border-radius:10px; padding:10px 12px; text-decoration:none; border:1px solid #a7f3d0; transition:background 0.15s,border-color 0.15s; }
         .call-number-row:hover { background:#d1fae5; border-color:#6ee7b7; }
-        .notif-dot { position:absolute; top:-3px; right:-3px; width:10px; height:10px; background:#ef4444; border-radius:50%; border:2px solid #fff; }
+
+        @keyframes blink-dot { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.55; transform:scale(0.85); } }
+        .notif-dot {
+          position:absolute; top:-5px; right:-5px;
+          width:17px; height:17px;
+          background:#ef4444; border-radius:50%; border:2px solid #fff;
+          display:flex; align-items:center; justify-content:center;
+          font-size:10px; font-weight:700; color:#fff; font-family:'DM Sans',sans-serif;
+          animation: blink-dot 1.4s ease-in-out infinite;
+        }
+
         .chat-close-btn { position:absolute; top:-11px; right:-11px; width:26px; height:26px; border-radius:50%; background:#ef4444; border:2.5px solid #fff; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:20; box-shadow:0 2px 10px rgba(239,68,68,0.55); transition:transform 0.15s,background 0.15s; outline:none; }
         .chat-close-btn:hover { transform:scale(1.18); background:#dc2626; }
       `}</style>
@@ -525,7 +537,7 @@ export default function Chatbot() {
 
               {isRegistered ? (
                 <>
-                  {/* Header — call + clear only, NO X */}
+                  {/* Header */}
                   <div className="px-4 py-3 flex items-center gap-3 flex-shrink-0"
                     style={{ background:'linear-gradient(135deg, #10b981, #059669)' }}>
                     <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
@@ -656,7 +668,7 @@ export default function Chatbot() {
           <div style={{ display:'flex', flexDirection:'column', borderRadius:'9999px', overflow:'visible', border:'1px solid rgba(5,150,105,0.3)', boxShadow:'0 4px 20px rgba(16,185,129,0.35)', width:'56px' }}>
             <div className="ac-btn-wrap" style={{ borderRadius:'9999px 9999px 0 0', overflow:'visible' }}>
               <span className="ac-tooltip">{isOpen ? 'Minimise' : 'Chat with us'}</span>
-              {!isOpen && hasUnread && <span className="notif-dot" />}
+              {!isOpen && hasUnread && showBubble && <span className="notif-dot">1</span>}
               <button onClick={isOpen ? () => setIsOpen(false) : handleOpen}
                 style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'56px', width:'56px', background: isOpen ? 'linear-gradient(135deg,#059669,#047857)' : 'linear-gradient(135deg,#10b981,#059669)', border:'none', cursor:'pointer', transition:'background 0.15s', outline:'none', borderRadius:'9999px 9999px 0 0', overflow:'hidden' }}>
                 {isOpen
